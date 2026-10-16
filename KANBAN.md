@@ -3,14 +3,14 @@
 Ce fichier suit toutes les tâches jusqu'à la version 0.1.0.
 On le met à jour à la fin de chaque tâche, dans la même branche que la tâche.
 
-**Avancement : 0 / 37 tâches terminées**
+**Avancement : 1 / 37 tâches terminées**
 
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-01, DC-02, DC-03 |
-| 📋 Backlog | DC-04 à DC-37 |
-| ✅ Terminé | aucune |
+| 🔜 À faire (prochaines) | DC-02, DC-03, DC-04 |
+| 📋 Backlog | DC-05 à DC-37 |
+| ✅ Terminé | DC-01 |
 
 ---
 
@@ -61,17 +61,6 @@ _Aucune tâche._
 
 ## 🔜 À faire (prochaines)
 
-### DC-01 · Socle du projet
-- **But** : un workspace Cargo propre, des outils de qualité et une CI.
-- **Docs** : Cargo Book (workspaces, manifest, lints), Edition Guide, GitHub Actions (jobs en conteneur).
-- **Critères**
-  - [ ] Workspace Cargo avec les caisses `deskcheck-core` (lib) et `deskcheck` (binaire CLI).
-  - [ ] Champs communs hérités du workspace (édition, version Rust minimale, lints).
-  - [ ] `rustfmt.toml` et lints Clippy partagés.
-  - [ ] CI GitHub Actions : fmt, clippy, tests, dans un conteneur `ubuntu:22.04`.
-  - [ ] `CONTRIBUTING.md` : branches, commits, règle « documentation d'abord ».
-  - [ ] `cargo build`, `cargo test`, `cargo clippy` passent en local.
-
 ### DC-02 · Licence du projet ❓
 - **But** : choisir la licence (ex. MIT, Apache-2.0, GPL-3.0) et l'ajouter.
 - **Critères**
@@ -87,13 +76,7 @@ _Aucune tâche._
   - [ ] Identifiant stable pour chaque appareil (nom PulseAudio, triple EDID fabricant/modèle/série).
   - [ ] Tests unitaires.
 
----
-
-## 📋 Backlog
-
-### Phase 1 · Lire l'état du son
-
-#### DC-04 · Connexion PulseAudio 🧪
+### DC-04 · Connexion PulseAudio 🧪
 - **But** : se connecter au serveur son et lire les sorties, micros, retours et flux.
 - **Docs** : `libpulse-binding` (context, mainloop threaded, introspect), doc PulseAudio.
 - **Critères**
@@ -101,6 +84,12 @@ _Aucune tâche._
   - [ ] Liste des sinks, sources, sink-inputs, source-outputs et valeurs par défaut.
   - [ ] Conversion vers le modèle de domaine.
   - [ ] Marche aussi avec PipeWire (`pipewire-pulse`).
+
+---
+
+## 📋 Backlog
+
+### Phase 1 · Lire l'état du son
 
 #### DC-05 · Classer les appareils son
 - **But** : reconnaître un « retour » (monitor), un casque, un HDMI, un USB, le micro interne.
@@ -301,4 +290,17 @@ _Aucune tâche._
 
 ## ✅ Terminé
 
-_Aucune tâche._
+### DC-01 · Socle du projet
+- **But** : un workspace Cargo propre, des outils de qualité et une CI.
+- **Docs lues** : Cargo Book (workspaces, manifest, lints, resolver, rust-version, guide CI),
+  Edition Guide 2024, rustup (installation), rustfmt (options stables),
+  Clippy (configuration), GLib (`g_application_id_is_valid`), GitHub Actions (jobs en conteneur).
+- **Critères**
+  - [x] Workspace Cargo avec les caisses `deskcheck-core` (lib) et `deskcheck` (binaire CLI).
+  - [x] Champs communs hérités du workspace (édition 2024, resolver 3, Rust 1.85, lints).
+  - [x] `rustfmt.toml`, `clippy.toml` et lints Clippy partagés (`all` + `pedantic`).
+  - [x] CI GitHub Actions : fmt, clippy, tests, et vérification Rust 1.85, dans un conteneur `ubuntu:22.04`.
+  - [x] `CONTRIBUTING.md` : branches, commits, règle « documentation d'abord ».
+  - [x] `cargo build`, `cargo test`, `cargo clippy -D warnings` passent en local.
+- **À confirmer** : premier passage de la CI sur GitHub, au premier push de `develop`.
+- **Décision** : identifiant d'application `io.github.geekabel.DeskCheck`.
