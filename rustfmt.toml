@@ -1,0 +1,4 @@
+# Only stable rustfmt options. The edition is read from Cargo.toml.
+style_edition = "2024"
+use_field_init_shorthand = true
+use_try_shorthand = true
