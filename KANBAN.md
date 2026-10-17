@@ -4,15 +4,15 @@ Ce fichier suit toutes les tâches jusqu'à la version 0.1.0.
 On le met à jour à la fin de chaque tâche, dans la même branche que la tâche.
 Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact/SEKGtbp6ACVXhpff8rK89i) (privé, mis à jour en même temps).
 
-**Avancement : 9 / 37 tâches terminées**
+**Avancement : 10 / 37 tâches terminées**
 
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
 | 🔜 À faire (prochaines) | DC-11, DC-12, DC-13 |
 | 📋 Backlog | DC-14 à DC-37 |
-| 🖥️ À tester sur ton PC | DC-10 |
-| ✅ Terminé | DC-01 à DC-09 |
+| 🖥️ À tester sur ton PC | aucune |
+| ✅ Terminé | DC-01 à DC-10 |
 
 ---
 
@@ -227,29 +227,7 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-### DC-10 · Renommer un appareil
-- **But** : donner un nom parlant à un appareil son ou à un écran.
-- **Docs lues** : `clap` 4.6 derive (sous-commandes imbriquées, `Args` et `flatten`,
-  `group(required, multiple = false)`, `override_usage`).
-- **Critères**
-  - [x] Commandes `deskcheck rename output|input|screen <QUOI> <NOM>`, et `--reset` pour enlever le nom.
-  - [x] `<QUOI>` : `default`, numéro d'écran, connecteur (HDMI-1), nom technique,
-    ou un morceau de nom qui ne désigne qu'un seul appareil. Sinon, la liste des choix.
-  - [x] Le nom donné s'affiche partout (`audio`, `displays`, problèmes et corrections).
-    Un retour suit le nom de sa sortie : « Monitor of Laptop speakers ».
-  - [x] `--verbose` garde le nom du système et le nom technique.
-  - [x] Testé ici de bout en bout : vrai serveur PulseAudio de test, et faux GNOME sur un bus D-Bus de test.
-- **Décisions**
-  - Seuls les micros se renomment : un retour suit toujours sa sortie.
-  - Un nombre seul désigne toujours un numéro d'écran.
-  - Un fichier de réglages cassé n'est jamais écrasé : `rename` s'arrête, les rapports
-    préviennent et continuent sans les noms.
-  - Le fichier n'est pas réécrit quand rien ne change.
-- **À tester** :
-  `cargo run -p deskcheck -- rename output default "Laptop speakers"`,
-  `cargo run -p deskcheck -- rename screen 2 "Big screen"`,
-  puis `cargo run -p deskcheck -- audio -v` et `cargo run -p deskcheck -- displays -v`.
-  Pour enlever les noms : la même commande avec `--reset` à la place du nom.
+_Aucune tâche._
 
 ---
 
@@ -429,3 +407,23 @@ _Aucune tâche._
     (le fichier le dit dans son en-tête).
   - Deux écrans du même modèle sans numéro de série ont la même identité.
 - **Pour voir** : `cargo run -p deskcheck-config --example config_dump` (lecture seule).
+
+### DC-10 · Renommer un appareil
+- **But** : donner un nom parlant à un appareil son ou à un écran.
+- **Docs lues** : `clap` 4.6 derive (sous-commandes imbriquées, `Args` et `flatten`,
+  `group(required, multiple = false)`, `override_usage`).
+- **Critères**
+  - [x] Commandes `deskcheck rename output|input|screen <QUOI> <NOM>`, et `--reset` pour enlever le nom.
+  - [x] `<QUOI>` : `default`, numéro d'écran, connecteur (HDMI-1), nom technique,
+    ou un morceau de nom qui ne désigne qu'un seul appareil. Sinon, la liste des choix.
+  - [x] Le nom donné s'affiche partout (`audio`, `displays`, problèmes et corrections).
+    Un retour suit le nom de sa sortie : « Monitor of Laptop speakers ».
+  - [x] `--verbose` garde le nom du système et le nom technique.
+  - [x] Testé ici de bout en bout : vrai serveur PulseAudio de test, et faux GNOME sur un bus D-Bus de test.
+  - [x] Testé sur le PC de Godwin (17 oct. 2026) : sortie et écran renommés, puis remis.
+- **Décisions**
+  - Seuls les micros se renomment : un retour suit toujours sa sortie.
+  - Un nombre seul désigne toujours un numéro d'écran.
+  - Un fichier de réglages cassé n'est jamais écrasé : `rename` s'arrête, les rapports
+    préviennent et continuent sans les noms.
+  - Le fichier n'est pas réécrit quand rien ne change.
