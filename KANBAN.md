@@ -4,15 +4,15 @@ Ce fichier suit toutes les tâches jusqu'à la version 0.1.0.
 On le met à jour à la fin de chaque tâche, dans la même branche que la tâche.
 Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact/SEKGtbp6ACVXhpff8rK89i) (privé, mis à jour en même temps).
 
-**Avancement : 22 / 38 tâches terminées**
+**Avancement : 23 / 38 tâches terminées**
 
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-24, DC-25, DC-26 |
-| 📋 Backlog | DC-27 à DC-38 |
-| 🖥️ À tester sur ton PC | DC-23 |
-| ✅ Terminé | DC-01 à DC-22 |
+| 🔜 À faire (prochaines) | DC-25, DC-26, DC-27 |
+| 📋 Backlog | DC-28 à DC-38 |
+| 🖥️ À tester sur ton PC | DC-24 |
+| ✅ Terminé | DC-01 à DC-23 |
 
 ---
 
@@ -67,12 +67,6 @@ _Aucune tâche._
 
 ## 🔜 À faire (prochaines)
 
-### DC-24 · Identifier les écrans
-- **Docs** : `gtk::Window::fullscreen_on_monitor`, `gdk::Display::monitors`.
-- **Critères**
-  - [ ] Un grand numéro coloré sur chaque vrai écran pendant 5 secondes.
-  - [ ] Échap ferme tout.
-
 ### DC-25 · Appliquer une disposition d'écrans
 - **Docs** : `ApplyMonitorsConfig` (méthode temporaire, puis persistante).
 - **Critères**
@@ -85,6 +79,11 @@ _Aucune tâche._
 - **Critères**
   - [ ] Solution choisie et documentée, ou fonction retirée de la v0.1.0.
 
+### DC-27 · Modèle des lieux et détection
+- **Docs** : D-Bus NetworkManager (nom du Wi-Fi actif).
+- **Critères**
+  - [ ] Un lieu = conditions (écran branché, Wi-Fi) + préférences son, micro, écrans.
+  - [ ] Détection du lieu actuel, tests unitaires.
 ---
 
 ## 📋 Backlog
@@ -96,12 +95,6 @@ _Aucune tâche._
 ### Phase 7 · Agir sur les écrans
 
 ### Phase 8 · Lieux
-
-#### DC-27 · Modèle des lieux et détection
-- **Docs** : D-Bus NetworkManager (nom du Wi-Fi actif).
-- **Critères**
-  - [ ] Un lieu = conditions (écran branché, Wi-Fi) + préférences son, micro, écrans.
-  - [ ] Détection du lieu actuel, tests unitaires.
 
 #### DC-28 · Appliquer un lieu avec Annuler
 - **Docs** : `gio::Notification`.
@@ -168,25 +161,33 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-### DC-23 · Alerte en direct
-- **But** : prévenir tout de suite, pendant un appel, quand une application écoute un retour.
-- **Docs lues** : `gtk4` 0.10 (`Button::set_label`, `Widget::set_visible`), règles de DC-11
-  (`RecordsMonitor`), maquette « Maintenant » (bandeau).
+### DC-24 · Identifier les écrans
+- **But** : voir sur chaque vrai écran son numéro, sa couleur et son nom, les mêmes que dans
+  DeskCheck.
+- **Docs lues** : `gtk4` 0.10 (`Window::fullscreen_on_monitor`, `EventControllerKey`,
+  `GestureClick` et son nombre de clics, `Overlay`, `Actionable`), `gdk4` 0.10
+  (`Display::monitors`, `Monitor::connector`, `Monitor::geometry`), `gio::SimpleAction` avec
+  un paramètre, maquette « Identifier ».
 - **Critères**
-  - [x] Bandeau orange en haut de « Now » dès qu'une application écoute un retour : le nom de
-    l'application, du retour et du micro à utiliser.
-  - [x] « hears your voice well » quand ce micro vient d'entendre une voix (moins de 10 s).
-  - [x] « Switch Firefox to … » corrige sans couper l'appel ; le bandeau disparaît.
-  - [x] « Run the diagnostic » ouvre la page Diagnostic ; « Ignore » cache le bandeau.
-  - [x] Vu ici sur un écran virtuel : Firefox déplacé sur le micro, bandeau caché, lien vers
-    le Diagnostic.
+  - [x] Sur chaque écran, pendant 5 secondes : le grand numéro dans sa couleur, le nom,
+    « eDP-1 · 1920 × 1080 », « Primary », et « The numbers disappear in 5 s · Esc to close ».
+  - [x] Échap, un clic ou la fin du compte à rebours ferme tout.
+  - [x] « Identify » (Now), « Identify screens » (Screens), et double-clic sur un écran du
+    plan pour l'identifier seul.
+  - [x] Vu ici sur un écran virtuel avec un gestionnaire de fenêtres : plein écran, fenêtre
+    claire autour du numéro, Échap, double-clic.
 - **Décisions**
-  - « Ignore » vaut pour les flux présents. Une nouvelle écoute d'un retour fait revenir le bandeau.
-  - Le nom de l'onglet (« Teams ») n'est pas connu : Firefox ne le donne pas au serveur son.
-    Le bandeau dit « In Firefox ».
-- **À tester** : `cargo run -p deskcheck-app` avec un enregistrement sur un retour, par
-  exemple `parecord --device=<sortie>.monitor /dev/null` : le bandeau arrive, puis
-  « Switch … », et une autre fois « Ignore ». Au bureau avec Teams : le vrai cas.
+  - Une fenêtre sans bord par écran, en plein écran sur lui, au fond transparent : le bureau
+    reste visible, comme la maquette.
+  - Le numéro, le nom et la ligne sont sur un panneau sombre : la maquette les montre sur un
+    bureau sombre, et un bureau clair les rendrait illisibles.
+  - L'écran de GTK et celui de GNOME sont reliés par le nom du branchement (`DP-1`), sinon par
+    la place sur le bureau, chaque écran une seule fois.
+  - Le plan de la page Screens ne se reconstruit plus à chaque clic : GTK peut ainsi voir le
+    double-clic.
+- **À tester** : `cargo run -p deskcheck-app`, « Identify screens » : le numéro 1 sur le
+  portable, le 2 sur l'ASUS, avec leurs couleurs. Échap ferme tout. Double-clic sur un écran
+  du plan : seulement lui.
 
 ---
 
@@ -683,3 +684,21 @@ _Aucune tâche._
   - Ce que DeskCheck ne peut pas voir (droit du site, son entendu, câble) est une question.
   - Le test final reste grisé tant qu'une vérification au-dessus n'est pas bonne, comme la maquette.
   - « Remember the fix for this place » est grisé : il vient avec les lieux (DC-28).
+
+### DC-23 · Alerte en direct
+- **But** : prévenir tout de suite, pendant un appel, quand une application écoute un retour.
+- **Docs lues** : `gtk4` 0.10 (`Button::set_label`, `Widget::set_visible`), règles de DC-11
+  (`RecordsMonitor`), maquette « Maintenant » (bandeau).
+- **Critères**
+  - [x] Bandeau orange en haut de « Now » dès qu'une application écoute un retour : le nom de
+    l'application, du retour et du micro à utiliser.
+  - [x] « hears your voice well » quand ce micro vient d'entendre une voix (moins de 10 s).
+  - [x] « Switch Firefox to … » corrige sans couper l'appel ; le bandeau disparaît.
+  - [x] « Run the diagnostic » ouvre la page Diagnostic ; « Ignore » cache le bandeau.
+  - [x] Vu ici sur un écran virtuel : Firefox déplacé sur le micro, bandeau caché, lien vers
+    le Diagnostic.
+  - [x] Testé sur le PC de Godwin (17 oct. 2026) : bandeau, Switch et Ignore.
+- **Décisions**
+  - « Ignore » vaut pour les flux présents. Une nouvelle écoute d'un retour fait revenir le bandeau.
+  - Le nom de l'onglet (« Teams ») n'est pas connu : Firefox ne le donne pas au serveur son.
+    Le bandeau dit « In Firefox ».
