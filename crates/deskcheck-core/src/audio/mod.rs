@@ -245,6 +245,10 @@ pub struct Recording {
     pub volume: Volume,
     /// `true` when this stream is muted.
     pub muted: bool,
+    /// `true` for a level meter, like the level bar of GNOME Settings: it
+    /// only measures the sound, it is not a call or a recording. A level
+    /// meter on a monitor is normal and is not a problem.
+    pub level_meter: bool,
 }
 
 /// Everything known about sound at one moment.
@@ -346,13 +350,17 @@ impl AudioState {
 
     /// Recording streams that take their sound from a monitor, with that
     /// monitor. In a call, such an app sends a copy of an output, not the
-    /// voice of the user.
+    /// voice of the user. Level meters are left out: measuring a monitor is
+    /// what they are for.
     pub fn recordings_from_monitors(&self) -> impl Iterator<Item = (&Recording, &Input)> {
-        self.recordings.iter().filter_map(|recording| {
-            self.input(&recording.input)
-                .filter(|input| input.is_monitor())
-                .map(|input| (recording, input))
-        })
+        self.recordings
+            .iter()
+            .filter(|recording| !recording.level_meter)
+            .filter_map(|recording| {
+                self.input(&recording.input)
+                    .filter(|input| input.is_monitor())
+                    .map(|input| (recording, input))
+            })
     }
 
     /// Returns the default input when it is a monitor, not a microphone.
@@ -434,6 +442,7 @@ mod tests {
                 input: DeviceId::new(HDMI_MONITOR),
                 volume: Volume::NORMAL,
                 muted: false,
+                level_meter: false,
             }],
         }
     }

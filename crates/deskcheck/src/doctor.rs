@@ -190,6 +190,7 @@ mod tests {
                 input: DeviceId::new(MONITOR),
                 volume: Volume::NORMAL,
                 muted: false,
+                level_meter: false,
             }],
         }
     }

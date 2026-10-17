@@ -188,7 +188,8 @@ fn microphones_in_use(state: &AudioState) -> Vec<&Input> {
     if let Some(id) = &state.default_input {
         push_once(&mut ids, id);
     }
-    for recording in &state.recordings {
+    // A level meter only measures: it does not make a microphone used.
+    for recording in state.recordings.iter().filter(|r| !r.level_meter) {
         push_once(&mut ids, &recording.input);
     }
     if let Some(mic) = best_microphone(state) {
@@ -327,6 +328,7 @@ mod tests {
             input: DeviceId::new(input),
             volume: Volume::NORMAL,
             muted: false,
+            level_meter: false,
         }
     }
 
@@ -511,6 +513,30 @@ mod tests {
         let mut webcam = mic(WEBCAM_MIC, Form::Webcam);
         webcam.muted = true;
         state.inputs.push(webcam);
+        assert_eq!(diagnose(&state), []);
+    }
+
+    #[test]
+    fn a_level_meter_on_a_monitor_is_not_a_problem() {
+        // Seen on Godwin's PC: the sound panel of GNOME Settings measures
+        // the monitor of the speakers to draw its level bar.
+        let mut state = home();
+        let mut meter = recording(22, SPEAKERS_MONITOR);
+        meter.app.name = "GNOME Settings".to_owned();
+        meter.level_meter = true;
+        state.recordings.push(meter);
+        assert_eq!(diagnose(&state), []);
+    }
+
+    #[test]
+    fn a_level_meter_does_not_make_a_microphone_used() {
+        let mut state = home();
+        let mut webcam = mic(WEBCAM_MIC, Form::Webcam);
+        webcam.muted = true;
+        state.inputs.push(webcam);
+        let mut meter = recording(23, WEBCAM_MIC);
+        meter.level_meter = true;
+        state.recordings.push(meter);
         assert_eq!(diagnose(&state), []);
     }
 

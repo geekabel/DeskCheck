@@ -50,8 +50,8 @@ fn input_line(config: &Config, input: &Input) -> String {
 }
 
 /// Groups streams of the same app on the same device: `Firefox (3 streams)`.
-fn group<'a>(items: impl Iterator<Item = (&'a str, String)>) -> Vec<(String, String)> {
-    let mut groups: Vec<(&str, String, usize)> = Vec::new();
+fn group(items: impl Iterator<Item = (String, String)>) -> Vec<(String, String)> {
+    let mut groups: Vec<(String, String, usize)> = Vec::new();
     for (app, device) in items {
         match groups
             .iter_mut()
@@ -67,7 +67,7 @@ fn group<'a>(items: impl Iterator<Item = (&'a str, String)>) -> Vec<(String, Str
             let label = if count > 1 {
                 format!("{app} ({count} streams)")
             } else {
-                app.to_owned()
+                app
             };
             (label, device)
         })
@@ -229,14 +229,18 @@ pub fn render(state: &AudioState, config: &Config, options: Options) -> String {
         state
             .playbacks
             .iter()
-            .map(|p| (p.app.name.as_str(), output_name(config, state, &p.output))),
+            .map(|p| (p.app.name.clone(), output_name(config, state, &p.output))),
     );
-    let recording = group(
-        state
-            .recordings
-            .iter()
-            .map(|r| (r.app.name.as_str(), input_name(config, state, &r.input))),
-    );
+    let recording = group(state.recordings.iter().map(|r| {
+        // A level meter only measures the sound: say so, so it is
+        // not taken for a call.
+        let app = if r.level_meter {
+            format!("{} (level meter)", r.app.name)
+        } else {
+            r.app.name.clone()
+        };
+        (app, input_name(config, state, &r.input))
+    }));
     write_rows(&mut out, "Applications playing", &playing, "->");
     write_rows(&mut out, "Applications recording", &recording, "<-");
 
@@ -390,6 +394,7 @@ No problem found.
             input: DeviceId::new(MONITOR),
             volume: Volume::NORMAL,
             muted: false,
+            level_meter: false,
         });
         let report = render(&state, &Config::default(), Options::default());
         assert!(report.contains(
@@ -462,6 +467,7 @@ No problem found.
             input: DeviceId::new(MONITOR),
             volume: Volume::NORMAL,
             muted: false,
+            level_meter: false,
         });
         let report = render(&state, &renamed(), Options::default());
         assert!(report.starts_with(
@@ -507,5 +513,24 @@ No problem found.
             ),
             "{report}"
         );
+    }
+
+    #[test]
+    fn a_level_meter_is_shown_as_such_and_is_not_a_problem() {
+        let mut state = home();
+        state.recordings.push(Recording {
+            id: StreamId::new(22),
+            app: app("GNOME Settings"),
+            media: None,
+            input: DeviceId::new(MONITOR),
+            volume: Volume::NORMAL,
+            muted: false,
+            level_meter: true,
+        });
+        let report = render(&state, &Config::default(), Options::default());
+        assert!(report.contains(
+            "Applications recording\n  GNOME Settings (level meter)  <- Monitor of Built-in Audio Analog Stereo\n"
+        ), "{report}");
+        assert!(report.ends_with("No problem found.\n"), "{report}");
     }
 }

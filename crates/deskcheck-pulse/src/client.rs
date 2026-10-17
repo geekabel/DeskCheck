@@ -105,6 +105,7 @@ fn stream_props(proplist: &Proplist, stream_name: Option<&str>) -> StreamProps {
         app_name: proplist.get_str(properties::APPLICATION_NAME),
         binary: proplist.get_str(properties::APPLICATION_PROCESS_BINARY),
         icon_name: proplist.get_str(properties::APPLICATION_ICON_NAME),
+        app_id: proplist.get_str(properties::APPLICATION_ID),
         media_name: proplist.get_str(properties::MEDIA_NAME),
         stream_name: stream_name.map(str::to_owned),
     }
@@ -127,6 +128,7 @@ fn source_output(info: &SourceOutputInfo) -> SourceOutput {
         props: stream_props(&info.proplist, info.name.as_deref()),
         volume: info.volume.avg().0,
         mute: info.mute,
+        resample_method: info.resample_method.as_deref().map(str::to_owned),
     }
 }
 

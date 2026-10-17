@@ -9,7 +9,7 @@ use deskcheck_core::audio::{
 
 use libpulse_binding::volume::Volume as PaVolume;
 
-use crate::raw::{DeviceProps, Snapshot, StreamProps};
+use crate::raw::{DeviceProps, Snapshot, SourceOutput, StreamProps};
 
 /// Name used when a stream says nothing about its application.
 const UNKNOWN_APP: &str = "Unknown application";
@@ -20,6 +20,31 @@ pub(crate) fn volume_from_raw(raw: u32) -> Volume {
     let norm = u64::from(PaVolume::NORMAL.0);
     let percent = (u64::from(raw) * 100 + norm / 2) / norm;
     Volume::from_percent(u16::try_from(percent).unwrap_or(u16::MAX))
+}
+
+/// Apps known to show level meters, by `application.id`.
+const LEVEL_METER_APPS: [&str; 3] = [
+    // The sound panel of GNOME Settings (gnome-control-center).
+    "org.gnome.VolumeControl",
+    "org.PulseAudio.pavucontrol",
+    deskcheck_core::APP_ID,
+];
+
+/// Tells a level meter from a real recording.
+///
+/// A level meter opens its stream with the `PEAK_DETECT` flag. PulseAudio
+/// then uses the `peaks` resample method (`record_stream_new` in
+/// `protocol-native.c`), which the stream info shows. Other servers may not
+/// show it, so the known meter apps and the stream name of GNOME Settings
+/// ("Peak detect", not translated) are checked too.
+fn is_level_meter(stream: &SourceOutput) -> bool {
+    stream.resample_method.as_deref() == Some("peaks")
+        || stream
+            .props
+            .app_id
+            .as_deref()
+            .is_some_and(|id| LEVEL_METER_APPS.contains(&id))
+        || stream.props.stream_name.as_deref() == Some("Peak detect")
 }
 
 /// Classifies a device from its name, description and properties.
@@ -151,6 +176,7 @@ pub(crate) fn audio_state(snapshot: &Snapshot) -> AudioState {
                 input: DeviceId::new(*source),
                 volume: volume_from_raw(stream.volume),
                 muted: stream.mute,
+                level_meter: is_level_meter(stream),
             })
         })
         .collect();
@@ -180,6 +206,7 @@ mod tests {
             app_name: Some("Firefox".to_owned()),
             binary: Some("firefox".to_owned()),
             icon_name: Some("firefox".to_owned()),
+            app_id: None,
             media_name: Some("AudioStream".to_owned()),
             stream_name: Some("AudioStream".to_owned()),
         };
@@ -257,6 +284,7 @@ mod tests {
                 props: firefox,
                 volume: NORM,
                 mute: false,
+                resample_method: Some("speex-float-1".to_owned()),
             }],
         }
     }
@@ -381,5 +409,24 @@ mod tests {
     #[test]
     fn empty_snapshot_gives_empty_state() {
         assert_eq!(audio_state(&Snapshot::default()), AudioState::default());
+    }
+
+    #[test]
+    fn level_meters_are_told_apart_from_calls() {
+        let mut snapshot = office();
+        assert!(!audio_state(&snapshot).recordings[0].level_meter);
+
+        // GNOME Settings, as its sound panel creates the stream.
+        let stream = &mut snapshot.source_outputs[0];
+        stream.props.app_name = Some("GNOME Settings".to_owned());
+        stream.props.app_id = Some("org.gnome.VolumeControl".to_owned());
+        stream.props.stream_name = Some("Peak detect".to_owned());
+        assert!(audio_state(&snapshot).recordings[0].level_meter);
+
+        // Any app with a peak detect stream on PulseAudio.
+        let stream = &mut snapshot.source_outputs[0];
+        stream.props = StreamProps::default();
+        stream.resample_method = Some("peaks".to_owned());
+        assert!(audio_state(&snapshot).recordings[0].level_meter);
     }
 }

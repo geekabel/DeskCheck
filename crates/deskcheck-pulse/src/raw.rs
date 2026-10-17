@@ -64,6 +64,8 @@ pub(crate) struct StreamProps {
     pub binary: Option<String>,
     /// `application.icon_name`
     pub icon_name: Option<String>,
+    /// `application.id`, for example `org.gnome.VolumeControl`.
+    pub app_id: Option<String>,
     /// `media.name`
     pub media_name: Option<String>,
     /// Name of the stream itself.
@@ -90,4 +92,6 @@ pub(crate) struct SourceOutput {
     pub props: StreamProps,
     pub volume: u32,
     pub mute: bool,
+    /// Resample method: `peaks` for a level meter on PulseAudio.
+    pub resample_method: Option<String>,
 }
