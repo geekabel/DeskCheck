@@ -2,6 +2,7 @@
 
 Ce fichier suit toutes les tâches jusqu'à la version 0.1.0.
 On le met à jour à la fin de chaque tâche, dans la même branche que la tâche.
+Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact/SEKGtbp6ACVXhpff8rK89i) (privé, mis à jour en même temps).
 
 **Avancement : 1 / 37 tâches terminées**
 
@@ -10,6 +11,7 @@ On le met à jour à la fin de chaque tâche, dans la même branche que la tâch
 | 🚧 En cours | aucune |
 | 🔜 À faire (prochaines) | DC-02, DC-03, DC-04 |
 | 📋 Backlog | DC-05 à DC-37 |
+| 🖥️ À tester sur ton PC | aucune |
 | ✅ Terminé | DC-01 |
 
 ---
@@ -48,6 +50,10 @@ On le met à jour à la fin de chaque tâche, dans la même branche que la tâch
 - Interface : `gtk4` (option `v4_6`) et `libadwaita` (option `v1_1`).
 - Son : `libpulse-binding` (API PulseAudio, compatible PipeWire).
 - Écrans : D-Bus `org.gnome.Mutter.DisplayConfig` avec `zbus`.
+
+**Colonne « À tester sur ton PC »**
+- Ce qui ne peut pas être testé dans le nuage (son, écrans, barre du haut) attend là
+  que Godwin le teste sur sa machine. La tâche passe en « Terminé » après ce test.
 
 **Légende** : 🧪 spike (recherche, risque à lever) · ❓ décision de Godwin
 
@@ -288,6 +294,12 @@ _Aucune tâche._
 
 ---
 
+## 🖥️ À tester sur ton PC
+
+_Aucune tâche._
+
+---
+
 ## ✅ Terminé
 
 ### DC-01 · Socle du projet
@@ -302,5 +314,7 @@ _Aucune tâche._
   - [x] CI GitHub Actions : fmt, clippy, tests, et vérification Rust 1.85, dans un conteneur `ubuntu:22.04`.
   - [x] `CONTRIBUTING.md` : branches, commits, règle « documentation d'abord ».
   - [x] `cargo build`, `cargo test`, `cargo clippy -D warnings` passent en local.
-- **À confirmer** : premier passage de la CI sur GitHub, au premier push de `develop`.
+  - [x] La CI passe sur GitHub (17 oct. 2026, Clippy 1.99 et Rust 1.85).
+- **Notes** : Clippy 1.99 a ajouté la règle `assert_is_empty`, corrigée avec `assert_ne!`.
+  Les messages de Clippy remontent en annotations GitHub, lisibles même sans le journal.
 - **Décision** : identifiant d'application `io.github.geekabel.DeskCheck`.
