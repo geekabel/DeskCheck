@@ -17,12 +17,24 @@ pub(crate) struct Snapshot {
     pub source_outputs: Vec<SourceOutput>,
 }
 
+/// Clues about the hardware of a device.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct DeviceProps {
+    /// `device.form_factor`
+    pub form_factor: Option<String>,
+    /// `device.bus`
+    pub bus: Option<String>,
+    /// Name of the active port.
+    pub port: Option<String>,
+}
+
 /// A sink: a device that plays sound.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Sink {
     pub index: u32,
     pub name: String,
     pub description: String,
+    pub props: DeviceProps,
     /// Average volume over the channels, in sound server units.
     pub volume: u32,
     pub mute: bool,
@@ -34,6 +46,7 @@ pub(crate) struct Source {
     pub index: u32,
     pub name: String,
     pub description: String,
+    pub props: DeviceProps,
     /// Index of the sink this source copies, when it is a monitor.
     pub monitor_of_sink: Option<u32>,
     /// Name of the sink this source copies, when the server gives it.

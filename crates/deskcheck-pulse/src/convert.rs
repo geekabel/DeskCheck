@@ -3,12 +3,13 @@
 use std::collections::HashMap;
 
 use deskcheck_core::audio::{
-    App, AudioState, DeviceId, Input, InputKind, Output, Playback, Recording, StreamId, Volume,
+    App, AudioState, Clues, DeviceId, Direction, Hardware, Input, InputKind, Output, Playback,
+    Recording, StreamId, Volume, classify,
 };
 
 use libpulse_binding::volume::Volume as PaVolume;
 
-use crate::raw::{Snapshot, StreamProps};
+use crate::raw::{DeviceProps, Snapshot, StreamProps};
 
 /// Name used when a stream says nothing about its application.
 const UNKNOWN_APP: &str = "Unknown application";
@@ -19,6 +20,20 @@ pub(crate) fn volume_from_raw(raw: u32) -> Volume {
     let norm = u64::from(PaVolume::NORMAL.0);
     let percent = (u64::from(raw) * 100 + norm / 2) / norm;
     Volume::from_percent(u16::try_from(percent).unwrap_or(u16::MAX))
+}
+
+/// Classifies a device from its name, description and properties.
+fn hardware(direction: Direction, name: &str, description: &str, props: &DeviceProps) -> Hardware {
+    classify(
+        direction,
+        &Clues {
+            name,
+            description,
+            form_factor: props.form_factor.as_deref(),
+            bus: props.bus.as_deref(),
+            port: props.port.as_deref(),
+        },
+    )
 }
 
 /// Builds the application from the stream properties.
@@ -59,6 +74,12 @@ pub(crate) fn audio_state(snapshot: &Snapshot) -> AudioState {
         .map(|sink| Output {
             id: DeviceId::new(sink.name.as_str()),
             description: sink.description.clone(),
+            hardware: hardware(
+                Direction::Output,
+                &sink.name,
+                &sink.description,
+                &sink.props,
+            ),
             volume: volume_from_raw(sink.volume),
             muted: sink.mute,
         })
@@ -85,9 +106,16 @@ pub(crate) fn audio_state(snapshot: &Snapshot) -> AudioState {
                 },
                 None => InputKind::Capture,
             };
+            // A monitor copies an output, so it is classified as one.
+            let direction = if matches!(kind, InputKind::Monitor { .. }) {
+                Direction::Output
+            } else {
+                Direction::Input
+            };
             Input {
                 id: DeviceId::new(source.name.as_str()),
                 description: source.description.clone(),
+                hardware: hardware(direction, &source.name, &source.description, &source.props),
                 kind,
                 volume: volume_from_raw(source.volume),
                 muted: source.mute,
@@ -141,6 +169,7 @@ pub(crate) fn audio_state(snapshot: &Snapshot) -> AudioState {
 mod tests {
     use super::*;
     use crate::raw::{Sink, SinkInput, Source, SourceOutput};
+    use deskcheck_core::audio::{Connection, Form};
 
     const NORM: u32 = PaVolume::NORMAL.0;
 
@@ -162,6 +191,11 @@ mod tests {
                     index: 1,
                     name: "alsa_output.usb-Headset-00.analog-stereo".to_owned(),
                     description: "USB Headset Analog Stereo".to_owned(),
+                    props: DeviceProps {
+                        form_factor: Some("headset".to_owned()),
+                        bus: Some("usb".to_owned()),
+                        port: Some("analog-output".to_owned()),
+                    },
                     volume: NORM / 2,
                     mute: false,
                 },
@@ -169,6 +203,11 @@ mod tests {
                     index: 2,
                     name: "alsa_output.pci-0000_00_1f.3.hdmi-stereo-extra1".to_owned(),
                     description: "HDMI / DisplayPort 2".to_owned(),
+                    props: DeviceProps {
+                        form_factor: None,
+                        bus: Some("pci".to_owned()),
+                        port: Some("hdmi-output-1".to_owned()),
+                    },
                     volume: NORM,
                     mute: false,
                 },
@@ -178,6 +217,11 @@ mod tests {
                     index: 3,
                     name: "alsa_input.usb-Headset-00.mono-fallback".to_owned(),
                     description: "USB Headset Mono".to_owned(),
+                    props: DeviceProps {
+                        form_factor: Some("headset".to_owned()),
+                        bus: Some("usb".to_owned()),
+                        port: Some("analog-input-mic".to_owned()),
+                    },
                     monitor_of_sink: None,
                     monitor_of_sink_name: None,
                     volume: NORM,
@@ -187,6 +231,11 @@ mod tests {
                     index: 4,
                     name: "alsa_output.pci-0000_00_1f.3.hdmi-stereo-extra1.monitor".to_owned(),
                     description: "Monitor of HDMI / DisplayPort 2".to_owned(),
+                    props: DeviceProps {
+                        form_factor: None,
+                        bus: Some("pci".to_owned()),
+                        port: None,
+                    },
                     monitor_of_sink: Some(2),
                     monitor_of_sink_name: Some(
                         "alsa_output.pci-0000_00_1f.3.hdmi-stereo-extra1".to_owned(),
@@ -290,6 +339,23 @@ mod tests {
         assert_eq!(recording.id, StreamId::new(42));
         assert_eq!(recording.app.name, "Firefox");
         assert!(state.input(&recording.input).unwrap().is_monitor());
+    }
+
+    #[test]
+    fn devices_are_classified() {
+        let state = audio_state(&office());
+        assert_eq!(
+            state.outputs[0].hardware,
+            Hardware {
+                form: Form::Headset,
+                connection: Connection::Usb
+            }
+        );
+        assert_eq!(state.outputs[1].hardware.form, Form::Screen);
+        assert_eq!(state.inputs[0].hardware.form, Form::Headset);
+        // The monitor of the HDMI output is classified like that output.
+        assert_eq!(state.inputs[1].hardware, state.outputs[1].hardware);
+        assert!(state.inputs[1].is_monitor());
     }
 
     #[test]

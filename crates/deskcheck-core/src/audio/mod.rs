@@ -10,9 +10,17 @@
 //! - a [`Playback`] is an application stream going to an output;
 //! - a [`Recording`] is an application stream coming from an input.
 //!
-//! These types only hold data. Reading them from the sound server comes later.
+//! Each device also has a [`Hardware`]: what it is (headset, webcam,
+//! screen...) and how it is connected, found by [`classify`].
+//!
+//! These types only hold data. The `deskcheck-pulse` crate reads them from
+//! the sound server.
 
 use std::fmt;
+
+mod hardware;
+
+pub use hardware::{Clues, Connection, Direction, Form, Hardware, classify};
 
 /// Stable identifier of a sound device: the device name given by the sound
 /// server, for example `alsa_output.usb-Headset-00.analog-stereo`.
@@ -114,6 +122,8 @@ pub struct Output {
     pub id: DeviceId,
     /// Label given by the sound server, for example `USB Headset Analog Stereo`.
     pub description: String,
+    /// What the device is and how it is connected.
+    pub hardware: Hardware,
     /// Current volume.
     pub volume: Volume,
     /// `true` when the output is muted.
@@ -142,6 +152,9 @@ pub struct Input {
     pub id: DeviceId,
     /// Label given by the sound server, for example `Monitor of HDMI / DisplayPort 2`.
     pub description: String,
+    /// What the device is and how it is connected. For a monitor, this is
+    /// the hardware of the output it copies.
+    pub hardware: Hardware,
     /// Real capture device or monitor.
     pub kind: InputKind,
     /// Current volume (sensitivity).
@@ -232,13 +245,14 @@ pub struct Recording {
 /// Everything known about sound at one moment.
 ///
 /// ```
-/// use deskcheck_core::audio::{AudioState, DeviceId, Input, InputKind, Volume};
+/// use deskcheck_core::audio::{AudioState, DeviceId, Hardware, Input, InputKind, Volume};
 ///
 /// let state = AudioState {
 ///     inputs: vec![
 ///         Input {
 ///             id: DeviceId::new("alsa_input.usb-Headset-00.mono-fallback"),
 ///             description: "USB Headset Mono".into(),
+///             hardware: Hardware::default(),
 ///             kind: InputKind::Capture,
 ///             volume: Volume::NORMAL,
 ///             muted: false,
@@ -246,6 +260,7 @@ pub struct Recording {
 ///         Input {
 ///             id: DeviceId::new("alsa_output.pci-0000_00_1f.3.hdmi-stereo.monitor"),
 ///             description: "Monitor of HDMI".into(),
+///             hardware: Hardware::default(),
 ///             kind: InputKind::Monitor {
 ///                 of: DeviceId::new("alsa_output.pci-0000_00_1f.3.hdmi-stereo"),
 ///             },
@@ -338,6 +353,7 @@ mod tests {
         Output {
             id: DeviceId::new(name),
             description: name.to_owned(),
+            hardware: Hardware::default(),
             volume: Volume::NORMAL,
             muted: false,
         }
@@ -347,6 +363,7 @@ mod tests {
         Input {
             id: DeviceId::new(name),
             description: name.to_owned(),
+            hardware: Hardware::default(),
             kind,
             volume: Volume::NORMAL,
             muted: false,

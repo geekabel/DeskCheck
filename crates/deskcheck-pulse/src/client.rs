@@ -17,7 +17,7 @@ use pulse::mainloop::standard::{IterateResult, Mainloop};
 use pulse::operation::State as OperationState;
 use pulse::proplist::{Proplist, properties};
 
-use crate::raw::{Sink, SinkInput, Snapshot, Source, SourceOutput, StreamProps};
+use crate::raw::{DeviceProps, Sink, SinkInput, Snapshot, Source, SourceOutput, StreamProps};
 
 /// What can go wrong while reading the sound server.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -117,12 +117,27 @@ fn source_output(info: &SourceOutputInfo) -> SourceOutput {
     }
 }
 
+/// Copies the properties that tell what the hardware is.
+fn device_props(proplist: &Proplist, port: Option<&str>) -> DeviceProps {
+    DeviceProps {
+        form_factor: proplist.get_str(properties::DEVICE_FORM_FACTOR),
+        bus: proplist.get_str(properties::DEVICE_BUS),
+        port: port.map(str::to_owned),
+    }
+}
+
 fn sink(info: &SinkInfo) -> Option<Sink> {
     let name = info.name.as_deref()?;
     Some(Sink {
         index: info.index,
         name: name.to_owned(),
         description: info.description.as_deref().unwrap_or(name).to_owned(),
+        props: device_props(
+            &info.proplist,
+            info.active_port
+                .as_ref()
+                .and_then(|port| port.name.as_deref()),
+        ),
         volume: info.volume.avg().0,
         mute: info.mute,
     })
@@ -134,6 +149,12 @@ fn source(info: &SourceInfo) -> Option<Source> {
         index: info.index,
         name: name.to_owned(),
         description: info.description.as_deref().unwrap_or(name).to_owned(),
+        props: device_props(
+            &info.proplist,
+            info.active_port
+                .as_ref()
+                .and_then(|port| port.name.as_deref()),
+        ),
         monitor_of_sink: info.monitor_of_sink,
         monitor_of_sink_name: info.monitor_of_sink_name.as_deref().map(str::to_owned),
         volume: info.volume.avg().0,
