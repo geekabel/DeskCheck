@@ -295,8 +295,9 @@ impl NowPage {
         screens_caption.set_hexpand(true);
         let identify = ui::button("Identify", None, ui::ButtonKind::Normal);
         identify.add_css_class("dc-compact");
-        identify.set_sensitive(false);
-        identify.set_tooltip_text(Some("Shows a big number on each screen. Coming soon."));
+        identify.set_tooltip_text(Some("Shows its number on each screen"));
+        identify.set_action_name(Some("app.identify"));
+        identify.set_action_target_value(Some(&0_i32.to_variant()));
         screens_top.append(&screens_caption);
         screens_top.append(&identify);
         screens_card.append(&screens_top);

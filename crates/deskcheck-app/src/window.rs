@@ -19,6 +19,7 @@ use crate::audio_model::AudioTab;
 use crate::audio_page::AudioPage;
 use crate::backend::{Backend, MeterScope, Request, Update};
 use crate::diag_page::{DiagPage, Go};
+use crate::identify::Identifier;
 use crate::now_page::{NowLink, NowPage};
 use crate::screens_page::ScreensPage;
 use crate::sections::Section;
@@ -55,6 +56,7 @@ pub struct MainWindow {
     sound_footer: gtk::Label,
     screens_footer: gtk::Label,
     latest: Rc<RefCell<Latest>>,
+    identifier: Rc<Identifier>,
 }
 
 /// A row of the sidebar: icon and title.
@@ -226,6 +228,7 @@ impl MainWindow {
             sound_footer,
             screens_footer,
             latest: Rc::default(),
+            identifier: Rc::default(),
         };
         {
             let this = this.clone();
@@ -316,6 +319,22 @@ impl MainWindow {
             }
         }
         self.render();
+    }
+
+    /// Shows its number on every screen, or only on screen `only`
+    /// (DC-24).
+    pub fn identify(&self, only: Option<usize>) {
+        let latest = self.latest.borrow();
+        let Some(Ok(screens)) = latest.screens.as_ref() else {
+            return;
+        };
+        let Some(app) = self.window.application().and_downcast::<adw::Application>() else {
+            return;
+        };
+        let config = Store::new()
+            .and_then(|store| store.load())
+            .unwrap_or_else(|_| Config::default());
+        self.identifier.show(&app, &config, screens, only);
     }
 
     /// Shows the latest state.

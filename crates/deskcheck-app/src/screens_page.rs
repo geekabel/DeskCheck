@@ -26,6 +26,9 @@ const MAP_ROOM: (i32, i32) = (800, 200);
 /// Pixels between two screens of the map.
 const MAP_GAP: i32 = 20;
 
+/// The line under the map.
+const HINT: &str = "Click a screen to see its settings · Double-click to identify it alone";
+
 /// Where the list of makers of the system is (package `hwdata`).
 const PNP_IDS: &str = "/usr/share/hwdata/pnp.ids";
 
@@ -123,6 +126,8 @@ pub struct ScreensPage {
     details: gtk::Box,
     settings: Settings,
     css: gtk::CssProvider,
+    chosen_css: gtk::CssProvider,
+    tiles: RefCell<Vec<(ScreenId, gtk::Box)>>,
     backend: Backend,
     pnp_ids: Option<String>,
     current: RefCell<Current>,
@@ -175,8 +180,9 @@ impl ScreensPage {
             ButtonKind::Primary,
         );
         identify.set_valign(gtk::Align::End);
-        identify.set_sensitive(false);
-        identify.set_tooltip_text(Some("Comes in a later version"));
+        identify.set_tooltip_text(Some("Shows its number on each screen"));
+        identify.set_action_name(Some("app.identify"));
+        identify.set_action_target_value(Some(&0_i32.to_variant()));
         let lost = ui::button("Bring back lost windows", None, ButtonKind::Normal);
         lost.set_valign(gtk::Align::End);
         lost.set_sensitive(false);
@@ -201,7 +207,7 @@ impl ScreensPage {
             .margin_top(18)
             .build();
         desk.append(&map);
-        let hint = ui::label("Click a screen to see its settings.", &["dc-small"]);
+        let hint = ui::label(HINT, &["dc-small"]);
         hint.set_margin_start(16);
         hint.set_margin_top(12);
         hint.set_margin_bottom(12);
@@ -329,12 +335,15 @@ impl ScreensPage {
             .build();
 
         let css = gtk::CssProvider::new();
+        let chosen_css = gtk::CssProvider::new();
         if let Some(display) = gtk::gdk::Display::default() {
-            gtk::style_context_add_provider_for_display(
-                &display,
-                &css,
-                gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
-            );
+            for provider in [&css, &chosen_css] {
+                gtk::style_context_add_provider_for_display(
+                    &display,
+                    provider,
+                    gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+                );
+            }
         }
 
         let page = Rc::new(Self {
@@ -363,6 +372,8 @@ impl ScreensPage {
                 connector,
             },
             css,
+            chosen_css,
+            tiles: RefCell::default(),
             backend,
             pnp_ids: std::fs::read_to_string(PNP_IDS).ok(),
             current: RefCell::default(),
@@ -473,15 +484,16 @@ impl ScreensPage {
             button.set_active(Some(*layout) == current_layout);
         }
         let chosen = self.current.borrow().chosen.clone();
-        let Some((number, screen)) = screens_model::selected(state, chosen.as_ref()) else {
+        let Some((_, screen)) = screens_model::selected(state, chosen.as_ref()) else {
             self.empty("No screen is on.");
             return;
         };
-        self.hint.set_label("Click a screen to see its settings.");
+        self.hint.set_label(HINT);
         self.details.set_visible(true);
 
         let tiles = screens_model::layout_map(config, state, MAP_ROOM.0, MAP_ROOM.1, MAP_GAP);
         let mut css = String::new();
+        let mut widgets = Vec::new();
         for tile in &tiles {
             let name = format!("map-screen-{}", tile.number);
             let _ = writeln!(
@@ -491,8 +503,40 @@ impl ScreensPage {
             );
             let widget = self.map_tile(tile, &name, tile.id == screen.id);
             self.map.put(&widget, f64::from(tile.x), f64::from(tile.y));
+            widgets.push((tile.id.clone(), widget));
         }
-        let color = screen_color(config, &screen.id, number);
+        *self.tiles.borrow_mut() = widgets;
+        #[allow(deprecated, reason = "load_from_string needs GTK 4.12")]
+        self.css.load_from_data(&css);
+        self.show_chosen();
+    }
+
+    /// Shows the chosen screen: its ring in the map, and its settings.
+    /// The map is not built again, so a double click reaches the screen.
+    fn show_chosen(&self) {
+        let (config, state, chosen) = {
+            let current = self.current.borrow();
+            (
+                current.config.clone(),
+                current.screens.clone(),
+                current.chosen.clone(),
+            )
+        };
+        let Some(state) = state else {
+            return;
+        };
+        let Some((number, screen)) = screens_model::selected(&state, chosen.as_ref()) else {
+            return;
+        };
+        for (id, widget) in self.tiles.borrow().iter() {
+            if *id == screen.id {
+                widget.add_css_class("selected");
+            } else {
+                widget.remove_css_class("selected");
+            }
+        }
+        let mut css = String::new();
+        let color = screen_color(&config, &screen.id, number);
         let _ = writeln!(css, "#screen-badge {{ background-color: {color}; }}");
         for (index, (swatch_color, swatch)) in self.settings.swatches.iter().enumerate() {
             let _ = writeln!(
@@ -506,8 +550,8 @@ impl ScreensPage {
             }
         }
         #[allow(deprecated, reason = "load_from_string needs GTK 4.12")]
-        self.css.load_from_data(&css);
-        self.show_settings(config, state, number, screen);
+        self.chosen_css.load_from_data(&css);
+        self.show_settings(&config, &state, number, screen);
     }
 
     /// The page without screens: a sentence, no settings.
@@ -580,17 +624,17 @@ impl ScreensPage {
         let click = gtk::GestureClick::new();
         let page = Rc::clone(self);
         let id = tile.id.clone();
-        click.connect_released(move |_, _, _, _| {
+        let number = tile.number;
+        click.connect_pressed(move |gesture, presses, _, _| {
+            if presses == 2 {
+                let number = i32::try_from(number).unwrap_or(0);
+                if let Some(widget) = gesture.widget() {
+                    let _ = widget.activate_action("app.identify", Some(&number.to_variant()));
+                }
+                return;
+            }
             page.current.borrow_mut().chosen = Some(id.clone());
-            let (config, screens, sound) = {
-                let current = page.current.borrow();
-                (
-                    current.config.clone(),
-                    current.screens.clone(),
-                    current.sound.clone(),
-                )
-            };
-            page.show(&config, screens.map(Ok).as_ref(), sound.map(Ok).as_ref());
+            page.show_chosen();
         });
         widget.add_controller(click);
         widget

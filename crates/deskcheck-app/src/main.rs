@@ -20,6 +20,7 @@ mod audio_page;
 mod backend;
 mod diag_model;
 mod diag_page;
+mod identify;
 mod now_model;
 mod now_page;
 mod screens_model;
@@ -62,6 +63,19 @@ fn add_actions(app: &adw::Application, window: &window::MainWindow, backend: &ba
         let window = window.window.clone();
         move |_, _| about(&window)
     });
+    // A number: 0 for every screen, else the screen to identify alone.
+    let identify = gio::SimpleAction::new("identify", Some(glib::VariantTy::INT32));
+    identify.connect_activate({
+        let window = window.clone();
+        move |_, parameter| {
+            let only = parameter
+                .and_then(glib::Variant::get::<i32>)
+                .and_then(|number| usize::try_from(number).ok())
+                .filter(|number| *number > 0);
+            window.identify(only);
+        }
+    });
+    app.add_action(&identify);
     app.add_action(&quit);
     app.add_action(&refresh);
     app.add_action(&about_action);

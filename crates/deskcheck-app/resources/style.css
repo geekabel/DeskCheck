@@ -538,3 +538,44 @@ progressbar.dc-progress > trough > progress {
     font-size: 14px;
     color: @dc_alert_text;
 }
+
+/* Identify the screens: a number on each real screen. The window is
+   clear, so the desktop stays visible around the card. */
+window.dc-identify-window {
+    background: none;
+}
+.dc-identify-card {
+    padding: 28px 36px;
+    border-radius: 24px;
+    background-color: alpha(#141519, 0.9);
+    color: #ffffff;
+}
+.dc-identify-badge {
+    min-width: 120px;
+    min-height: 120px;
+    border-radius: 20px;
+    font-size: 84px;
+    font-weight: bold;
+    color: #ffffff;
+    box-shadow: 0 6px 24px alpha(black, 0.35);
+}
+.dc-identify-name {
+    font-size: 20px;
+    font-weight: bold;
+}
+.dc-identify-line {
+    font-family: "Ubuntu Mono", monospace;
+    font-size: 13px;
+    color: #d6dae3;
+}
+.dc-tag.dc-identify-tag {
+    background-color: #ffffff;
+    color: #7a3205;
+}
+.dc-identify-countdown {
+    padding: 7px 14px;
+    border-radius: 999px;
+    background-color: alpha(#141519, 0.9);
+    color: #ffffff;
+    font-size: 13px;
+}

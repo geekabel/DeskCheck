@@ -362,6 +362,64 @@ pub fn screen_speakers<'a>(
     }
 }
 
+/// A monitor as GTK sees it, to find which screen it is.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SeenMonitor {
+    /// Its connector, like `DP-1`, when GTK knows it.
+    pub connector: Option<String>,
+    /// Its left edge on the desktop.
+    pub x: i32,
+    /// Its top edge on the desktop.
+    pub y: i32,
+}
+
+/// The number of the screen each monitor of GTK shows, or `None` when it
+/// matches none. The connector decides first (GNOME and GTK use the same
+/// names), then the place on the desktop.
+pub fn match_monitors(state: &DisplayState, seen: &[SeenMonitor]) -> Vec<Option<usize>> {
+    let numbered = state.numbered();
+    let mut found: Vec<Option<usize>> = seen
+        .iter()
+        .map(|monitor| {
+            let connector = monitor.connector.as_deref()?;
+            numbered
+                .iter()
+                .find(|(_, screen)| screen.connector == connector)
+                .map(|(number, _)| *number)
+        })
+        .collect();
+    // Then by place, each screen once: a monitor GTK adds for the whole
+    // desktop must not take the place of a real one.
+    for (at, monitor) in seen.iter().enumerate() {
+        if found[at].is_some() {
+            continue;
+        }
+        found[at] = numbered
+            .iter()
+            .find(|(number, screen)| {
+                !found.contains(&Some(*number))
+                    && screen
+                        .placement
+                        .is_some_and(|p| (p.x, p.y) == (monitor.x, monitor.y))
+            })
+            .map(|(number, _)| *number);
+    }
+    found
+}
+
+/// The small line on a screen being identified: `eDP-1 · 1920 × 1080`.
+pub fn identify_line(screen: &Screen) -> String {
+    match screen.current_mode {
+        Some(mode) => format!("{} · {}", screen.connector, mode_label(mode)),
+        None => screen.connector.clone(),
+    }
+}
+
+/// The line at the bottom of a screen being identified.
+pub fn countdown(seconds: u32) -> String {
+    format!("The numbers disappear in {seconds} s · Esc to close")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -451,6 +509,45 @@ mod tests {
         let gone = ScreenId::new("XXX", "gone", "");
         assert_eq!(selected(&state, Some(&gone)).map(|(n, _)| n), Some(2));
         assert_eq!(selected(&DisplayState::default(), None), None);
+    }
+
+    #[test]
+    fn monitors_are_matched_by_connector_then_place() {
+        let state = office();
+        let seen = [
+            SeenMonitor {
+                connector: Some("DP-1".to_owned()),
+                x: 9999,
+                y: 0,
+            },
+            SeenMonitor {
+                connector: None,
+                x: 0,
+                y: 0,
+            },
+            SeenMonitor {
+                connector: Some("HDMI-9".to_owned()),
+                x: 50,
+                y: 50,
+            },
+        ];
+        assert_eq!(match_monitors(&state, &seen), [Some(2), Some(1), None]);
+        // A screen found by its connector is not taken again by its place.
+        let twice = [
+            SeenMonitor {
+                connector: None,
+                x: 1536,
+                y: 0,
+            },
+            SeenMonitor {
+                connector: Some("DP-1".to_owned()),
+                x: 1536,
+                y: 0,
+            },
+        ];
+        assert_eq!(match_monitors(&state, &twice), [None, Some(2)]);
+        assert_eq!(identify_line(&state.screens[0]), "eDP-1 · 1920 × 1080");
+        assert_eq!(countdown(5), "The numbers disappear in 5 s · Esc to close");
     }
 
     #[test]
