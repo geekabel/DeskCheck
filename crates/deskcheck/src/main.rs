@@ -12,6 +12,7 @@ mod doctor;
 mod fixtures;
 mod rename;
 mod select;
+mod sound;
 
 /// See and fix your sound devices and screens.
 #[derive(Debug, Parser)]
@@ -46,6 +47,56 @@ enum Command {
         /// Apply the fixes DeskCheck can do, then check again.
         #[arg(long)]
         fix: bool,
+    },
+    /// Make an output or a microphone the default one.
+    ///
+    /// Apps follow the default, except those moved by hand with `move`.
+    Use {
+        /// `output` or `input`.
+        #[arg(value_enum)]
+        kind: sound::Kind,
+        /// Which one: `default`, the technical name, or a part of its name.
+        which: String,
+    },
+    /// Set the volume of an output or a microphone.
+    Volume {
+        /// `output` or `input`.
+        #[arg(value_enum)]
+        kind: sound::Kind,
+        /// Which one: `default`, the technical name, or a part of its name.
+        which: String,
+        /// The volume, from 0% to 150%, like 80 or 80%.
+        #[arg(value_parser = sound::parse_volume)]
+        volume: deskcheck_core::audio::Volume,
+    },
+    /// Turn the sound of an output or a microphone off.
+    Mute {
+        /// `output` or `input`.
+        #[arg(value_enum)]
+        kind: sound::Kind,
+        /// Which one: `default`, the technical name, or a part of its name.
+        which: String,
+    },
+    /// Turn the sound of an output or a microphone back on.
+    Unmute {
+        /// `output` or `input`.
+        #[arg(value_enum)]
+        kind: sound::Kind,
+        /// Which one: `default`, the technical name, or a part of its name.
+        which: String,
+    },
+    /// Move what an app plays or records to another device, without
+    /// stopping it.
+    ///
+    /// Example, for a call in Firefox: `deskcheck move recording firefox jabra`.
+    Move {
+        /// `playback` (to an output) or `recording` (from a microphone).
+        #[arg(value_enum)]
+        streams: sound::Streams,
+        /// The app: a part of its name, like `firefox`.
+        app: String,
+        /// The device: `default`, the technical name, or a part of its name.
+        which: String,
     },
     /// Give a name to a sound device or a screen, or remove it.
     ///
@@ -105,6 +156,20 @@ fn settings() -> Config {
             Config::default()
         }
     }
+}
+
+/// Plans a sound command with `plan`, sends its actions, and returns the
+/// sentence to print.
+fn run_sound(
+    plan: impl FnOnce(&Config, &deskcheck_core::audio::AudioState) -> Result<sound::Plan, select::Error>,
+) -> Result<String, String> {
+    let config = settings();
+    let state = deskcheck_pulse::read_state().map_err(|error| error.to_string())?;
+    let plan = plan(&config, &state).map_err(|error| error.to_string())?;
+    for action in &plan.actions {
+        deskcheck_pulse::apply(action).map_err(|error| error.to_string())?;
+    }
+    Ok(format!("{}\n", plan.done))
 }
 
 /// Exit code when problems are found.
@@ -196,6 +261,34 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        Command::Use { kind, which } => show(
+            run_sound(|config, state| sound::use_device(kind, config, state, &which)),
+            String::clone,
+        ),
+        Command::Volume {
+            kind,
+            which,
+            volume,
+        } => show(
+            run_sound(|config, state| sound::set_volume(kind, config, state, &which, volume)),
+            String::clone,
+        ),
+        Command::Mute { kind, which } => show(
+            run_sound(|config, state| sound::set_mute(kind, config, state, &which, true)),
+            String::clone,
+        ),
+        Command::Unmute { kind, which } => show(
+            run_sound(|config, state| sound::set_mute(kind, config, state, &which, false)),
+            String::clone,
+        ),
+        Command::Move {
+            streams,
+            app,
+            which,
+        } => show(
+            run_sound(|config, state| sound::move_app(streams, config, state, &app, &which)),
+            String::clone,
+        ),
         Command::Rename { what } => show(run_rename(what), String::clone),
     }
 }
@@ -232,6 +325,29 @@ mod tests {
         assert!(matches!(cli.command, Command::Doctor { fix: false }));
         let cli = Cli::try_parse_from(["deskcheck", "doctor", "--fix"]).unwrap();
         assert!(matches!(cli.command, Command::Doctor { fix: true }));
+    }
+
+    #[test]
+    fn sound_commands_are_parsed() {
+        let cli = Cli::try_parse_from(["deskcheck", "use", "input", "jabra"]).unwrap();
+        assert!(matches!(
+            cli.command,
+            Command::Use { kind: sound::Kind::Input, ref which } if which == "jabra"
+        ));
+        let cli = Cli::try_parse_from(["deskcheck", "volume", "output", "default", "80%"]).unwrap();
+        assert!(matches!(
+            cli.command,
+            Command::Volume { kind: sound::Kind::Output, volume, .. }
+                if volume == deskcheck_core::audio::Volume::from_percent(80)
+        ));
+        let cli =
+            Cli::try_parse_from(["deskcheck", "move", "recording", "firefox", "jabra"]).unwrap();
+        assert!(matches!(
+            cli.command,
+            Command::Move { streams: sound::Streams::Recording, ref app, .. } if app == "firefox"
+        ));
+        assert!(Cli::try_parse_from(["deskcheck", "mute", "speakers", "default"]).is_err());
+        assert!(Cli::try_parse_from(["deskcheck", "volume", "output", "default", "200"]).is_err());
     }
 
     #[test]

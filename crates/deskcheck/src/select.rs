@@ -146,6 +146,42 @@ fn pick<'a, T>(
     }
 }
 
+/// An application that has streams, with what names it.
+pub(crate) struct AppStreams<'a> {
+    /// Name of the app, for example `Firefox`.
+    pub name: &'a str,
+    /// Its program, for example `firefox`, when known.
+    pub binary: Option<&'a str>,
+    /// How many streams it has.
+    pub streams: usize,
+}
+
+/// Finds the one app named by `which`, by its name or its program. The
+/// `kind` is `playing app` or `recording app`, for the messages.
+pub(crate) fn find_app<'a>(
+    kind: &'static str,
+    which: &str,
+    apps: &'a [AppStreams<'a>],
+) -> Result<&'a AppStreams<'a>, Error> {
+    let candidates: Vec<_> = apps
+        .iter()
+        .map(|app| Candidate {
+            item: app,
+            shown: if app.streams > 1 {
+                format!("{} ({} streams)", app.name, app.streams)
+            } else {
+                app.name.to_owned()
+            },
+            keys: std::iter::once(app.name)
+                .chain(app.binary)
+                .map(str::to_owned)
+                .collect(),
+            number: String::new(),
+        })
+        .collect();
+    pick(kind, which, &candidates)
+}
+
 pub(crate) fn is_default(which: &str) -> bool {
     which.trim().eq_ignore_ascii_case("default")
 }
