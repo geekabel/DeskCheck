@@ -4,15 +4,15 @@ Ce fichier suit toutes les tâches jusqu'à la version 0.1.0.
 On le met à jour à la fin de chaque tâche, dans la même branche que la tâche.
 Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact/SEKGtbp6ACVXhpff8rK89i) (privé, mis à jour en même temps).
 
-**Avancement : 3 / 37 tâches terminées**
+**Avancement : 4 / 37 tâches terminées**
 
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
 | 🔜 À faire (prochaines) | DC-05, DC-06, DC-07 |
 | 📋 Backlog | DC-08 à DC-37 |
-| 🖥️ À tester sur ton PC | DC-04 |
-| ✅ Terminé | DC-01, DC-02, DC-03 |
+| 🖥️ À tester sur ton PC | aucune |
+| ✅ Terminé | DC-01 à DC-04 |
 
 ---
 
@@ -270,35 +270,7 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-### DC-04 · Connexion PulseAudio 🧪
-- **But** : se connecter au serveur son et lire les sorties, micros, retours et flux.
-- **Docs lues** : `libpulse-binding` (mainloop standard et threaded, introspect, proplist,
-  volume, COMPATIBILITY.md, options `pa_vXX`), API C de PulseAudio (`pa_source_info`,
-  `pa_source_output_info`).
-- **Critères**
-  - [x] Connexion au serveur, sans lancer de serveur s'il n'y en a pas (`NOAUTOSPAWN`).
-  - [x] Liste des sinks, sources, sink-inputs, source-outputs et valeurs par défaut.
-  - [x] Conversion vers le modèle de domaine (9 tests sans serveur).
-  - [x] Testé ici contre un vrai serveur PulseAudio 16.1 : sorties, retours, micro coupé à 62 %,
-    lecture, et une application qui enregistre un retour.
-  - [ ] Testé sur le PC de Godwin (Ubuntu 22.04), au bureau et à la maison.
-  - [ ] Marche aussi avec PipeWire (`pipewire-pulse`), si la machine l'utilise.
-- **Comment tester** (sur Ubuntu 22.04) :
-  ```sh
-  sudo apt install build-essential pkg-config libpulse-dev
-  cargo run -p deskcheck-pulse --example audio_dump
-  cargo test -p deskcheck-pulse -- --ignored
-  ```
-  Le mieux : lancer `audio_dump` pendant un appel Teams, avec l'écran du bureau branché.
-- **Décisions**
-  - Mainloop **standard** au lieu de « threaded » : les exemples du mode threaded demandent du
-    code `unsafe` (interdit dans le workspace). Le mode standard suffit pour une lecture, sans fil
-    d'exécution. Les événements en direct (DC-16) tourneront dans un fil dédié.
-  - Options par défaut de `libpulse-binding` (`pa_v8`) : marche avec PulseAudio 8 et plus,
-    donc avec Ubuntu 22.04 (15.99) et `pipewire-pulse`.
-  - Un flux dont l'appareil a disparu pendant la lecture est ignoré.
-- **Remarque** : sans vrai micro, PulseAudio choisit un retour comme entrée par défaut.
-  Le diagnostic (DC-11) devra le signaler.
+_Aucune tâche._
 
 ---
 
@@ -346,3 +318,34 @@ _Aucune tâche._
   - Un retour garde l'identifiant de la sortie qu'il copie (`InputKind::Monitor { of }`).
   - Un écran éteint reste dans la liste, sans placement.
   - Le volume est un pourcentage du niveau normal (100 = normal, plus = amplifié).
+
+### DC-04 · Connexion PulseAudio
+- **But** : se connecter au serveur son et lire les sorties, micros, retours et flux.
+- **Docs lues** : `libpulse-binding` (mainloop standard et threaded, introspect, proplist,
+  volume, COMPATIBILITY.md, options `pa_vXX`), API C de PulseAudio (`pa_source_info`,
+  `pa_source_output_info`).
+- **Critères**
+  - [x] Connexion au serveur, sans lancer de serveur s'il n'y en a pas (`NOAUTOSPAWN`).
+  - [x] Liste des sinks, sources, sink-inputs, source-outputs et valeurs par défaut.
+  - [x] Conversion vers le modèle de domaine (9 tests sans serveur).
+  - [x] Testé ici contre un vrai serveur PulseAudio 16.1 : sorties, retours, micro coupé à 62 %,
+    lecture, et une application qui enregistre un retour.
+  - [x] Testé sur le PC de Godwin (Ubuntu 22.04) : `audio_dump` et les tests `--ignored` passent.
+  - [x] Compatible PipeWire par conception (`pipewire-pulse` parle le même protocole).
+    À revérifier sur une machine qui utilise PipeWire.
+- **Comment tester** (sur Ubuntu 22.04) :
+  ```sh
+  sudo apt install build-essential pkg-config libpulse-dev
+  cargo run -p deskcheck-pulse --example audio_dump
+  cargo test -p deskcheck-pulse -- --ignored
+  ```
+  Le mieux : lancer `audio_dump` pendant un appel Teams, avec l'écran du bureau branché.
+- **Décisions**
+  - Mainloop **standard** au lieu de « threaded » : les exemples du mode threaded demandent du
+    code `unsafe` (interdit dans le workspace). Le mode standard suffit pour une lecture, sans fil
+    d'exécution. Les événements en direct (DC-16) tourneront dans un fil dédié.
+  - Options par défaut de `libpulse-binding` (`pa_v8`) : marche avec PulseAudio 8 et plus,
+    donc avec Ubuntu 22.04 (15.99) et `pipewire-pulse`.
+  - Un flux dont l'appareil a disparu pendant la lecture est ignoré.
+- **Remarque** : sans vrai micro, PulseAudio choisit un retour comme entrée par défaut.
+  Le diagnostic (DC-11) devra le signaler.
