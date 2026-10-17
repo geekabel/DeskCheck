@@ -27,6 +27,8 @@ through `pipewire-pulse`.
 ```sh
 cargo run -p deskcheck -- audio                       # who hears what, and problems
 cargo run -p deskcheck -- audio --verbose             # with every device
+cargo run -p deskcheck -- displays                    # which screen is which
+cargo run -p deskcheck -- displays --verbose          # with identity and position
 cargo run -p deskcheck-pulse --example audio_dump     # what the sound server reports
 cargo run -p deskcheck-mutter --example display_dump  # what GNOME reports about screens
 cargo test -p deskcheck-pulse -- --ignored            # tests that need a sound server
