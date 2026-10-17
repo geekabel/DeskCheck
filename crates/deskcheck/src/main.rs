@@ -8,7 +8,10 @@ use deskcheck_config::{Config, Store};
 mod audio_report;
 mod display_report;
 mod doctor;
+#[cfg(test)]
+mod fixtures;
 mod rename;
+mod select;
 
 /// See and fix your sound devices and screens.
 #[derive(Debug, Parser)]
