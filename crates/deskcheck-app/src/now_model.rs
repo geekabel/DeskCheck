@@ -2,7 +2,9 @@
 //! without a display.
 
 use deskcheck_config::{Color, Config};
-use deskcheck_core::audio::{App, AudioState, Connection, Form, Hardware};
+use deskcheck_core::audio::{
+    App, AudioState, Connection, Fix, Form, Hardware, Problem, StreamId, best_microphone, diagnose,
+};
 use deskcheck_core::display::DisplayState;
 
 use crate::screens_model::Layout;
@@ -170,6 +172,99 @@ pub fn app_rows(config: &Config, state: &AudioState) -> Vec<AppRow> {
             }
         })
         .collect()
+}
+
+/// The alert at the top of the Now page: an app listens to a monitor, so
+/// in a call the others hear a copy of an output, not the user.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Alert {
+    /// `In Firefox, they probably can't hear you`.
+    pub title: String,
+    /// What is wrong, and the microphone to use instead.
+    pub text: String,
+    /// The text of the button that switches the apps, and its fixes.
+    pub switch: Option<(String, Vec<Fix>)>,
+    /// The streams the alert is about, to ignore them.
+    pub streams: Vec<StreamId>,
+}
+
+/// Joins names in a sentence: `A`, `A and B`, `A, B and C`.
+fn and_list(names: &[String]) -> String {
+    match names {
+        [] => String::new(),
+        [one] => one.clone(),
+        [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
+    }
+}
+
+/// The alert, when an app listens to a monitor, leaving out the streams
+/// the user chose to ignore. `voice_heard` tells whether the microphone
+/// to switch to heard a voice a moment ago.
+pub fn alert(
+    config: &Config,
+    state: &AudioState,
+    ignored: &[StreamId],
+    voice_heard: bool,
+) -> Option<Alert> {
+    let mut apps: Vec<String> = Vec::new();
+    let mut listens: Vec<String> = Vec::new();
+    let mut fixes = Vec::new();
+    let mut streams = Vec::new();
+    for finding in diagnose(state) {
+        let Problem::RecordsMonitor {
+            stream,
+            app,
+            monitor,
+        } = &finding.problem
+        else {
+            continue;
+        };
+        if ignored.contains(stream) {
+            continue;
+        }
+        let monitor = state.input(monitor).map_or_else(
+            || monitor.to_string(),
+            |m| config.input_label(m).into_owned(),
+        );
+        let sentence = format!("{app} listens to \"{monitor}\"");
+        if !listens.contains(&sentence) {
+            listens.push(sentence);
+        }
+        if !apps.contains(app) {
+            apps.push(app.clone());
+        }
+        streams.push(*stream);
+        fixes.extend(finding.fix);
+    }
+    if streams.is_empty() {
+        return None;
+    }
+    let not_mic = if listens.len() == 1 {
+        "It is not a microphone."
+    } else {
+        "These are not microphones."
+    };
+    let mic = best_microphone(state).map(|mic| config.input_label(mic).into_owned());
+    let mic_part = match (&mic, voice_heard) {
+        (Some(mic), true) => format!(" Your microphone, \"{mic}\", hears your voice well."),
+        (Some(mic), false) => format!(" Your microphone is \"{mic}\"."),
+        (None, _) => " Plug in a headset or a microphone.".to_owned(),
+    };
+    let who = and_list(&apps);
+    let switch = mic.filter(|_| !fixes.is_empty()).map(|mic| {
+        let whom = if apps.len() == 1 {
+            who.clone()
+        } else {
+            "them".to_owned()
+        };
+        (format!("Switch {whom} to {mic}"), fixes)
+    });
+    Some(Alert {
+        title: format!("In {who}, they probably can't hear you"),
+        text: format!("{}. {not_mic}{mic_part}", and_list(&listens)),
+        switch,
+        streams,
+    })
 }
 
 /// A screen of the map, as in the design: the screens stand side by side
@@ -370,6 +465,48 @@ mod tests {
             ],
             ..AudioState::default()
         }
+    }
+
+    #[test]
+    fn the_alert_matches_the_design() {
+        let mut state = office_sound();
+        state.inputs.push(Input {
+            id: DeviceId::new("headset.mic"),
+            description: "Headset mic".to_owned(),
+            hardware: Hardware::default(),
+            kind: InputKind::Capture,
+            volume: Volume::NORMAL,
+            muted: false,
+        });
+        let alert = alert(&Config::default(), &state, &[], true).unwrap();
+        assert_eq!(alert.title, "In Firefox, they probably can't hear you");
+        assert_eq!(
+            alert.text,
+            "Firefox listens to \"Monitor of Dell\". It is not a microphone. \
+             Your microphone, \"Headset mic\", hears your voice well."
+        );
+        let (label, fixes) = alert.switch.unwrap();
+        assert_eq!(label, "Switch Firefox to Headset mic");
+        assert_eq!(fixes.len(), 1);
+        assert_eq!(alert.streams, [StreamId::new(4)]);
+        // Ignored, it goes away; the level meter of GNOME Settings never counts.
+        assert_eq!(
+            super::alert(&Config::default(), &state, &[StreamId::new(4)], true),
+            None
+        );
+        let quiet = super::alert(&Config::default(), &state, &[], false).unwrap();
+        assert!(quiet.text.ends_with("Your microphone is \"Headset mic\"."));
+    }
+
+    #[test]
+    fn without_a_microphone_the_alert_has_no_switch() {
+        let alert = alert(&Config::default(), &office_sound(), &[], false).unwrap();
+        assert_eq!(alert.switch, None);
+        assert!(alert.text.ends_with("Plug in a headset or a microphone."));
+        assert_eq!(
+            and_list(&["A".to_owned(), "B".to_owned(), "C".to_owned()]),
+            "A, B and C"
+        );
     }
 
     #[test]

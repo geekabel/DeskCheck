@@ -19,7 +19,7 @@ use crate::audio_model::AudioTab;
 use crate::audio_page::AudioPage;
 use crate::backend::{Backend, MeterScope, Request, Update};
 use crate::diag_page::{DiagPage, Go};
-use crate::now_page::NowPage;
+use crate::now_page::{NowLink, NowPage};
 use crate::screens_page::ScreensPage;
 use crate::sections::Section;
 use crate::status;
@@ -240,9 +240,10 @@ impl MainWindow {
         }
         {
             let this = this.clone();
-            this.now
-                .clone()
-                .connect_change(move |tab| this.show_audio(tab));
+            this.now.clone().connect_link(move |link| match link {
+                NowLink::Audio(tab) => this.show_audio(tab),
+                NowLink::Diagnostic => this.select(Section::Diagnostic),
+            });
         }
         {
             let this = this.clone();

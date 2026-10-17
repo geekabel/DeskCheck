@@ -11,12 +11,12 @@ use std::time::{Duration, Instant};
 
 use adw::prelude::*;
 use deskcheck_config::Config;
-use deskcheck_core::audio::level::LevelBar;
-use deskcheck_core::audio::{AudioState, DeviceId, Target, Volume};
+use deskcheck_core::audio::level::{LevelBar, to_db};
+use deskcheck_core::audio::{AudioState, DeviceId, StreamId, Target, Volume};
 use deskcheck_core::display::DisplayState;
 use gtk::glib;
 
-use crate::audio_model::AudioTab;
+use crate::audio_model::{AudioTab, VOICE_DB};
 use crate::backend::{Backend, Request, metered_sources};
 use crate::now_model::{self, AppTag};
 use crate::ui;
@@ -86,8 +86,80 @@ impl DeviceHeader {
     }
 }
 
-/// What a Change button calls.
-type ChangeHandler = Box<dyn Fn(AudioTab)>;
+/// Where a button of the page sends the user.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NowLink {
+    /// A tab of the Audio page, from a Change button.
+    Audio(AudioTab),
+    /// The Diagnostic page, from the alert.
+    Diagnostic,
+}
+
+/// What the links of the page call.
+type LinkHandler = Box<dyn Fn(NowLink)>;
+
+/// How long a voice counts as just heard, for the alert.
+const VOICE_FRESH: Duration = Duration::from_secs(10);
+
+/// The alert of the design: an app listens to a monitor (DC-23).
+struct AlertBanner {
+    root: gtk::Box,
+    title: gtk::Label,
+    text: gtk::Label,
+    switch: gtk::Button,
+    diagnostic: gtk::Button,
+    ignore: gtk::Button,
+}
+
+impl AlertBanner {
+    fn new() -> Self {
+        let root = gtk::Box::builder()
+            .orientation(gtk::Orientation::Horizontal)
+            .spacing(14)
+            .css_classes(["dc-alert"])
+            .visible(false)
+            .build();
+        let icon = ui::icon("dc-warning-symbolic", 24);
+        icon.set_valign(gtk::Align::Start);
+        icon.add_css_class("dc-warn-icon");
+        root.append(&icon);
+        let texts = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .spacing(4)
+            .hexpand(true)
+            .build();
+        let title = ui::label("", &["dc-alert-title"]);
+        let text = ui::label("", &["dc-alert-text"]);
+        texts.append(&title);
+        texts.append(&text);
+        let buttons = gtk::Box::builder()
+            .orientation(gtk::Orientation::Horizontal)
+            .spacing(8)
+            .margin_top(6)
+            .build();
+        let switch = gtk::Button::builder()
+            .css_classes(["dc-btn", "dc-warn"])
+            .build();
+        let diagnostic = ui::button("Run the diagnostic", None, ui::ButtonKind::Normal);
+        let ignore = ui::button("Ignore", None, ui::ButtonKind::Flat);
+        ignore.set_tooltip_text(Some(
+            "Hide this alert until another app listens to a monitor",
+        ));
+        buttons.append(&switch);
+        buttons.append(&diagnostic);
+        buttons.append(&ignore);
+        texts.append(&buttons);
+        root.append(&texts);
+        Self {
+            root,
+            title,
+            text,
+            switch,
+            diagnostic,
+            ignore,
+        }
+    }
+}
 
 /// What the page remembers between updates.
 #[derive(Default)]
@@ -99,6 +171,14 @@ struct Current {
     input_bar: LevelBar,
     last_volume_move: Option<Instant>,
     pending_volume: Option<glib::SourceId>,
+    /// When the microphone last heard a voice.
+    heard_at: Option<Instant>,
+    /// The streams whose alert the user ignored.
+    ignored: Vec<StreamId>,
+    /// What the alert is about now.
+    alert: Option<now_model::Alert>,
+    /// The last state, to show the alert again when a voice is heard.
+    last: Option<(Config, AudioState)>,
 }
 
 /// The Now page.
@@ -116,8 +196,9 @@ pub struct NowPage {
     input_hint: gtk::Label,
     test_input: gtk::Button,
     input_change: gtk::Button,
-    /// Called by the Change buttons, to show the Audio page.
-    on_change: RefCell<Option<ChangeHandler>>,
+    /// Called by the Change buttons and the alert, to show another page.
+    on_link: RefCell<Option<LinkHandler>>,
+    alert: AlertBanner,
     apps: gtk::Box,
     map: gtk::Box,
     screens_line: gtk::Label,
@@ -147,6 +228,8 @@ impl NowPage {
             "Where the sound goes, which microphone hears you, and which screen you are on.",
         );
         content.append(&title);
+        let alert = AlertBanner::new();
+        content.append(&alert.root);
 
         // The sound card.
         let output_card = ui::card();
@@ -273,7 +356,8 @@ impl NowPage {
             input_hint,
             test_input,
             input_change,
-            on_change: RefCell::default(),
+            on_link: RefCell::default(),
+            alert,
             apps,
             map,
             screens_line,
@@ -286,10 +370,15 @@ impl NowPage {
         page
     }
 
-    /// Calls `handler` when a Change button is pressed, with the tab of
-    /// the Audio page to show.
-    pub fn connect_change(&self, handler: impl Fn(AudioTab) + 'static) {
-        *self.on_change.borrow_mut() = Some(Box::new(handler));
+    /// Calls `handler` when a button sends the user to another page.
+    pub fn connect_link(&self, handler: impl Fn(NowLink) + 'static) {
+        *self.on_link.borrow_mut() = Some(Box::new(handler));
+    }
+
+    fn link(&self, to: NowLink) {
+        if let Some(handler) = self.on_link.borrow().as_ref() {
+            handler(to);
+        }
     }
 
     /// Connects the buttons and the slider to the backend.
@@ -299,12 +388,34 @@ impl NowPage {
             (&self.input_change, AudioTab::Microphones),
         ] {
             let page = Rc::clone(self);
-            button.connect_clicked(move |_| {
-                if let Some(handler) = page.on_change.borrow().as_ref() {
-                    handler(tab);
-                }
-            });
+            button.connect_clicked(move |_| page.link(NowLink::Audio(tab)));
         }
+        let page = Rc::clone(self);
+        self.alert.switch.connect_clicked(move |_| {
+            let fixes = page
+                .current
+                .borrow()
+                .alert
+                .as_ref()
+                .and_then(|alert| alert.switch.as_ref())
+                .map(|(_, fixes)| fixes.clone())
+                .unwrap_or_default();
+            for fix in fixes {
+                page.backend.request(Request::Fix(fix));
+            }
+        });
+        let page = Rc::clone(self);
+        self.alert
+            .diagnostic
+            .connect_clicked(move |_| page.link(NowLink::Diagnostic));
+        let page = Rc::clone(self);
+        self.alert.ignore.connect_clicked(move |_| {
+            let mut current = page.current.borrow_mut();
+            if let Some(alert) = current.alert.take() {
+                current.ignored.extend(alert.streams);
+            }
+            page.alert.root.set_visible(false);
+        });
         let page = Rc::clone(self);
         self.test_output.connect_clicked(move |_| {
             if let Some(output) = page.current.borrow().output.clone() {
@@ -364,6 +475,8 @@ impl NowPage {
         self.show_output(config, state, waiting);
         self.show_input(config, state, waiting);
         self.show_apps(config, state);
+        self.current.borrow_mut().last = state.map(|state| (config.clone(), state.clone()));
+        self.show_alert();
         let mut current = self.current.borrow_mut();
         let sources = state.map(metered_sources).unwrap_or_default();
         current.output_monitor = sources
@@ -519,12 +632,55 @@ impl NowPage {
         self.screens_line.set_label(&now_model::screens_line(state));
     }
 
+    /// Shows the alert, or hides it, from the last state.
+    fn show_alert(&self) {
+        let mut current = self.current.borrow_mut();
+        let voice_heard = current
+            .heard_at
+            .is_some_and(|at| at.elapsed() < VOICE_FRESH);
+        let alert = current.last.as_ref().and_then(|(config, state)| {
+            now_model::alert(config, state, &current.ignored, voice_heard)
+        });
+        // Streams that are gone cannot come back: forget them.
+        if let Some((_, state)) = &current.last {
+            let alive: Vec<StreamId> = state.recordings.iter().map(|r| r.id).collect();
+            current.ignored.retain(|id| alive.contains(id));
+        }
+        match &alert {
+            Some(alert) => {
+                self.alert.title.set_label(&alert.title);
+                self.alert.text.set_label(&alert.text);
+                match &alert.switch {
+                    Some((label, _)) => {
+                        self.alert.switch.set_label(label);
+                        self.alert.switch.set_visible(true);
+                    }
+                    None => self.alert.switch.set_visible(false),
+                }
+                self.alert.root.set_visible(true);
+            }
+            None => self.alert.root.set_visible(false),
+        }
+        current.alert = alert;
+    }
+
     /// Moves a level meter.
     pub fn peak(&self, source: &DeviceId, peak: f32) {
         let mut current = self.current.borrow_mut();
         if current.input.as_ref() == Some(source) {
             let fraction = current.input_bar.update(peak);
             self.input_meter.set_fraction(fraction);
+            if to_db(peak) > VOICE_DB {
+                let fresh = current
+                    .heard_at
+                    .is_some_and(|at| at.elapsed() < VOICE_FRESH);
+                current.heard_at = Some(Instant::now());
+                // The alert says the microphone hears the voice.
+                if !fresh && current.alert.is_some() {
+                    drop(current);
+                    self.show_alert();
+                }
+            }
         } else if current.output_monitor.as_ref() == Some(source) {
             let fraction = current.output_bar.update(peak);
             self.output_meter.set_fraction(fraction);

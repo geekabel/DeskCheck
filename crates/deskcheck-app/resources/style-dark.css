@@ -42,4 +42,7 @@
 @define-color dc_problem_bg #4a3016;
 @define-color dc_problem_fg #f2b37a;
 @define-color dc_warn_title #f5c08e;
+@define-color dc_alert_bg #33261a;
+@define-color dc_alert_border #6b4a26;
+@define-color dc_alert_text #ead8c6;
 @define-color dc_dots #3a3a40;
