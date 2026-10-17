@@ -40,8 +40,8 @@ pub enum Problem {
     },
     /// No microphone is plugged in.
     NoMicrophone,
-    /// A microphone in use (the default one, or one an app records) is
-    /// muted.
+    /// A microphone in use (the default one, one an app records, or the one
+    /// the other fixes switch to) is muted.
     MicrophoneMuted {
         /// The microphone.
         input: DeviceId,
@@ -181,7 +181,8 @@ fn push_once<'a>(ids: &mut Vec<&'a DeviceId>, id: &'a DeviceId) {
     }
 }
 
-/// Microphones in use: the default input, then those apps record from.
+/// Microphones in use: the default input, those apps record from, and
+/// the best microphone, which the other fixes switch to.
 fn microphones_in_use(state: &AudioState) -> Vec<&Input> {
     let mut ids = Vec::new();
     if let Some(id) = &state.default_input {
@@ -189,6 +190,9 @@ fn microphones_in_use(state: &AudioState) -> Vec<&Input> {
     }
     for recording in &state.recordings {
         push_once(&mut ids, &recording.input);
+    }
+    if let Some(mic) = best_microphone(state) {
+        push_once(&mut ids, &mic.id);
     }
     ids.into_iter()
         .filter_map(|id| state.input(id))
@@ -508,6 +512,26 @@ mod tests {
         webcam.muted = true;
         state.inputs.push(webcam);
         assert_eq!(diagnose(&state), []);
+    }
+
+    #[test]
+    fn the_microphone_a_fix_switches_to_is_checked_too() {
+        // Seen on a test server: the default input is the monitor, and the
+        // only microphone is at 0. One pass must find both.
+        let mut state = home();
+        state.default_input = Some(DeviceId::new(SPEAKERS_MONITOR));
+        state.inputs[1].volume = Volume::from_percent(0);
+        assert_eq!(
+            problems(&state),
+            [
+                Problem::DefaultInputIsMonitor {
+                    monitor: DeviceId::new(SPEAKERS_MONITOR),
+                },
+                Problem::MicrophoneSilent {
+                    input: DeviceId::new(LAPTOP_MIC),
+                },
+            ]
+        );
     }
 
     #[test]
