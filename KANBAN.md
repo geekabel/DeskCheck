@@ -4,15 +4,15 @@ Ce fichier suit toutes les tâches jusqu'à la version 0.1.0.
 On le met à jour à la fin de chaque tâche, dans la même branche que la tâche.
 Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact/SEKGtbp6ACVXhpff8rK89i) (privé, mis à jour en même temps).
 
-**Avancement : 2 / 37 tâches terminées**
+**Avancement : 3 / 37 tâches terminées**
 
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-03, DC-04, DC-05 |
-| 📋 Backlog | DC-06 à DC-37 |
+| 🔜 À faire (prochaines) | DC-04, DC-05, DC-06 |
+| 📋 Backlog | DC-07 à DC-37 |
 | 🖥️ À tester sur ton PC | aucune |
-| ✅ Terminé | DC-01, DC-02 |
+| ✅ Terminé | DC-01, DC-02, DC-03 |
 
 ---
 
@@ -67,15 +67,6 @@ _Aucune tâche._
 
 ## 🔜 À faire (prochaines)
 
-### DC-03 · Modèle de domaine
-- **But** : décrire en Rust pur les appareils son, les flux des applications et les écrans.
-  Aucune dépendance système, tout est testable.
-- **Docs** : The Rust Book (structs, enums, traits), API Guidelines.
-- **Critères**
-  - [ ] Types : sortie, micro, « retour » (monitor), flux de lecture, flux d'enregistrement, écran.
-  - [ ] Identifiant stable pour chaque appareil (nom PulseAudio, triple EDID fabricant/modèle/série).
-  - [ ] Tests unitaires.
-
 ### DC-04 · Connexion PulseAudio 🧪
 - **But** : se connecter au serveur son et lire les sorties, micros, retours et flux.
 - **Docs** : `libpulse-binding` (context, mainloop threaded, introspect), doc PulseAudio.
@@ -93,18 +84,16 @@ _Aucune tâche._
   - [ ] Type d'appareil et icône déduits des propriétés.
   - [ ] Tests avec des données enregistrées.
 
----
-
-## 📋 Backlog
-
-### Phase 1 · Lire l'état du son
-
-#### DC-06 · Commande `deskcheck audio`
+### DC-06 · Commande `deskcheck audio`
 - **But** : premier outil utile, en terminal : qui écoute quoi.
 - **Docs** : `clap` (derive).
 - **Critères**
   - [ ] Affiche sortie et micro par défaut, et les applications avec leur appareil.
   - [ ] Signale une application qui écoute un retour.
+
+---
+
+## 📋 Backlog
 
 ### Phase 2 · Lire l'état des écrans
 
@@ -321,3 +310,20 @@ _Aucune tâche._
   - [x] Fichier `LICENSE` (texte SPDX, « Copyright (c) 2026 Godwin »).
   - [x] `license = "MIT"` dans le workspace, hérité par les deux caisses.
   - [x] Mention de la licence dans le README.
+
+### DC-03 · Modèle de domaine
+- **But** : décrire en Rust pur les appareils son, les flux des applications et les écrans.
+  Aucune dépendance système, tout est testable.
+- **Docs lues** : The Rust Book (newtype), Rust API Guidelines (checklist, C-COMMON-TRAITS),
+  API PulseAudio (`pa_source_info`, `pa_source_output_info`, propriétés), interface
+  D-Bus `org.gnome.Mutter.DisplayConfig` (`GetCurrentState`).
+- **Critères**
+  - [x] Types : `Output` (sortie), `Input` avec `InputKind::Capture` (micro) ou
+    `InputKind::Monitor` (retour), `Playback`, `Recording`, `Screen` ; états `AudioState` et `DisplayState`.
+  - [x] Identifiants stables : `DeviceId` (nom PulseAudio), `ScreenId` (fabricant, modèle, série).
+  - [x] Tests unitaires (17) et exemples de documentation (5).
+- **Décisions**
+  - Le connecteur (`DP-1`) ne fait pas partie de l'identité d'un écran : il change avec le port.
+  - Un retour garde l'identifiant de la sortie qu'il copie (`InputKind::Monitor { of }`).
+  - Un écran éteint reste dans la liste, sans placement.
+  - Le volume est un pourcentage du niveau normal (100 = normal, plus = amplifié).
