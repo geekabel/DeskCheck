@@ -13,13 +13,18 @@
 //! Each device also has a [`Hardware`]: what it is (headset, webcam,
 //! screen...) and how it is connected, found by [`classify`].
 //!
+//! [`diagnose`] finds the common problems, like an app that records a
+//! monitor, and gives a [`Fix`] for each.
+//!
 //! These types only hold data. The `deskcheck-pulse` crate reads them from
 //! the sound server.
 
 use std::fmt;
 
+mod diagnose;
 mod hardware;
 
+pub use diagnose::{Finding, Fix, Problem, Target, best_microphone, diagnose};
 pub use hardware::{Clues, Connection, Direction, Form, Hardware, classify};
 
 /// Stable identifier of a sound device: the device name given by the sound
