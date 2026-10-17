@@ -4,15 +4,15 @@ Ce fichier suit toutes les tâches jusqu'à la version 0.1.0.
 On le met à jour à la fin de chaque tâche, dans la même branche que la tâche.
 Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact/SEKGtbp6ACVXhpff8rK89i) (privé, mis à jour en même temps).
 
-**Avancement : 5 / 37 tâches terminées**
+**Avancement : 6 / 37 tâches terminées**
 
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
 | 🔜 À faire (prochaines) | DC-07, DC-08, DC-09 |
 | 📋 Backlog | DC-10 à DC-37 |
-| 🖥️ À tester sur ton PC | DC-06 |
-| ✅ Terminé | DC-01 à DC-05 |
+| 🖥️ À tester sur ton PC | aucune |
+| ✅ Terminé | DC-01 à DC-06 |
 
 ---
 
@@ -254,29 +254,7 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-### DC-06 · Commande `deskcheck audio`
-- **But** : premier outil utile, en terminal : qui écoute quoi.
-- **Docs lues** : `clap` 4.6 (tutoriel derive : `Parser`, `Subcommand`, `version`, options,
-  test avec `Command::debug_assert` et `try_parse_from`).
-- **Critères**
-  - [x] Affiche la sortie et le micro par défaut, et les applications avec leur appareil
-    (regroupées : « Firefox (3 streams) »).
-  - [x] Signale une application qui écoute un retour, avec la correction proposée.
-  - [x] Signale aussi un retour choisi comme entrée par défaut.
-  - [x] `--verbose` : tous les appareils avec leur nom technique.
-  - [x] Tests du rapport avec les données relevées sur le PC de Godwin (maison), et du cas
-    Teams du bureau sur un vrai serveur PulseAudio de test.
-  - [ ] Lancé sur le PC de Godwin.
-- **Comment tester** :
-  ```sh
-  cargo run -p deskcheck -- audio
-  cargo run -p deskcheck -- audio --verbose
-  ```
-- **Décisions**
-  - Le rapport est une fonction pure (`render`), testée sans serveur son.
-  - Deux premières règles dans le cœur (`recordings_from_monitors`, `default_input_monitor`),
-    reprises par le moteur de diagnostic (DC-11).
-  - Code de sortie : 0 si le serveur son répond, 1 sinon.
+_Aucune tâche._
 
 ---
 
@@ -374,3 +352,22 @@ _Aucune tâche._
   - Ordre des règles : HDMI ou DisplayPort d'abord, puis `device.form_factor`, puis le port actif.
   - Les haut-parleurs et le micro intégrés prennent l'icône « computer », comme sur la maquette.
   - Les icônes sont des noms freedesktop du thème Adwaita ; GTK ajoutera `-symbolic`.
+
+### DC-06 · Commande `deskcheck audio`
+- **But** : premier outil utile, en terminal : qui écoute quoi.
+- **Docs lues** : `clap` 4.6 (tutoriel derive : `Parser`, `Subcommand`, `version`, options,
+  test avec `Command::debug_assert` et `try_parse_from`).
+- **Critères**
+  - [x] Affiche la sortie et le micro par défaut, et les applications avec leur appareil
+    (regroupées : « Firefox (3 streams) »).
+  - [x] Signale une application qui écoute un retour, avec la correction proposée.
+  - [x] Signale aussi un retour choisi comme entrée par défaut.
+  - [x] `--verbose` : tous les appareils avec leur nom technique.
+  - [x] Tests du rapport avec les données relevées sur le PC de Godwin (maison), et du cas
+    Teams du bureau sur un vrai serveur PulseAudio de test.
+  - [x] Lancé sur le PC de Godwin (17 oct. 2026) : sortie identique au rapport attendu par les tests.
+- **Décisions**
+  - Le rapport est une fonction pure (`render`), testée sans serveur son.
+  - Deux premières règles dans le cœur (`recordings_from_monitors`, `default_input_monitor`),
+    reprises par le moteur de diagnostic (DC-11).
+  - Code de sortie : 0 si le serveur son répond, 1 sinon.
