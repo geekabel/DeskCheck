@@ -1,7 +1,8 @@
 //! Sound backend of DeskCheck.
 //!
 //! It reads the state of the sound server through the PulseAudio client
-//! library, and changes it with [`apply`]. This works with PulseAudio and with PipeWire, whose
+//! library, and changes it with [`apply`]. [`Meters`] shows the live level
+//! of microphones. This works with PulseAudio and with PipeWire, whose
 //! `pipewire-pulse` service speaks the same protocol.
 //!
 //! ```no_run
@@ -15,11 +16,13 @@
 mod actions;
 mod client;
 mod convert;
+mod meter;
 mod raw;
 
 pub use actions::{Action, apply};
 pub use client::Error;
 use deskcheck_core::audio::AudioState;
+pub use meter::{Event, Meters, UPDATES_PER_SECOND};
 
 /// Connects to the sound server and reads the outputs, inputs, defaults and
 /// application streams.
