@@ -230,6 +230,28 @@ pub(crate) fn connect() -> Result<Connection, Error> {
     Ok(Connection { context, mainloop })
 }
 
+/// Connects to the sound server and reads its name, for example
+/// `pulseaudio` or `PulseAudio (on PipeWire 0.3.48)`.
+pub(crate) fn read_server_name() -> Result<String, Error> {
+    let Connection {
+        mut context,
+        mut mainloop,
+    } = connect()?;
+    let name: Rc<RefCell<Option<String>>> = Rc::new(RefCell::new(None));
+    let operation = {
+        let name = Rc::clone(&name);
+        context.introspect().get_server_info(move |info| {
+            *name.borrow_mut() = info.server_name.as_deref().map(str::to_owned);
+        })
+    };
+    run_until(&mut mainloop, &context, || {
+        operation.get_state() != OperationState::Running
+    })?;
+    context.disconnect();
+    let name = name.borrow().clone();
+    name.ok_or(Error::ListFailed("server name"))
+}
+
 /// Connects to the sound server and reads everything once.
 pub(crate) fn read_snapshot() -> Result<Snapshot, Error> {
     let Connection {
