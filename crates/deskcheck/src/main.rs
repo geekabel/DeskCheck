@@ -32,6 +32,7 @@ mod rename;
 mod select;
 mod sound;
 mod sound_check;
+mod watch;
 
 /// See and fix your sound devices and screens.
 #[derive(Debug, Parser)]
@@ -67,6 +68,9 @@ enum Command {
         #[arg(long)]
         fix: bool,
     },
+    /// Print each change of the sound and the screens, live: plug in a
+    /// headset or a screen to see it. Press Ctrl+C to stop.
+    Watch,
     /// Show a live level bar for each microphone: speak, and the bar of
     /// the one that hears you moves. Press Ctrl+C to stop.
     Levels {
@@ -209,6 +213,74 @@ fn run_sound(
         deskcheck_pulse::apply(action).map_err(|error| error.to_string())?;
     }
     Ok(format!("{}\n", plan.done))
+}
+
+/// Runs `deskcheck watch`: one channel for the changes of both sources.
+fn run_watch() -> Result<String, String> {
+    use std::sync::mpsc::RecvTimeoutError;
+    use std::time::Instant;
+
+    use deskcheck_core::events::{Change, coalesce};
+
+    let (changes, received) = std::sync::mpsc::channel();
+    let _sound =
+        deskcheck_pulse::SoundWatcher::start(changes.clone()).map_err(|error| error.to_string())?;
+    let screens = deskcheck_mutter::ScreenWatcher::start(changes);
+    match &screens {
+        Ok(_) => sayln!("Watching the sound and the screens. Press Ctrl+C to stop."),
+        Err(error) => {
+            sayln!("Watching the sound. Press Ctrl+C to stop.");
+            sayln!("The screens are not watched: {error}");
+        }
+    }
+    let start = Instant::now();
+    let mut last = watch::LastLines::default();
+    loop {
+        let first = received
+            .recv()
+            .map_err(|_| "both watches stopped".to_owned())?;
+        // Gathers the burst that usually follows the first change.
+        let mut burst = vec![first];
+        let end = Instant::now() + watch::BURST;
+        while let Some(wait) = end.checked_duration_since(Instant::now()) {
+            match received.recv_timeout(wait) {
+                Ok(change) => burst.push(change),
+                Err(RecvTimeoutError::Timeout | RecvTimeoutError::Disconnected) => break,
+            }
+        }
+        let burst = coalesce(burst);
+        let config = settings();
+        let time = watch::elapsed(start.elapsed());
+        if burst.iter().any(Change::is_sound) {
+            match deskcheck_pulse::read_state() {
+                Ok(state) => {
+                    for change in burst.iter().filter(|c| c.is_sound()) {
+                        let line = watch::sound_line(change, &config, &state);
+                        if last.is_new(change, &line) {
+                            sayln!("  {time}  {line}");
+                        }
+                    }
+                }
+                Err(error) => sayln!("  {time}  Cannot read the sound: {error}"),
+            }
+        }
+        if burst.contains(&Change::Screens) {
+            match deskcheck_mutter::read_state() {
+                Ok(state) => {
+                    let line = watch::screens_line(&config, &state);
+                    if last.is_new(&Change::Screens, &line) {
+                        sayln!("  {time}  {line}");
+                    }
+                }
+                Err(error) => sayln!("  {time}  Cannot read the screens: {error}"),
+            }
+        }
+        for change in &burst {
+            if let Change::Lost { source, reason } = change {
+                sayln!("  {time}  {}", watch::lost_line(source, reason));
+            }
+        }
+    }
 }
 
 /// Runs `deskcheck levels`.
@@ -459,6 +531,7 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        Command::Watch => show(run_watch(), String::clone),
         Command::Levels { seconds } => show(run_levels(seconds), String::clone),
         Command::Test {
             kind,
