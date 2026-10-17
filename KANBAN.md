@@ -9,9 +9,9 @@ Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-07, DC-08, DC-09 |
-| 📋 Backlog | DC-10 à DC-37 |
-| 🖥️ À tester sur ton PC | aucune |
+| 🔜 À faire (prochaines) | DC-08, DC-09, DC-10 |
+| 📋 Backlog | DC-11 à DC-37 |
+| 🖥️ À tester sur ton PC | DC-07 |
 | ✅ Terminé | DC-01 à DC-06 |
 
 ---
@@ -67,13 +67,6 @@ _Aucune tâche._
 
 ## 🔜 À faire (prochaines)
 
-### DC-07 · Lecture des écrans via Mutter 🧪
-- **But** : lire les écrans avec `org.gnome.Mutter.DisplayConfig.GetCurrentState`.
-- **Docs** : `zbus` (proxy, blocking), XML de l'interface DisplayConfig dans le dépôt Mutter.
-- **Critères**
-  - [ ] Connecteur, fabricant, modèle, série, modes, écran intégré, écran principal, disposition.
-  - [ ] Message clair si la session n'est pas GNOME.
-
 ### DC-08 · Commande `deskcheck displays`
 - **Critères**
   - [ ] Liste les écrans avec numéro, nom, résolution, échelle, principal.
@@ -86,16 +79,14 @@ _Aucune tâche._
   - [ ] Écriture sûre (fichier temporaire puis renommage).
   - [ ] Version du format pour les migrations futures.
 
----
-
-## 📋 Backlog
-
-### Phase 3 · Noms et configuration
-
-#### DC-10 · Renommer un appareil
+### DC-10 · Renommer un appareil
 - **Critères**
   - [ ] Commandes CLI pour nommer un appareil son ou un écran.
   - [ ] Le nom donné s'affiche partout, le nom technique reste disponible.
+
+---
+
+## 📋 Backlog
 
 ### Phase 4 · Diagnostic
 
@@ -254,7 +245,30 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-_Aucune tâche._
+### DC-07 · Lecture des écrans via Mutter 🧪
+- **But** : lire les écrans avec `org.gnome.Mutter.DisplayConfig.GetCurrentState`.
+- **Docs lues** : `zbus` 5.13 (API bloquante, macro `proxy`, macro `interface` et `out_args`,
+  connexions pair à pair, `method_timeout`, types d'erreur), `zvariant` (`OwnedValue`),
+  XML de l'interface DisplayConfig de Mutter (signature de `GetCurrentState`).
+- **Critères**
+  - [x] Connecteur, fabricant, modèle, série, mode actuel, écran intégré, nom affiché,
+    position, échelle, écran principal (nouvelle caisse `deskcheck-mutter`).
+  - [x] Message clair si la session n'est pas GNOME, testé ici sur un vrai bus de session.
+  - [x] Appel arrêté après 5 secondes si GNOME ne répond pas.
+  - [x] Tests sans GNOME : 12 tests unitaires et 3 tests de bout en bout avec un faux Mutter
+    (connexion D-Bus pair à pair, comme le test `iface_and_proxy_unix_p2p` de zbus).
+  - [ ] Testé sur le PC de Godwin (session GNOME, Ubuntu 22.04), au bureau et à la maison.
+- **Comment tester** :
+  ```sh
+  cargo run -p deskcheck-mutter --example display_dump
+  cargo test -p deskcheck-mutter -- --ignored
+  ```
+  Le mieux : au bureau avec l'écran externe branché, puis à la maison.
+- **Décisions**
+  - zbus 5.13 (et pas 6) : choisi par le résolveur de Cargo, car compatible avec Rust 1.85.
+  - API bloquante de zbus : une lecture ponctuelle n'a pas besoin d'async.
+  - Un écran qu'aucun « logical monitor » ne liste est branché mais éteint.
+  - Les écrans en miroir partagent la même position.
 
 ---
 
