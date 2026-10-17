@@ -7,7 +7,9 @@
 use std::fmt::Write as _;
 
 use deskcheck_config::Config;
-use deskcheck_core::audio::{AudioState, DeviceId, Input, Output, Volume};
+use deskcheck_core::audio::{
+    AudioState, DeviceId, Finding, Fix, Input, Output, Problem, Target, Volume, diagnose,
+};
 
 /// Options of the report.
 #[derive(Debug, Clone, Copy, Default)]
@@ -115,49 +117,99 @@ fn technical(config: &Config, id: &DeviceId, description: &str) -> String {
     }
 }
 
-/// The problems this report can see, one line each, with a fix when there is one.
-fn problems(config: &Config, state: &AudioState) -> Vec<String> {
-    let best_microphone = state
-        .default_input_device()
-        .filter(|input| !input.is_monitor())
-        .or_else(|| state.microphones().next());
+/// Name to show for a device a finding names, or its technical name when
+/// it is gone.
+fn device_name(config: &Config, state: &AudioState, id: &DeviceId) -> String {
+    if let Some(output) = state.output(id) {
+        return config.output_label(output).to_owned();
+    }
+    state.input(id).map_or_else(
+        || id.to_string(),
+        |input| config.input_label(input).into_owned(),
+    )
+}
 
-    let mut problems = Vec::new();
-    for (recording, monitor) in state.recordings_from_monitors() {
-        let mut line = format!(
-            "{} records \"{}\". This is a copy of an output, not a microphone: \
+fn target_name(config: &Config, state: &AudioState, target: &Target) -> String {
+    match target {
+        Target::Output(id) | Target::Input(id) => device_name(config, state, id),
+    }
+}
+
+/// The problem, in one sentence.
+fn problem_text(config: &Config, state: &AudioState, problem: &Problem) -> String {
+    let name = |id: &DeviceId| device_name(config, state, id);
+    match problem {
+        Problem::RecordsMonitor { app, monitor, .. } => format!(
+            "{app} records \"{}\". This is a copy of an output, not a microphone: \
              in a call, nobody hears you.",
-            recording.app.name,
-            config.input_label(monitor)
-        );
-        if let Some(mic) = best_microphone {
-            let _ = write!(
-                line,
-                "\n    Fix: move {} to \"{}\".",
-                recording.app.name,
-                config.input_label(mic)
-            );
-        }
-        problems.push(line);
-    }
-    if let Some(monitor) = state.default_input_monitor() {
-        let mut line = format!(
+            name(monitor)
+        ),
+        Problem::DefaultInputIsMonitor { monitor } => format!(
             "The default input is \"{}\", a copy of an output, not a microphone.",
-            config.input_label(monitor)
-        );
-        match best_microphone {
-            Some(mic) => {
-                let _ = write!(
-                    line,
-                    "\n    Fix: make \"{}\" the default input.",
-                    config.input_label(mic)
-                );
-            }
-            None => line.push_str("\n    No microphone is plugged in."),
+            name(monitor)
+        ),
+        Problem::NoMicrophone => "No microphone is plugged in.".to_owned(),
+        Problem::MicrophoneMuted { input } => {
+            format!(
+                "The microphone \"{}\" is muted: nobody hears you.",
+                name(input)
+            )
         }
-        problems.push(line);
+        Problem::MicrophoneSilent { input } => {
+            format!(
+                "The microphone \"{}\" is at 0%: nobody hears you.",
+                name(input)
+            )
+        }
+        Problem::OutputMuted { output } => {
+            format!(
+                "The output \"{}\" is muted: you hear nothing.",
+                name(output)
+            )
+        }
+        Problem::OutputSilent { output } => {
+            format!(
+                "The output \"{}\" is at 0%: you hear nothing.",
+                name(output)
+            )
+        }
     }
-    problems
+}
+
+/// The fix, as an instruction.
+fn fix_text(config: &Config, state: &AudioState, fix: &Fix) -> String {
+    match fix {
+        Fix::MoveRecording { stream, to } => {
+            let app = state
+                .recordings
+                .iter()
+                .find(|recording| recording.id == *stream)
+                .map_or_else(|| format!("stream {stream}"), |r| r.app.name.clone());
+            format!("move {app} to \"{}\".", device_name(config, state, to))
+        }
+        Fix::SetDefaultInput(id) => format!(
+            "make \"{}\" the default input.",
+            device_name(config, state, id)
+        ),
+        Fix::Unmute(target) => format!(
+            "turn the sound of \"{}\" back on.",
+            target_name(config, state, target)
+        ),
+        Fix::SetVolume(target, volume) => format!(
+            "set \"{}\" to {volume}.",
+            target_name(config, state, target)
+        ),
+        Fix::PlugInMicrophone => "plug in a headset or a microphone.".to_owned(),
+    }
+}
+
+/// A finding as text: the problem, then the fix on its own line.
+pub fn describe(config: &Config, state: &AudioState, finding: &Finding) -> String {
+    let mut text = problem_text(config, state, &finding.problem);
+    if let Some(fix) = &finding.fix {
+        let _ = write!(text, "\n    Fix: {}", fix_text(config, state, fix));
+    }
+    text
 }
 
 /// Builds the report shown by `deskcheck audio`.
@@ -214,13 +266,13 @@ pub fn render(state: &AudioState, config: &Config, options: Options) -> String {
         }
     }
 
-    let problems = problems(config, state);
-    if problems.is_empty() {
+    let findings = diagnose(state);
+    if findings.is_empty() {
         let _ = writeln!(out, "\nNo problem found.");
     } else {
         let _ = writeln!(out, "\nProblems");
-        for problem in problems {
-            let _ = writeln!(out, "  ! {problem}");
+        for finding in &findings {
+            let _ = writeln!(out, "  ! {}", describe(config, state, finding));
         }
     }
     out
@@ -368,7 +420,9 @@ No problem found.
         state.inputs.retain(Input::is_monitor);
         state.default_input = Some(DeviceId::new(MONITOR));
         let report = render(&state, &Config::default(), Options::default());
-        assert!(report.contains("    No microphone is plugged in."));
+        assert!(report.ends_with(
+            "  ! No microphone is plugged in.\n    Fix: plug in a headset or a microphone.\n"
+        ));
     }
 
     #[test]
@@ -388,7 +442,7 @@ No problem found.
             Options::default(),
         );
         assert!(report.starts_with("You hear through    none\nThey hear you via   none\n"));
-        assert!(report.ends_with("No problem found.\n"));
+        assert!(report.ends_with("Problems\n  ! No microphone is plugged in.\n    Fix: plug in a headset or a microphone.\n"));
     }
 
     fn renamed() -> Config {
@@ -435,5 +489,23 @@ No problem found.
         assert!(report.contains(&format!(
             "  Monitor of Laptop speakers  (speakers (built-in), 100%) [monitor]\n    {MONITOR}\n"
         )));
+    }
+
+    #[test]
+    fn muted_devices_are_reported_with_their_given_names() {
+        let mut state = home();
+        state.outputs[0].muted = true;
+        state.inputs[1].volume = Volume::from_percent(0);
+        let report = render(&state, &renamed(), Options::default());
+        assert!(
+            report.ends_with(
+                "Problems\n\
+             \x20 ! The microphone \"Laptop mic\" is at 0%: nobody hears you.\n\
+             \x20   Fix: set \"Laptop mic\" to 100%.\n\
+             \x20 ! The output \"Laptop speakers\" is muted: you hear nothing.\n\
+             \x20   Fix: turn the sound of \"Laptop speakers\" back on.\n"
+            ),
+            "{report}"
+        );
     }
 }
