@@ -3,11 +3,12 @@
 ## Project layout
 
 ```
-Cargo.toml              workspace: shared version, edition, lints
-crates/deskcheck-core   domain model and rules, no system dependency
-crates/deskcheck-pulse  sound backend: reads PulseAudio or pipewire-pulse
-crates/deskcheck        the `deskcheck` binary
-KANBAN.md               the plan and the status of every task
+Cargo.toml               workspace: shared version, edition, lints
+crates/deskcheck-core    domain model and rules, no system dependency
+crates/deskcheck-pulse   sound backend: reads PulseAudio or pipewire-pulse
+crates/deskcheck-mutter  screen backend: reads GNOME (Mutter DisplayConfig)
+crates/deskcheck         the `deskcheck` binary
+KANBAN.md                the plan and the status of every task
 ```
 
 ## Build dependencies
@@ -24,10 +25,12 @@ through `pipewire-pulse`.
 ## Try it on a real machine
 
 ```sh
-cargo run -p deskcheck -- audio                    # who hears what, and problems
-cargo run -p deskcheck -- audio --verbose          # with every device
-cargo run -p deskcheck-pulse --example audio_dump  # what the sound server reports
-cargo test -p deskcheck-pulse -- --ignored         # tests that need a sound server
+cargo run -p deskcheck -- audio                       # who hears what, and problems
+cargo run -p deskcheck -- audio --verbose             # with every device
+cargo run -p deskcheck-pulse --example audio_dump     # what the sound server reports
+cargo run -p deskcheck-mutter --example display_dump  # what GNOME reports about screens
+cargo test -p deskcheck-pulse -- --ignored            # tests that need a sound server
+cargo test -p deskcheck-mutter -- --ignored           # tests that need a GNOME session
 ```
 
 ## Branches
