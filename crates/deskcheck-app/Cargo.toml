@@ -11,7 +11,11 @@ publish.workspace = true
 
 [dependencies]
 adw = { version = "0.8", package = "libadwaita", features = ["v1_1"] }
+async-channel = "2.5.0"
+deskcheck-config.workspace = true
 deskcheck-core.workspace = true
+deskcheck-mutter.workspace = true
+deskcheck-pulse.workspace = true
 gtk = { version = "0.10.3", package = "gtk4", features = ["v4_6"] }
 
 [lints]
