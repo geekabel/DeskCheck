@@ -6,7 +6,7 @@
 Cargo.toml               workspace: shared version, edition, lints
 crates/deskcheck-core    domain model and rules, no system dependency
 crates/deskcheck-pulse   sound backend: reads PulseAudio or pipewire-pulse
-crates/deskcheck-mutter  screen backend: reads GNOME (Mutter DisplayConfig)
+crates/deskcheck-mutter  screen backend: reads and changes GNOME (Mutter DisplayConfig)
 crates/deskcheck-config  settings file: names and colors, saved safely
 crates/deskcheck-app     the window (GTK 4.6 and libadwaita 1.1)
 crates/deskcheck         the `deskcheck` binary

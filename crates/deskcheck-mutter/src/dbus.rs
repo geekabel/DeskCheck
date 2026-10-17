@@ -26,6 +26,11 @@ pub type WireMonitor = (WireSpec, Vec<WireMode>, Properties);
 pub type WireLogicalMonitor = (i32, i32, f64, u32, bool, Vec<WireSpec>, Properties);
 /// The whole reply of `GetCurrentState`.
 pub type WireState = (u32, Vec<WireMonitor>, Vec<WireLogicalMonitor>, Properties);
+/// `(ssa{sv})`: connector, mode id, properties, for `ApplyMonitorsConfig`.
+pub type WireMonitorConfig = (String, String, Properties);
+/// `(iiduba(ssa{sv}))`: x, y, scale, transform, primary, monitors, for
+/// `ApplyMonitorsConfig`.
+pub type WireLogicalConfig = (i32, i32, f64, u32, bool, Vec<WireMonitorConfig>);
 
 /// Well-known name and object path of the service, on the session bus.
 pub(crate) const SERVICE: &str = "org.gnome.Mutter.DisplayConfig";
@@ -39,6 +44,18 @@ pub(crate) const SERVICE: &str = "org.gnome.Mutter.DisplayConfig";
 pub(crate) trait DisplayConfig {
     /// Returns the current state of the monitors.
     fn get_current_state(&self) -> zbus::Result<WireState>;
+
+    /// Checks (method 0) or applies (1 temporary, 2 persistent) a layout.
+    /// A persistent change waits for the user to keep it: GNOME shows its
+    /// own dialog, and goes back to the old layout after 20 seconds
+    /// without an answer.
+    fn apply_monitors_config(
+        &self,
+        serial: u32,
+        method: u32,
+        logical_monitors: &[WireLogicalConfig],
+        properties: &Properties,
+    ) -> zbus::Result<()>;
 
     /// Sent by GNOME when screens are plugged, unplugged or changed.
     #[zbus(signal)]
@@ -113,6 +130,22 @@ pub(crate) fn monitors_changed(
     connection: &zbus::blocking::Connection,
 ) -> zbus::Result<MonitorsChangedIterator> {
     DisplayConfigProxy::new(connection)?.receive_monitors_changed()
+}
+
+/// Calls `ApplyMonitorsConfig` on the given connection.
+pub(crate) fn apply_config(
+    connection: &zbus::blocking::Connection,
+    serial: u32,
+    method: u32,
+    logical_monitors: &[WireLogicalConfig],
+    properties: &Properties,
+) -> zbus::Result<()> {
+    DisplayConfigProxy::new(connection)?.apply_monitors_config(
+        serial,
+        method,
+        logical_monitors,
+        properties,
+    )
 }
 
 /// Calls `GetCurrentState` on the given connection.

@@ -1,6 +1,6 @@
 [package]
 name = "deskcheck-mutter"
-description = "DeskCheck screen backend: reads the screens from GNOME (Mutter DisplayConfig)"
+description = "DeskCheck screen backend: reads and changes the screens of GNOME (Mutter DisplayConfig)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
