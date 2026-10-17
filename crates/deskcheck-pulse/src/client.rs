@@ -32,6 +32,15 @@ pub enum Error {
     Mainloop(String),
     /// The server refused to give one of the lists.
     ListFailed(&'static str),
+    /// The device to change is not there (any more).
+    NoDevice(String),
+    /// The server refused a change.
+    Refused {
+        /// The change, for example `unmute alsa_input.usb-Jabra-00.mono`.
+        what: String,
+        /// The reason the library gives.
+        reason: String,
+    },
 }
 
 impl fmt::Display for Error {
@@ -47,6 +56,10 @@ impl fmt::Display for Error {
             }
             Self::Mainloop(reason) => write!(f, "the sound client stopped: {reason}"),
             Self::ListFailed(what) => write!(f, "the sound server did not send the {what}"),
+            Self::NoDevice(id) => write!(f, "the sound device {id} is not there"),
+            Self::Refused { what, reason } => {
+                write!(f, "the sound server refused to {what}: {reason}")
+            }
         }
     }
 }
@@ -57,14 +70,14 @@ impl std::error::Error for Error {}
 ///
 /// `PAErr` also has its own `to_string()` method, which returns an
 /// `Option`; formatting goes through `Display` instead.
-fn describe(error: pulse::error::PAErr) -> String {
+pub(crate) fn describe(error: pulse::error::PAErr) -> String {
     format!("{error}")
 }
 
 /// Runs the main loop until `done` returns `true`.
 ///
 /// Fails as soon as the connection fails or the main loop stops.
-fn run_until(
+pub(crate) fn run_until(
     mainloop: &mut Mainloop,
     context: &Context,
     mut done: impl FnMut() -> bool,
@@ -165,16 +178,16 @@ fn source(info: &SourceInfo) -> Option<Source> {
 /// A ready connection to the sound server.
 ///
 /// The fields drop in order: the context first, then its main loop.
-struct Connection {
-    context: Context,
-    mainloop: Mainloop,
+pub(crate) struct Connection {
+    pub(crate) context: Context,
+    pub(crate) mainloop: Mainloop,
 }
 
 /// Connects to the sound server and waits until the connection is ready.
 ///
 /// The connection never starts a sound server (no autospawn): DeskCheck
 /// reports a missing server instead of hiding it.
-fn connect() -> Result<Connection, Error> {
+pub(crate) fn connect() -> Result<Connection, Error> {
     let mut mainloop = Mainloop::new().ok_or(Error::Setup("cannot create the main loop"))?;
     let mut proplist = Proplist::new().ok_or(Error::Setup("cannot create a property list"))?;
     proplist

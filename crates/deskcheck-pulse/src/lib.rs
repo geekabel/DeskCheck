@@ -1,7 +1,7 @@
 //! Sound backend of DeskCheck.
 //!
 //! It reads the state of the sound server through the PulseAudio client
-//! library. This works with PulseAudio and with PipeWire, whose
+//! library, and changes it with [`apply`]. This works with PulseAudio and with PipeWire, whose
 //! `pipewire-pulse` service speaks the same protocol.
 //!
 //! ```no_run
@@ -12,10 +12,12 @@
 //! # Ok::<(), deskcheck_pulse::Error>(())
 //! ```
 
+mod actions;
 mod client;
 mod convert;
 mod raw;
 
+pub use actions::{Action, apply};
 pub use client::Error;
 use deskcheck_core::audio::AudioState;
 
