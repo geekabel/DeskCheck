@@ -5,8 +5,27 @@
 ```
 Cargo.toml              workspace: shared version, edition, lints
 crates/deskcheck-core   domain model and rules, no system dependency
+crates/deskcheck-pulse  sound backend: reads PulseAudio or pipewire-pulse
 crates/deskcheck        the `deskcheck` binary
 KANBAN.md               the plan and the status of every task
+```
+
+## Build dependencies
+
+On Ubuntu 22.04:
+
+```sh
+sudo apt install build-essential pkg-config libpulse-dev
+```
+
+`libpulse-dev` is the PulseAudio client library. It also talks to PipeWire
+through `pipewire-pulse`.
+
+## Try it on a real machine
+
+```sh
+cargo run -p deskcheck-pulse --example audio_dump   # what the sound server reports
+cargo test -p deskcheck-pulse -- --ignored          # tests that need a sound server
 ```
 
 ## Branches
