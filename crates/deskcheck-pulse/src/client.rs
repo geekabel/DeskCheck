@@ -99,6 +99,22 @@ pub(crate) fn run_until(
     }
 }
 
+/// Runs one turn of the main loop, waiting at most `timeout` for
+/// something to happen. Unlike [`run_until`], it returns even when nothing
+/// happens, so the caller can check a clock or a stop flag.
+pub(crate) fn turn(
+    connection: &mut Connection,
+    timeout: pulse::time::MicroSeconds,
+) -> Result<(), Error> {
+    let mainloop = &mut connection.mainloop;
+    mainloop
+        .prepare(Some(timeout))
+        .and_then(|()| mainloop.poll())
+        .and_then(|_| mainloop.dispatch())
+        .map(|_| ())
+        .map_err(|error| Error::Mainloop(describe(error)))
+}
+
 /// Copies the properties that name the application of a stream.
 fn stream_props(proplist: &Proplist, stream_name: Option<&str>) -> StreamProps {
     StreamProps {

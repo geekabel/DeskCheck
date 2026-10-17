@@ -23,7 +23,7 @@ use pulse::sample::{Format, Spec};
 use pulse::stream::{FlagSet, PeekResult, State, Stream};
 use pulse::time::MicroSeconds;
 
-use crate::client::{Connection, Error, connect, describe};
+use crate::client::{Connection, Error, connect, describe, turn};
 
 /// How many peaks each meter sends per second.
 pub const UPDATES_PER_SECOND: u32 = 25;
@@ -164,17 +164,6 @@ fn drain(stream: &mut Stream) -> Option<f32> {
     loudest
 }
 
-/// Runs one turn of the main loop, waiting at most [`WAKE_UP`].
-fn turn(connection: &mut Connection) -> Result<(), Error> {
-    let mainloop = &mut connection.mainloop;
-    mainloop
-        .prepare(Some(WAKE_UP))
-        .and_then(|()| mainloop.poll())
-        .and_then(|_| mainloop.dispatch())
-        .map(|_| ())
-        .map_err(|error| Error::Mainloop(describe(error)))
-}
-
 /// The body of the meter thread.
 fn run(
     inputs: &[DeviceId],
@@ -203,7 +192,7 @@ fn run(
     let _ = ready.send(Ok(()));
 
     while !stop.load(Ordering::Relaxed) {
-        if let Err(error) = turn(&mut connection) {
+        if let Err(error) = turn(&mut connection, WAKE_UP) {
             let _ = events.send(Event::Failed(error));
             break;
         }
