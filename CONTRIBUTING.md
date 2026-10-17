@@ -8,6 +8,7 @@ crates/deskcheck-core    domain model and rules, no system dependency
 crates/deskcheck-pulse   sound backend: reads PulseAudio or pipewire-pulse
 crates/deskcheck-mutter  screen backend: reads GNOME (Mutter DisplayConfig)
 crates/deskcheck-config  settings file: names and colors, saved safely
+crates/deskcheck-app     the window (GTK 4.6 and libadwaita 1.1)
 crates/deskcheck         the `deskcheck` binary
 KANBAN.md                the plan and the status of every task
 ```
@@ -17,15 +18,19 @@ KANBAN.md                the plan and the status of every task
 On Ubuntu 22.04:
 
 ```sh
-sudo apt install build-essential pkg-config libpulse-dev
+sudo apt install build-essential pkg-config libpulse-dev libgtk-4-dev libadwaita-1-dev
 ```
 
 `libpulse-dev` is the PulseAudio client library. It also talks to PipeWire
 through `pipewire-pulse`.
 
+`libgtk-4-dev` and `libadwaita-1-dev` are for the window. On Ubuntu 22.04 they
+are GTK 4.6 and libadwaita 1.1, the oldest versions DeskCheck supports.
+
 ## Try it on a real machine
 
 ```sh
+cargo run -p deskcheck-app                            # the window
 cargo run -p deskcheck -- audio                       # who hears what, and problems
 cargo run -p deskcheck -- audio --verbose             # with every device
 cargo run -p deskcheck -- doctor                      # the sound problems and their fixes
