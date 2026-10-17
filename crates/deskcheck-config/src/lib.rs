@@ -31,6 +31,7 @@ use deskcheck_core::audio::DeviceId;
 use deskcheck_core::display::ScreenId;
 
 mod file;
+mod labels;
 mod store;
 
 pub use file::{FORMAT_VERSION, ParseError};
