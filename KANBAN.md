@@ -4,15 +4,15 @@ Ce fichier suit toutes les tâches jusqu'à la version 0.1.0.
 On le met à jour à la fin de chaque tâche, dans la même branche que la tâche.
 Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact/SEKGtbp6ACVXhpff8rK89i) (privé, mis à jour en même temps).
 
-**Avancement : 7 / 37 tâches terminées**
+**Avancement : 8 / 37 tâches terminées**
 
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
 | 🔜 À faire (prochaines) | DC-09, DC-10, DC-11 |
 | 📋 Backlog | DC-12 à DC-37 |
-| 🖥️ À tester sur ton PC | DC-08 |
-| ✅ Terminé | DC-01 à DC-07 |
+| 🖥️ À tester sur ton PC | aucune |
+| ✅ Terminé | DC-01 à DC-08 |
 
 ---
 
@@ -242,19 +242,7 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-### DC-08 · Commande `deskcheck displays`
-- **But** : savoir quel écran est lequel, avec un numéro par écran.
-- **Docs lues** : `std::fmt` (largeur `{:w$}`, alignement `<` et `>`, précision `{:.0}`),
-  `clap` 4.6 derive (sous-commandes et options).
-- **Critères**
-  - [x] Liste les écrans allumés avec numéro, nom, résolution, échelle, principal.
-  - [x] Numéros de 1 à n, de gauche à droite : les mêmes serviront pour « Identifier » (DC-24).
-  - [x] Nom de GNOME, sinon le modèle de l'écran.
-  - [x] Écrans branchés mais éteints listés à part.
-  - [x] `--verbose` ajoute l'identité (fabricant, modèle, série), le connecteur et la position.
-  - [x] Message clair et code de sortie 1 hors GNOME (testé ici).
-  - [x] Tests avec tes écrans de la maison relevés par `display_dump`.
-- **À tester** : `cargo run -p deskcheck -- displays` puis `cargo run -p deskcheck -- displays --verbose`.
+_Aucune tâche._
 
 ---
 
@@ -391,3 +379,21 @@ _Aucune tâche._
   - API bloquante de zbus : une lecture ponctuelle n'a pas besoin d'async.
   - Un écran qu'aucun « logical monitor » ne liste est branché mais éteint.
   - Les écrans en miroir partagent la même position.
+
+### DC-08 · Commande `deskcheck displays`
+- **But** : savoir quel écran est lequel, avec un numéro par écran.
+- **Docs lues** : `std::fmt` (largeur `{:w$}`, alignement `<` et `>`, précision `{:.0}`),
+  `clap` 4.6 derive (sous-commandes et options).
+- **Critères**
+  - [x] Liste les écrans allumés avec numéro, nom, résolution, échelle, principal.
+  - [x] Numéros de 1 à n, de gauche à droite : les mêmes serviront pour « Identifier » (DC-24).
+  - [x] Nom de GNOME, sinon le modèle de l'écran.
+  - [x] Écrans branchés mais éteints listés à part.
+  - [x] `--verbose` ajoute l'identité (fabricant, modèle, série), le connecteur et la position.
+  - [x] Message clair et code de sortie 1 hors GNOME (testé ici).
+  - [x] Tests avec tes écrans de la maison relevés par `display_dump`.
+  - [x] Testé sur le PC de Godwin à la maison (17 oct. 2026) : sortie identique au test. Bureau : pendant DC-36.
+- **Décisions**
+  - Le rapport est une fonction pure (`render`), testée sans GNOME.
+  - Échelle affichée en pourcentage (1.25 donne 125%).
+  - Code de sortie : 0 si GNOME répond, 1 sinon.
