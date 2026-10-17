@@ -5,8 +5,10 @@
 //!
 //! - [`audio`]: outputs, inputs (microphones and monitors) and the streams
 //!   of the applications.
+//! - [`display`]: connected screens and their placement on the desktop.
 
 pub mod audio;
+pub mod display;
 
 /// Human readable name of the application.
 pub const APP_NAME: &str = "DeskCheck";
