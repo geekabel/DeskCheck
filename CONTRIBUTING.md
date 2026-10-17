@@ -27,6 +27,21 @@ through `pipewire-pulse`.
 `libgtk-4-dev` and `libadwaita-1-dev` are for the window. On Ubuntu 22.04 they
 are GTK 4.6 and libadwaita 1.1, the oldest versions DeskCheck supports.
 
+## The look of the window
+
+The window follows the mockups of the design. Its colors and sizes are in
+`crates/deskcheck-app/resources/style.css` (and `style-dark.css` for dark
+mode). The icons are the ones of the mockups: their sources, drawn with lines,
+are in `crates/deskcheck-app/icons/`. After changing or adding one, run:
+
+```sh
+pip install picosvg
+crates/deskcheck-app/icons/build.sh
+```
+
+It writes the filled icons GTK can color, and the list of resources that
+`build.rs` puts in the app.
+
 ## Try it on a real machine
 
 ```sh

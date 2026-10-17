@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <gresource prefix="/io/github/geekabel/DeskCheck">
+    <file>style.css</file>
+    <file>style-dark.css</file>
+    <file>icons/scalable/actions/dc-add-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-alert-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-app-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-audio-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-back-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-browser-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-chevron-down-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-diagnostic-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-dot-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-headphones-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-identify-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-laptop-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-logo-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-menu-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-microphone-muted-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-microphone-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-never-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-now-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-ok-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-place-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-play-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-pointer-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-question-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-record-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-rename-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-screen-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-speaker-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-switch-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-warning-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-webcam-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-wifi-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-wifi-weak-symbolic.svg</file>
+  </gresource>
+</gresources>

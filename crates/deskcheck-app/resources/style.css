@@ -1,0 +1,339 @@
+/* The look of the design (the mockups of DC-01), on top of libadwaita.
+   libadwaita loads this file itself, from the resources of the app, and
+   style-dark.css after it in dark mode: that file only changes colors. */
+
+/* Colors of the design. The libadwaita names change the whole app. */
+@define-color accent_bg_color #1a5fb4;
+@define-color accent_color #1a5fb4;
+@define-color window_bg_color #fafafb;
+@define-color window_fg_color #1d1d20;
+@define-color view_bg_color #ffffff;
+@define-color headerbar_bg_color #f1f1f4;
+@define-color headerbar_fg_color #1d1d20;
+@define-color card_bg_color #ffffff;
+@define-color popover_bg_color #ffffff;
+
+@define-color dc_border #dcdce2;
+@define-color dc_line #ebebef;
+@define-color dc_dim #5b5b64;
+@define-color dc_accent_strong #123f7a;
+@define-color dc_accent_tint #dce6f5;
+@define-color dc_info_bg #e8f0fb;
+@define-color dc_hover #e4e4e9;
+@define-color dc_button_bg #ffffff;
+@define-color dc_button_hover #f3f3f6;
+@define-color dc_button_active #e3e3e8;
+@define-color dc_button_border #cbcbd3;
+@define-color dc_round_bg #e2e2e7;
+@define-color dc_meter_off #dadae0;
+@define-color dc_meter_on #1e7a3e;
+@define-color dc_ok_bg #e3f4e9;
+@define-color dc_ok_fg #17602f;
+@define-color dc_warn_bg #fff3e3;
+@define-color dc_warn_fg #8a3806;
+@define-color dc_warn_tint #ffe9cf;
+@define-color dc_warn_row #fff8ee;
+@define-color dc_warn_strong #9a3f07;
+@define-color dc_neutral_bg #ededf1;
+@define-color dc_neutral_fg #3f3f46;
+@define-color dc_error_bg #fbe3e3;
+@define-color dc_error_fg #a51d2d;
+@define-color dc_selected_row #f7fafe;
+@define-color dc_map_bg #f1f1f4;
+
+/* Header bar: the name of the app, the place, the menu. */
+headerbar {
+    min-height: 52px;
+    border-bottom: 1px solid @dc_border;
+    box-shadow: none;
+}
+.dc-brand {
+    font-weight: bold;
+    font-size: 15px;
+}
+.dc-brand image {
+    color: @accent_color;
+}
+.dc-header-title {
+    font-weight: bold;
+    font-size: 15px;
+}
+button.dc-round,
+menubutton.dc-round > button {
+    min-width: 28px;
+    min-height: 28px;
+    padding: 0;
+    border-radius: 999px;
+    background-color: @dc_round_bg;
+    box-shadow: none;
+}
+button.dc-round:hover,
+menubutton.dc-round > button:hover {
+    background-color: @dc_hover;
+}
+
+/* Sidebar. */
+.dc-sidebar {
+    background-color: @headerbar_bg_color;
+    border-right: 1px solid @dc_border;
+    padding: 12px 10px;
+}
+.dc-sidebar list {
+    background: none;
+}
+.dc-sidebar row {
+    min-height: 40px;
+    padding: 0 12px;
+    margin-bottom: 2px;
+    border-radius: 8px;
+    font-size: 14px;
+}
+.dc-sidebar row:hover {
+    background-color: @dc_hover;
+}
+.dc-sidebar row:selected {
+    background-color: @dc_accent_tint;
+    color: @dc_accent_strong;
+    font-weight: 500;
+}
+.dc-sidebar-footer {
+    font-size: 12px;
+    color: @dc_dim;
+    padding: 8px 12px;
+}
+
+/* Pages. */
+.dc-page-title {
+    font-size: 22px;
+    font-weight: bold;
+}
+.dc-page-subtitle {
+    font-size: 14px;
+    color: @dc_dim;
+}
+.dc-card {
+    background-color: @card_bg_color;
+    border: 1px solid @dc_border;
+    border-radius: 12px;
+}
+.dc-padded {
+    padding: 16px;
+}
+.dc-caption {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    color: @dc_dim;
+}
+.dc-device-name {
+    font-size: 17px;
+    font-weight: bold;
+}
+.dc-row-name {
+    font-size: 15px;
+    font-weight: bold;
+}
+.dc-mono {
+    font-family: "Ubuntu Mono", monospace;
+    font-size: 13px;
+    color: @dc_dim;
+}
+.dc-small {
+    font-size: 13px;
+    color: @dc_dim;
+}
+.dc-name {
+    font-size: 14px;
+    font-weight: 500;
+}
+.dc-hint-ok {
+    font-size: 13px;
+    color: @dc_ok_fg;
+}
+.dc-hint-error {
+    font-size: 13px;
+    color: @dc_error_fg;
+}
+.dc-dim-icon {
+    color: @dc_dim;
+}
+separator.dc-line {
+    background-color: @dc_line;
+    min-height: 1px;
+}
+.dc-info {
+    background-color: @dc_info_bg;
+    color: @dc_accent_strong;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 14px;
+}
+
+/* The tile behind the icon of a device. */
+.dc-tile {
+    border-radius: 10px;
+    background-color: @dc_accent_tint;
+    color: @accent_color;
+}
+.dc-tile.neutral {
+    background-color: @dc_neutral_bg;
+    color: @dc_neutral_fg;
+}
+.dc-tile.warn {
+    background-color: @dc_warn_tint;
+    color: @dc_warn_fg;
+}
+
+/* Level meters: small blocks, green when lit. */
+.dc-meter > box {
+    min-width: 6px;
+    min-height: 16px;
+    border-radius: 2px;
+    background-color: @dc_meter_off;
+}
+.dc-meter > box.on {
+    background-color: @dc_meter_on;
+}
+
+/* Tags. */
+.dc-tag {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 9px;
+    border-radius: 999px;
+}
+.dc-tag.ok {
+    background-color: @dc_ok_bg;
+    color: @dc_ok_fg;
+}
+.dc-tag.warn {
+    background-color: @dc_warn_bg;
+    color: @dc_warn_fg;
+}
+.dc-tag.warn-strong {
+    background-color: @dc_warn_tint;
+    color: @dc_warn_fg;
+}
+.dc-tag.accent {
+    background-color: @dc_accent_tint;
+    color: @dc_accent_strong;
+}
+.dc-tag.neutral {
+    background-color: @dc_neutral_bg;
+    color: @dc_neutral_fg;
+}
+.dc-tag.error {
+    background-color: @dc_error_bg;
+    color: @dc_error_fg;
+}
+
+/* Buttons of the design: white with a border, flat, or filled. */
+button.dc-btn,
+menubutton.dc-btn > button {
+    min-height: 38px;
+    padding: 0 14px;
+    border: 1px solid @dc_button_border;
+    border-radius: 8px;
+    background-color: @dc_button_bg;
+    box-shadow: none;
+    font-size: 14px;
+    font-weight: 500;
+}
+button.dc-btn:hover,
+menubutton.dc-btn > button:hover {
+    background-color: @dc_button_hover;
+}
+button.dc-btn:active {
+    background-color: @dc_button_active;
+}
+button.dc-btn.dc-compact {
+    min-height: 32px;
+}
+button.dc-btn.dc-icon-only {
+    min-width: 38px;
+    padding: 0;
+}
+button.dc-btn.dc-flat,
+menubutton.dc-btn.dc-flat > button {
+    border-color: transparent;
+    background-color: transparent;
+}
+button.dc-btn.dc-flat:hover,
+menubutton.dc-btn.dc-flat > button:hover {
+    background-color: @dc_hover;
+}
+button.dc-btn.dc-warn {
+    border-color: @dc_warn_strong;
+    background-color: @dc_warn_strong;
+    color: #ffffff;
+}
+button.dc-btn.dc-warn:hover {
+    background-color: shade(@dc_warn_strong, 0.9);
+}
+button.dc-btn:disabled,
+menubutton.dc-btn > button:disabled {
+    opacity: 0.5;
+}
+
+/* Tabs of a page, in the header bar. */
+.dc-seg {
+    padding: 3px;
+    border-radius: 10px;
+    background-color: @dc_round_bg;
+}
+.dc-seg > button {
+    min-height: 34px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 7px;
+    background: none;
+    box-shadow: none;
+    font-size: 14px;
+    font-weight: 500;
+}
+.dc-seg > button:checked {
+    background-color: @dc_button_bg;
+    color: @dc_accent_strong;
+    box-shadow: 0 1px 2px alpha(black, 0.12);
+}
+
+/* Lists of devices in a card. */
+.dc-device-row {
+    padding: 13px 16px;
+}
+.dc-device-row.selected {
+    background-color: @dc_selected_row;
+}
+.dc-device-row.warn {
+    background-color: @dc_warn_row;
+}
+.dc-list-note {
+    padding: 11px 16px;
+    font-size: 13px;
+    color: @dc_dim;
+}
+
+/* The screens, on a desk. */
+.dc-map {
+    border-radius: 8px;
+    background-color: @dc_map_bg;
+    padding: 12px;
+}
+.dc-screen-tile {
+    border: 2px solid @accent_color;
+    border-radius: 6px;
+    background-color: @card_bg_color;
+}
+.dc-screen-tile.primary {
+    border-width: 3px;
+}
+.dc-screen-number {
+    font-size: 22px;
+    font-weight: bold;
+}
+.dc-screen-tile.primary .dc-screen-number {
+    font-size: 26px;
+}
+.dc-screen-name {
+    font-size: 11px;
+}

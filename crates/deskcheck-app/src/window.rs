@@ -19,6 +19,7 @@ use crate::backend::{Backend, Update};
 use crate::now_page::NowPage;
 use crate::sections::Section;
 use crate::status;
+use crate::ui;
 
 /// Width of the sidebar, as in the design.
 const SIDEBAR_WIDTH: i32 = 220;
@@ -36,7 +37,7 @@ struct Latest {
 pub struct MainWindow {
     /// The window itself.
     pub window: adw::ApplicationWindow,
-    title: adw::WindowTitle,
+    title: gtk::Label,
     stack: gtk::Stack,
     now: Rc<NowPage>,
     toasts: adw::ToastOverlay,
@@ -49,27 +50,36 @@ pub struct MainWindow {
 fn sidebar_row(section: Section) -> gtk::ListBoxRow {
     let line = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
-        .spacing(12)
-        .margin_top(8)
-        .margin_bottom(8)
-        .margin_start(6)
-        .margin_end(6)
+        .spacing(10)
         .build();
-    line.append(&gtk::Image::from_icon_name(section.icon_name()));
+    line.append(&ui::icon(section.icon_name(), 18));
     line.append(&gtk::Label::new(Some(section.title())));
     gtk::ListBoxRow::builder().child(&line).build()
+}
+
+/// The name of the app with its icon, at the left of the header bar.
+fn brand() -> gtk::Box {
+    let brand = gtk::Box::builder()
+        .orientation(gtk::Orientation::Horizontal)
+        .spacing(10)
+        .margin_start(8)
+        .css_classes(["dc-brand"])
+        .build();
+    brand.append(&ui::icon("dc-logo-symbolic", 18));
+    brand.append(&gtk::Label::new(Some(APP_NAME)));
+    brand
 }
 
 /// The badge of the place, in the header bar.
 fn place_badge() -> gtk::Box {
     let badge = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
-        .spacing(4)
+        .spacing(5)
         .valign(gtk::Align::Center)
-        .css_classes(["place-badge"])
+        .css_classes(["dc-tag", "accent"])
         .tooltip_text("Places come in a later version")
         .build();
-    badge.append(&gtk::Image::from_icon_name("mark-location-symbolic"));
+    badge.append(&ui::icon("dc-place-symbolic", 14));
     badge.append(&gtk::Label::new(Some(status::NO_PLACE)));
     badge
 }
@@ -81,33 +91,28 @@ fn menu_button() -> gtk::MenuButton {
     menu.append(Some("About DeskCheck"), Some("app.about"));
     menu.append(Some("Quit"), Some("app.quit"));
     gtk::MenuButton::builder()
-        .icon_name("open-menu-symbolic")
+        .icon_name("dc-menu-symbolic")
         .menu_model(&menu)
         .tooltip_text("Menu")
+        .valign(gtk::Align::Center)
+        .css_classes(["dc-round"])
         .build()
 }
 
-/// A dim, small line at the bottom of the sidebar.
+/// A small line at the bottom of the sidebar.
 fn footer_label() -> gtk::Label {
-    gtk::Label::builder()
-        .label("…")
-        .xalign(0.0)
-        .css_classes(["dim-label", "caption"])
-        .build()
+    gtk::Label::builder().label("…").xalign(0.0).build()
 }
 
 impl MainWindow {
     /// Builds the window, with the Now section shown.
     pub fn new(app: &adw::Application, backend: Backend) -> Self {
-        let title = adw::WindowTitle::new(Section::Now.title(), "");
+        let title = gtk::Label::builder()
+            .label(Section::Now.title())
+            .css_classes(["dc-header-title"])
+            .build();
         let header = adw::HeaderBar::builder().title_widget(&title).build();
-        header.pack_start(
-            &gtk::Label::builder()
-                .label(APP_NAME)
-                .css_classes(["heading"])
-                .margin_start(6)
-                .build(),
-        );
+        header.pack_start(&brand());
         header.pack_end(&menu_button());
         header.pack_end(&place_badge());
 
@@ -129,10 +134,7 @@ impl MainWindow {
             stack.add_named(&page, Some(section.id()));
         }
 
-        let list = gtk::ListBox::builder()
-            .css_classes(["navigation-sidebar"])
-            .vexpand(true)
-            .build();
+        let list = gtk::ListBox::builder().vexpand(true).build();
         for section in Section::ALL {
             list.append(&sidebar_row(section));
         }
@@ -141,15 +143,14 @@ impl MainWindow {
         let footer = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
             .spacing(2)
-            .margin_start(18)
-            .margin_end(12)
-            .margin_bottom(12)
+            .css_classes(["dc-sidebar-footer"])
             .build();
         footer.append(&sound_footer);
         footer.append(&screens_footer);
         let sidebar = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
             .width_request(SIDEBAR_WIDTH)
+            .css_classes(["dc-sidebar"])
             .build();
         sidebar.append(&list);
         sidebar.append(&footer);
@@ -157,7 +158,6 @@ impl MainWindow {
         let body = gtk::Box::new(gtk::Orientation::Horizontal, 0);
         body.set_vexpand(true);
         body.append(&sidebar);
-        body.append(&gtk::Separator::new(gtk::Orientation::Vertical));
         body.append(&stack);
 
         // Short messages, like the result of a sound test, over the body.
@@ -204,7 +204,7 @@ impl MainWindow {
     /// Shows a section.
     pub fn show(&self, section: Section) {
         self.stack.set_visible_child_name(section.id());
-        self.title.set_title(section.title());
+        self.title.set_label(section.title());
     }
 
     /// Keeps what the backend sent, and shows it.

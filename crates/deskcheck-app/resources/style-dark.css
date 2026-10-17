@@ -1,0 +1,40 @@
+/* The colors of the design in dark mode. libadwaita loads this file after
+   style.css, so only colors change here. */
+
+@define-color accent_bg_color #3584e4;
+@define-color accent_color #78aeed;
+@define-color window_bg_color #1f1f22;
+@define-color window_fg_color #ececef;
+@define-color view_bg_color #26262a;
+@define-color headerbar_bg_color #28282c;
+@define-color headerbar_fg_color #ececef;
+@define-color card_bg_color #2a2a2e;
+@define-color popover_bg_color #2f2f34;
+
+@define-color dc_border #3a3a40;
+@define-color dc_line #333338;
+@define-color dc_dim #a3a3ad;
+@define-color dc_accent_strong #a8c8f5;
+@define-color dc_accent_tint #22344d;
+@define-color dc_info_bg #1f2c3f;
+@define-color dc_hover #34343a;
+@define-color dc_button_bg #303035;
+@define-color dc_button_hover #38383e;
+@define-color dc_button_active #424249;
+@define-color dc_button_border #4a4a52;
+@define-color dc_round_bg #38383e;
+@define-color dc_meter_off #404047;
+@define-color dc_meter_on #3fb26a;
+@define-color dc_ok_bg #1d3a28;
+@define-color dc_ok_fg #8fdcaa;
+@define-color dc_warn_bg #3d2a17;
+@define-color dc_warn_fg #f2b37a;
+@define-color dc_warn_tint #4a3016;
+@define-color dc_warn_row #2e2419;
+@define-color dc_warn_strong #c45a10;
+@define-color dc_neutral_bg #34343a;
+@define-color dc_neutral_fg #cfcfd6;
+@define-color dc_error_bg #3d1e22;
+@define-color dc_error_fg #f0959f;
+@define-color dc_selected_row #232a35;
+@define-color dc_map_bg #242428;

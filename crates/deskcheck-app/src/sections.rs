@@ -47,14 +47,14 @@ impl Section {
         }
     }
 
-    /// A symbolic icon of the Adwaita theme, present in Ubuntu 22.04.
+    /// Its icon, from the design.
     pub fn icon_name(self) -> &'static str {
         match self {
-            Self::Now => "go-home-symbolic",
-            Self::Audio => "audio-speakers-symbolic",
-            Self::Screens => "video-display-symbolic",
-            Self::Places => "mark-location-symbolic",
-            Self::Diagnostic => "emblem-ok-symbolic",
+            Self::Now => "dc-now-symbolic",
+            Self::Audio => "dc-audio-symbolic",
+            Self::Screens => "dc-screen-symbolic",
+            Self::Places => "dc-place-symbolic",
+            Self::Diagnostic => "dc-diagnostic-symbolic",
         }
     }
 

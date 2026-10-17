@@ -4,6 +4,9 @@
 //! `v1_1` features of the bindings keep to what those versions have, so a
 //! newer call does not compile.
 //!
+//! The look of the design is in `resources/style.css`, with the icons of
+//! the mockups, built into the app by `build.rs`.
+//!
 //! The interface thread only shows things. The system work runs in the
 //! [`backend`] thread, which sends its results on a channel the interface
 //! awaits.
@@ -17,78 +20,8 @@ mod now_model;
 mod now_page;
 mod sections;
 mod status;
+mod ui;
 mod window;
-
-/// Styles the design needs beyond libadwaita: the badge of the place.
-const CSS: &str = "
-.place-badge {
-    background-color: alpha(@accent_bg_color, 0.15);
-    color: @accent_color;
-    border-radius: 999px;
-    padding: 2px 10px;
-    font-weight: bold;
-}
-.now-card {
-    padding: 16px;
-}
-.icon-tile {
-    min-width: 44px;
-    min-height: 44px;
-    border-radius: 10px;
-    background-color: alpha(@accent_bg_color, 0.15);
-    color: @accent_color;
-}
-.tag {
-    border-radius: 999px;
-    padding: 2px 10px;
-    font-size: smaller;
-    font-weight: bold;
-}
-.tag-ok {
-    background-color: alpha(@success_color, 0.15);
-    color: @success_color;
-}
-.tag-warn {
-    background-color: alpha(@warning_color, 0.18);
-    color: @warning_color;
-}
-.tag-error {
-    background-color: alpha(@error_color, 0.15);
-    color: @error_color;
-}
-.screen-map {
-    border-radius: 8px;
-    background-color: alpha(@window_fg_color, 0.05);
-}
-.screen-tile {
-    border: 2px solid @accent_color;
-    border-radius: 6px;
-    background-color: @card_bg_color;
-}
-.screen-number {
-    font-weight: bold;
-    font-size: larger;
-}
-/* Adwaita gives each block 26 px at least: 16 blocks would make the card
-   too wide to shrink. */
-levelbar.now-meter.horizontal.discrete > trough > block {
-    min-width: 6px;
-}
-";
-
-fn load_css() {
-    let provider = gtk::CssProvider::new();
-    // `load_from_string` is GTK 4.12; Ubuntu 22.04 has 4.6.
-    #[allow(deprecated, reason = "load_from_string needs GTK 4.12")]
-    provider.load_from_data(CSS);
-    if let Some(display) = gtk::gdk::Display::default() {
-        gtk::style_context_add_provider_for_display(
-            &display,
-            &provider,
-            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
-        );
-    }
-}
 
 fn about(window: &adw::ApplicationWindow) {
     // `adw::AboutWindow` is libadwaita 1.2; Ubuntu 22.04 has 1.1.
@@ -98,7 +31,7 @@ fn about(window: &adw::ApplicationWindow) {
         .program_name(APP_NAME)
         .version(VERSION)
         .comments("See and fix your sound devices and screens.")
-        .logo_icon_name("audio-speakers-symbolic")
+        .logo_icon_name("dc-logo-symbolic")
         .authors(["Godwin"])
         .license_type(gtk::License::MitX11)
         .website("https://github.com/geekabel/DeskCheck")
@@ -136,7 +69,6 @@ fn activate(app: &adw::Application) {
         window.present();
         return;
     }
-    load_css();
     let (updates, received) = async_channel::unbounded();
     let backend = backend::start(updates);
     let window = window::MainWindow::new(app, backend.clone());
@@ -153,6 +85,12 @@ fn activate(app: &adw::Application) {
 }
 
 fn main() -> glib::ExitCode {
+    // The styles and icons of the design (see build.rs). Registered before
+    // the app starts: libadwaita then loads `style.css` and
+    // `style-dark.css`, and GTK finds the icons in `icons/`, both under the
+    // resource path of the app id.
+    gio::resources_register_include!("deskcheck.gresource")
+        .expect("the resources are built into the app");
     // `adw::Application` also starts libadwaita (styles, dark mode).
     let app = adw::Application::builder().application_id(APP_ID).build();
     app.connect_activate(activate);

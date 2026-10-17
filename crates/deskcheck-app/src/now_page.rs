@@ -18,6 +18,7 @@ use gtk::glib;
 
 use crate::backend::{Backend, Request, metered_sources};
 use crate::now_model::{self, AppTag};
+use crate::ui;
 
 /// Highest volume of the slider, as GNOME with over-amplification.
 const MAX_VOLUME: f64 = 150.0;
@@ -29,59 +30,14 @@ const VOLUME_DELAY: Duration = Duration::from_millis(120);
 /// moved it, so it does not jump back while dragging.
 const HANDS_OFF: Duration = Duration::from_millis(800);
 
-/// Blocks of the level meters.
-const OUTPUT_BLOCKS: f64 = 8.0;
-const INPUT_BLOCKS: f64 = 16.0;
+/// Blocks of the level meters, as in the design.
+const OUTPUT_BLOCKS: usize = 8;
+const INPUT_BLOCKS: usize = 16;
 
-/// Size of the screen map, in pixels.
-const MAP_SIZE: (i32, i32) = (360, 96);
-
-/// A label, with its style classes.
-fn label(text: &str, classes: &[&str]) -> gtk::Label {
-    gtk::Label::builder()
-        .label(text)
-        .xalign(0.0)
-        .wrap(true)
-        .css_classes(classes.iter().map(|c| (*c).to_owned()).collect::<Vec<_>>())
-        .build()
-}
-
-/// A card: a box with the `card` style of libadwaita, and inner padding.
-fn card() -> gtk::Box {
-    gtk::Box::builder()
-        .orientation(gtk::Orientation::Vertical)
-        .spacing(10)
-        .css_classes(["card", "now-card"])
-        .hexpand(true)
-        .build()
-}
-
-/// A discrete level meter.
-fn meter(blocks: f64) -> gtk::LevelBar {
-    let bar = gtk::LevelBar::builder()
-        .mode(gtk::LevelBarMode::Discrete)
-        .min_value(0.0)
-        .max_value(blocks)
-        .valign(gtk::Align::Center)
-        .hexpand(true)
-        .build();
-    // Added, not set: setting `css-classes` would also remove the classes
-    // GTK gives the bar itself (`horizontal`, `discrete`), and its blocks
-    // would lose their style.
-    bar.add_css_class("now-meter");
-    // One color for the whole bar, instead of the low and high colors.
-    for offset in ["low", "high", "full"] {
-        bar.remove_offset_value(Some(offset));
-    }
-    bar
-}
-
-/// Shows a small tag: `ok`, `warn` or `error`.
-fn set_tag(tag: &gtk::Label, text: &str, kind: &str) {
-    tag.set_label(text);
-    tag.set_css_classes(&["tag", &format!("tag-{kind}")]);
-    tag.set_visible(true);
-}
+/// Room for the screens in the map, inside its padding, and the gap
+/// between two screens, in pixels.
+const MAP_ROOM: (i32, i32) = (336, 72);
+const MAP_GAP: i32 = 10;
 
 /// The top of a device card: caption, icon, name, technical name, tag.
 struct DeviceHeader {
@@ -93,31 +49,22 @@ struct DeviceHeader {
 
 impl DeviceHeader {
     fn new(card: &gtk::Box, caption: &str) -> Self {
-        card.append(&label(caption, &["caption-heading", "dim-label"]));
+        card.append(&ui::caption(caption));
         let row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-        // The image is the tile: 44 × 44, the icon drawn in its middle.
-        let icon = gtk::Image::builder()
-            .pixel_size(24)
-            .css_classes(["icon-tile"])
-            .width_request(44)
-            .height_request(44)
-            .valign(gtk::Align::Center)
-            .build();
+        let icon = ui::tile(44);
         let texts = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
             .hexpand(true)
             .valign(gtk::Align::Center)
             .build();
-        let name = label("…", &["title-3"]);
-        let technical = label("", &["monospace", "dim-label", "caption"]);
+        let name = ui::label("…", &["dc-device-name"]);
+        let technical = ui::label("", &["dc-mono"]);
         technical.set_wrap(false);
-        technical.set_ellipsize(gtk::pango::EllipsizeMode::Middle);
+        technical.set_ellipsize(gtk::pango::EllipsizeMode::End);
         texts.append(&name);
         texts.append(&technical);
-        let tag = gtk::Label::builder()
-            .valign(gtk::Align::Center)
-            .visible(false)
-            .build();
+        let tag = ui::tag("", ui::TagKind::Ok);
+        tag.set_visible(false);
         row.append(&icon);
         row.append(&texts);
         row.append(&tag);
@@ -131,7 +78,7 @@ impl DeviceHeader {
     }
 
     fn show(&self, icon: &str, name: &str, technical: &str) {
-        self.icon.set_icon_name(Some(icon));
+        ui::set_tile(&self.icon, icon, ui::TileKind::Accent);
         self.name.set_label(name);
         self.technical.set_label(technical);
         self.technical.set_tooltip_text(Some(technical));
@@ -152,11 +99,14 @@ impl Chooser {
             .spacing(2)
             .build();
         let popover = gtk::Popover::builder().child(&list).build();
+        // A child instead of a label: GTK then draws no arrow, as in the
+        // design.
         let button = gtk::MenuButton::builder()
-            .label("Change")
+            .child(&gtk::Label::new(Some("Change")))
             .popover(&popover)
             .tooltip_text(tooltip)
-            .css_classes(["flat"])
+            .valign(gtk::Align::Center)
+            .css_classes(["dc-btn", "dc-flat"])
             .build();
         Self {
             button,
@@ -173,7 +123,7 @@ impl Chooser {
         self.button.set_sensitive(choices.len() > 1);
         for (target, name, current) in choices {
             let line = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-            let check = gtk::Image::from_icon_name("object-select-symbolic");
+            let check = ui::icon("dc-ok-symbolic", 16);
             check.set_opacity(if current { 1.0 } else { 0.0 });
             line.append(&check);
             line.append(&gtk::Label::new(Some(&name)));
@@ -211,16 +161,16 @@ pub struct NowPage {
     backend: Backend,
     output: DeviceHeader,
     volume: gtk::Scale,
-    output_meter: gtk::LevelBar,
+    output_meter: ui::Meter,
     test_output: gtk::Button,
     output_chooser: Chooser,
     input: DeviceHeader,
-    input_meter: gtk::LevelBar,
+    input_meter: ui::Meter,
     input_hint: gtk::Label,
     test_input: gtk::Button,
     input_chooser: Chooser,
     apps: gtk::Box,
-    map: gtk::Fixed,
+    map: gtk::Box,
     screens_line: gtk::Label,
     screen_css: gtk::CssProvider,
     current: Rc<RefCell<Current>>,
@@ -237,105 +187,105 @@ impl NowPage {
     pub fn new(backend: Backend) -> Rc<Self> {
         let content = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
-            .spacing(16)
+            .spacing(14)
             .margin_top(18)
-            .margin_bottom(24)
+            .margin_bottom(18)
             .margin_start(24)
             .margin_end(24)
             .build();
-        content.append(&label("Now", &["title-1"]));
-        content.append(&label(
+        let (title, _, _) = ui::page_title(
+            "Now",
             "Where the sound goes, which microphone hears you, and which screen you are on.",
-            &["dim-label"],
-        ));
+        );
+        content.append(&title);
 
         // The sound card.
-        let output_card = card();
-        let output = DeviceHeader::new(&output_card, "YOU HEAR THROUGH");
+        let output_card = ui::card();
+        let output = DeviceHeader::new(&output_card, "You hear through");
         let volume_row = gtk::Box::new(gtk::Orientation::Horizontal, 10);
-        volume_row.append(&label("Volume", &["dim-label"]));
+        volume_row.append(&ui::row_label("Volume"));
         let volume = gtk::Scale::with_range(gtk::Orientation::Horizontal, 0.0, MAX_VOLUME, 1.0);
         volume.set_hexpand(true);
         volume.set_draw_value(false);
         volume.add_mark(100.0, gtk::PositionType::Bottom, None);
         volume.set_tooltip_text(Some("Volume of the output"));
-        let output_meter = meter(OUTPUT_BLOCKS);
-        output_meter.set_width_request(80);
-        output_meter.set_hexpand(false);
+        let output_meter = ui::Meter::new(OUTPUT_BLOCKS);
         volume_row.append(&volume);
-        volume_row.append(&output_meter);
+        volume_row.append(&output_meter.root);
         output_card.append(&volume_row);
         let output_buttons = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-        let test_output = gtk::Button::builder()
-            .label("Test the sound")
-            .tooltip_text("Plays a short chime")
-            .build();
+        let test_output = ui::button(
+            "Test the sound",
+            Some("dc-play-symbolic"),
+            ui::ButtonKind::Normal,
+        );
+        test_output.set_tooltip_text(Some("Plays a short chime"));
         let output_chooser = Chooser::new("Choose another output");
         output_buttons.append(&test_output);
         output_buttons.append(&output_chooser.button);
         output_card.append(&output_buttons);
 
         // The microphone card.
-        let input_card = card();
-        let input = DeviceHeader::new(&input_card, "THEY HEAR YOU VIA");
+        let input_card = ui::card();
+        let input = DeviceHeader::new(&input_card, "They hear you via");
         let level_row = gtk::Box::new(gtk::Orientation::Horizontal, 10);
-        level_row.append(&label("Level", &["dim-label"]));
-        let input_meter = meter(INPUT_BLOCKS);
-        let input_hint = label("Speak: the bar moves", &["success", "caption"]);
+        level_row.append(&ui::row_label("Level"));
+        let input_meter = ui::Meter::new(INPUT_BLOCKS);
+        let input_hint = ui::label("Speak: the bar moves", &["dc-hint-ok"]);
         input_hint.set_wrap(false);
-        level_row.append(&input_meter);
+        level_row.append(&input_meter.root);
         level_row.append(&input_hint);
         input_card.append(&level_row);
         let input_buttons = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-        let test_input = gtk::Button::builder()
-            .label("Record 3 s and play back")
-            .tooltip_text("Records 3 seconds, then plays them on the output")
-            .build();
+        let test_input = ui::button(
+            "Record 3 s and play back",
+            Some("dc-record-symbolic"),
+            ui::ButtonKind::Normal,
+        );
+        test_input.set_tooltip_text(Some("Records 3 seconds, then plays them on the output"));
         let input_chooser = Chooser::new("Choose another microphone");
         input_buttons.append(&test_input);
         input_buttons.append(&input_chooser.button);
         input_card.append(&input_buttons);
 
         // The apps card.
-        let apps_card = card();
-        apps_card.append(&label(
-            "APPS USING THE SOUND",
-            &["caption-heading", "dim-label"],
-        ));
+        let apps_card = ui::card();
+        apps_card.append(&ui::caption("Apps using the sound"));
         let apps = gtk::Box::new(gtk::Orientation::Vertical, 0);
         apps_card.append(&apps);
 
         // The screens card.
-        let screens_card = card();
+        let screens_card = ui::card();
         let screens_top = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-        let screens_caption = label("YOUR SCREENS", &["caption-heading", "dim-label"]);
+        let screens_caption = ui::caption("Your screens");
         screens_caption.set_hexpand(true);
-        let identify = gtk::Button::builder()
-            .label("Identify")
-            .sensitive(false)
-            .tooltip_text("Shows a big number on each screen. Coming soon.")
-            .build();
+        let identify = ui::button("Identify", None, ui::ButtonKind::Normal);
+        identify.add_css_class("dc-compact");
+        identify.set_sensitive(false);
+        identify.set_tooltip_text(Some("Shows a big number on each screen. Coming soon."));
         screens_top.append(&screens_caption);
         screens_top.append(&identify);
         screens_card.append(&screens_top);
         let map_area = gtk::Box::builder()
-            .css_classes(["screen-map"])
-            .halign(gtk::Align::Fill)
+            .css_classes(["dc-map"])
+            .height_request(MAP_ROOM.1 + 24)
             .build();
-        let map = gtk::Fixed::builder()
-            .width_request(MAP_SIZE.0)
-            .height_request(MAP_SIZE.1)
+        // The screens stand at the bottom, side by side, in the middle.
+        let map = gtk::Box::builder()
+            .orientation(gtk::Orientation::Horizontal)
+            .spacing(MAP_GAP)
             .halign(gtk::Align::Center)
+            .valign(gtk::Align::End)
             .hexpand(true)
             .build();
         map_area.append(&map);
         screens_card.append(&map_area);
-        let screens_line = label("…", &["dim-label"]);
+        let screens_line = ui::label("…", &["dc-small"]);
         screens_card.append(&screens_line);
 
         let grid = gtk::Grid::builder()
             .column_spacing(16)
-            .row_spacing(16)
+            .row_spacing(14)
             .column_homogeneous(true)
             .build();
         grid.attach(&output_card, 0, 0, 1, 1);
@@ -344,13 +294,9 @@ impl NowPage {
         grid.attach(&screens_card, 1, 1, 1, 1);
         content.append(&grid);
 
-        let clamp = adw::Clamp::builder()
-            .maximum_size(1100)
-            .child(&content)
-            .build();
         let root = gtk::ScrolledWindow::builder()
             .hscrollbar_policy(gtk::PolicyType::Never)
-            .child(&clamp)
+            .child(&content)
             .vexpand(true)
             .build();
 
@@ -475,12 +421,12 @@ impl NowPage {
         self.current.borrow_mut().output = output.map(|o| o.id.clone());
         if let Some(output) = output {
             self.output.show(
-                &now_model::device_icon(output.hardware),
+                now_model::device_icon(output.hardware, false),
                 config.output_label(output),
                 output.id.as_str(),
             );
             if output.muted {
-                set_tag(&self.output.tag, "Muted", "error");
+                ui::set_tag(&self.output.tag, "Muted", ui::TagKind::Error);
             } else {
                 self.output.tag.set_visible(false);
             }
@@ -500,7 +446,7 @@ impl NowPage {
             } else {
                 waiting
             };
-            self.output.show("audio-speakers-symbolic", name, "");
+            self.output.show("dc-speaker-symbolic", name, "");
             self.output.tag.set_visible(false);
         }
         self.volume.set_sensitive(output.is_some());
@@ -528,18 +474,19 @@ impl NowPage {
         self.current.borrow_mut().input = input.map(|i| i.id.clone());
         if let Some(input) = input {
             self.input.show(
-                &now_model::device_icon(input.hardware),
+                // The design shows a microphone here, whatever the device.
+                "dc-microphone-symbolic",
                 &config.input_label(input),
                 input.id.as_str(),
             );
             if input.muted {
-                set_tag(&self.input.tag, "Muted", "error");
+                ui::set_tag(&self.input.tag, "Muted", ui::TagKind::Error);
                 self.input_hint.set_label("Muted: nobody hears you");
-                self.input_hint.set_css_classes(&["error", "caption"]);
+                self.input_hint.set_css_classes(&["dc-hint-error"]);
             } else {
-                set_tag(&self.input.tag, "Not muted", "ok");
+                ui::set_tag(&self.input.tag, "Not muted", ui::TagKind::Ok);
                 self.input_hint.set_label("Speak: the bar moves");
-                self.input_hint.set_css_classes(&["success", "caption"]);
+                self.input_hint.set_css_classes(&["dc-hint-ok"]);
             }
         } else {
             let name = if !waiting.is_empty() {
@@ -549,10 +496,10 @@ impl NowPage {
             } else {
                 "No microphone plugged in"
             };
-            self.input.show("audio-input-microphone-symbolic", name, "");
+            self.input.show("dc-microphone-symbolic", name, "");
             self.input.tag.set_visible(false);
             self.input_hint.set_label("");
-            self.input_meter.set_value(0.0);
+            self.input_meter.set_fraction(0.0);
         }
         let output_known = self.current.borrow().output.is_some();
         self.test_input
@@ -573,13 +520,13 @@ impl NowPage {
     }
 
     fn show_apps(&self, config: &Config, state: Option<&AudioState>) {
-        while let Some(child) = self.apps.first_child() {
-            self.apps.remove(&child);
-        }
+        ui::clear(&self.apps);
         let rows = state.map_or_else(Vec::new, |state| now_model::app_rows(config, state));
         if rows.is_empty() {
-            self.apps
-                .append(&label("No app uses the sound right now.", &["dim-label"]));
+            self.apps.append(&ui::label(
+                "No app uses the sound right now.",
+                &["dc-small"],
+            ));
             return;
         }
         let count = rows.len();
@@ -590,33 +537,31 @@ impl NowPage {
                 .margin_top(8)
                 .margin_bottom(8)
                 .build();
-            line.append(&gtk::Image::from_icon_name("audio-x-generic-symbolic"));
+            let icon = ui::icon(row.icon, 22);
+            icon.add_css_class("dc-dim-icon");
+            line.append(&icon);
             let texts = gtk::Box::builder()
                 .orientation(gtk::Orientation::Vertical)
                 .hexpand(true)
                 .build();
-            texts.append(&label(&row.name, &["heading"]));
-            texts.append(&label(&row.detail, &["dim-label", "caption"]));
+            texts.append(&ui::label(&row.name, &["dc-name"]));
+            texts.append(&ui::label(&row.detail, &["dc-small"]));
             line.append(&texts);
-            let tag = gtk::Label::builder().valign(gtk::Align::Center).build();
-            match row.tag {
-                AppTag::Ok => set_tag(&tag, "OK", "ok"),
-                AppTag::NotAMicrophone => set_tag(&tag, "Not a microphone", "warn"),
-            }
+            let tag = match row.tag {
+                AppTag::Ok => ui::tag("OK", ui::TagKind::Ok),
+                AppTag::NotAMicrophone => ui::tag("Not a microphone", ui::TagKind::Warn),
+            };
             line.append(&tag);
             self.apps.append(&line);
             if index + 1 < count {
-                self.apps
-                    .append(&gtk::Separator::new(gtk::Orientation::Horizontal));
+                self.apps.append(&ui::line());
             }
         }
     }
 
     /// Shows the screens: the map and the layout line.
     pub fn show_screens(&self, config: &Config, screens: Option<&Result<DisplayState, String>>) {
-        while let Some(child) = self.map.first_child() {
-            self.map.remove(&child);
-        }
+        ui::clear(&self.map);
         let state = match screens {
             Some(Ok(state)) => state,
             Some(Err(_)) => {
@@ -629,47 +574,16 @@ impl NowPage {
                 return;
             }
         };
-        let tiles = now_model::screen_map(config, state, MAP_SIZE.0, MAP_SIZE.1);
+        let tiles = now_model::screen_map(config, state, MAP_ROOM.0, MAP_ROOM.1, MAP_GAP);
         let mut css = String::new();
         for tile in &tiles {
             let name = format!("screen-tile-{}", tile.number);
             let _ = writeln!(
                 css,
-                "#{name} {{ border-color: {color}; }} #{name} .screen-number {{ color: {color}; }}",
+                "#{name} {{ border-color: {color}; }} #{name} .dc-screen-number {{ color: {color}; }}",
                 color = tile.color
             );
-            let box_ = gtk::Box::builder()
-                .orientation(gtk::Orientation::Vertical)
-                .valign(gtk::Align::Center)
-                .css_classes(["screen-tile"])
-                // Set, so the labels that center themselves inside do not
-                // make the whole page grow.
-                .vexpand(false)
-                .width_request(tile.width)
-                .height_request(tile.height)
-                .tooltip_text(&tile.name)
-                .build();
-            box_.set_widget_name(&name);
-            let number = gtk::Label::builder()
-                .label(tile.number.to_string())
-                .css_classes(["screen-number"])
-                .vexpand(true)
-                .valign(gtk::Align::End)
-                .build();
-            let title = gtk::Label::builder()
-                .label(&tile.name)
-                .css_classes(["caption"])
-                .ellipsize(gtk::pango::EllipsizeMode::End)
-                .max_width_chars(1)
-                .hexpand(true)
-                .vexpand(true)
-                .valign(gtk::Align::Start)
-                .margin_start(4)
-                .margin_end(4)
-                .build();
-            box_.append(&number);
-            box_.append(&title);
-            self.map.put(&box_, f64::from(tile.x), f64::from(tile.y));
+            self.map.append(&screen_tile(tile, &name));
         }
         #[allow(deprecated, reason = "load_from_string needs GTK 4.12")]
         self.screen_css.load_from_data(&css);
@@ -681,12 +595,54 @@ impl NowPage {
         let mut current = self.current.borrow_mut();
         if current.input.as_ref() == Some(source) {
             let fraction = current.input_bar.update(peak);
-            self.input_meter
-                .set_value(f64::from(fraction) * INPUT_BLOCKS);
+            self.input_meter.set_fraction(fraction);
         } else if current.output_monitor.as_ref() == Some(source) {
             let fraction = current.output_bar.update(peak);
-            self.output_meter
-                .set_value(f64::from(fraction) * OUTPUT_BLOCKS);
+            self.output_meter.set_fraction(fraction);
         }
     }
+}
+
+/// A screen of the map: its number, big and in its color, and its name.
+fn screen_tile(tile: &now_model::ScreenTile, widget_name: &str) -> gtk::Box {
+    let classes: &[&str] = if tile.primary {
+        &["dc-screen-tile", "primary"]
+    } else {
+        &["dc-screen-tile"]
+    };
+    let screen = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .valign(gtk::Align::End)
+        .css_classes(classes.iter().map(|c| (*c).to_owned()).collect::<Vec<_>>())
+        // Set, so the labels inside do not make the whole page grow.
+        .vexpand(false)
+        .width_request(tile.width)
+        .height_request(tile.height)
+        .tooltip_text(&tile.name)
+        .build();
+    screen.set_widget_name(widget_name);
+    let middle = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .valign(gtk::Align::Center)
+        .vexpand(true)
+        .build();
+    middle.append(
+        &gtk::Label::builder()
+            .label(tile.number.to_string())
+            .css_classes(["dc-screen-number"])
+            .build(),
+    );
+    middle.append(
+        &gtk::Label::builder()
+            .label(&tile.name)
+            .css_classes(["dc-screen-name"])
+            .ellipsize(gtk::pango::EllipsizeMode::End)
+            .max_width_chars(1)
+            .hexpand(true)
+            .margin_start(4)
+            .margin_end(4)
+            .build(),
+    );
+    screen.append(&middle);
+    screen
 }
