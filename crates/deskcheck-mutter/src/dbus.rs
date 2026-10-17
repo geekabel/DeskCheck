@@ -36,9 +36,13 @@ pub(crate) const SERVICE: &str = "org.gnome.Mutter.DisplayConfig";
     default_path = "/org/gnome/Mutter/DisplayConfig",
     gen_async = false
 )]
-trait DisplayConfig {
+pub(crate) trait DisplayConfig {
     /// Returns the current state of the monitors.
     fn get_current_state(&self) -> zbus::Result<WireState>;
+
+    /// Sent by GNOME when screens are plugged, unplugged or changed.
+    #[zbus(signal)]
+    fn monitors_changed(&self) -> zbus::Result<()>;
 }
 
 /// Reads a boolean property; a missing or wrong-type value is `false`.
@@ -102,6 +106,13 @@ pub(crate) fn to_raw(wire: WireState) -> raw::State {
             )
             .collect(),
     }
+}
+
+/// Starts listening to `MonitorsChanged` on the given connection.
+pub(crate) fn monitors_changed(
+    connection: &zbus::blocking::Connection,
+) -> zbus::Result<MonitorsChangedIterator> {
+    DisplayConfigProxy::new(connection)?.receive_monitors_changed()
 }
 
 /// Calls `GetCurrentState` on the given connection.

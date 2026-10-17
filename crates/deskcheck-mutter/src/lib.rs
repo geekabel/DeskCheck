@@ -18,9 +18,12 @@ use std::time::Duration;
 
 use deskcheck_core::display::DisplayState;
 
+pub use watch::ScreenWatcher;
+
 mod convert;
 pub mod dbus;
 mod raw;
+mod watch;
 
 /// How long to wait for GNOME to answer a call.
 pub const CALL_TIMEOUT: Duration = Duration::from_secs(5);

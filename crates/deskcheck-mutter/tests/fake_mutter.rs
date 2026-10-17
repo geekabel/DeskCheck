@@ -170,3 +170,52 @@ fn no_answer_stops_after_the_timeout() {
     let error = deskcheck_mutter::read_state_with(&client).unwrap_err();
     assert_eq!(error, deskcheck_mutter::Error::NoAnswer);
 }
+
+const PATH: &str = "/org/gnome/Mutter/DisplayConfig";
+const INTERFACE: &str = "org.gnome.Mutter.DisplayConfig";
+
+/// GNOME sends `MonitorsChanged`: the watcher turns it into a change, and
+/// stops quickly when dropped.
+#[test]
+fn the_watcher_sends_a_change_for_each_signal() {
+    use std::sync::mpsc;
+    use std::time::Instant;
+
+    use deskcheck_core::events::Change;
+
+    let (server, client) = connect(Some(PATH), Duration::from_secs(5));
+    let (changes, received) = mpsc::channel();
+    let watcher = deskcheck_mutter::ScreenWatcher::start_with(&client, changes).unwrap();
+
+    for _ in 0..2 {
+        server
+            .emit_signal(None::<()>, PATH, INTERFACE, "MonitorsChanged", &())
+            .unwrap();
+        assert_eq!(
+            received.recv_timeout(Duration::from_secs(2)),
+            Ok(Change::Screens)
+        );
+    }
+
+    let started = Instant::now();
+    drop(watcher);
+    assert!(
+        started.elapsed() < Duration::from_secs(1),
+        "{:?}",
+        started.elapsed()
+    );
+    // Stopped on purpose: nothing more, and no "lost" change.
+    assert!(received.recv_timeout(Duration::from_millis(200)).is_err());
+}
+
+/// Outside GNOME, the watcher does not start.
+#[test]
+fn the_watcher_needs_gnome() {
+    let (_server, client) = connect(Some("/somewhere/else"), Duration::from_secs(5));
+    let (changes, _received) = std::sync::mpsc::channel();
+    let error = deskcheck_mutter::ScreenWatcher::start_with(&client, changes).unwrap_err();
+    assert!(
+        matches!(error, deskcheck_mutter::Error::DBus(_)),
+        "{error:?}"
+    );
+}
