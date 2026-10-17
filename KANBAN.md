@@ -4,15 +4,15 @@ Ce fichier suit toutes les tâches jusqu'à la version 0.1.0.
 On le met à jour à la fin de chaque tâche, dans la même branche que la tâche.
 Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact/SEKGtbp6ACVXhpff8rK89i) (privé, mis à jour en même temps).
 
-**Avancement : 20 / 38 tâches terminées**
+**Avancement : 22 / 38 tâches terminées**
 
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-23, DC-24, DC-25 |
-| 📋 Backlog | DC-26 à DC-38 |
-| 🖥️ À tester sur ton PC | DC-21, DC-22 |
-| ✅ Terminé | DC-01 à DC-20 |
+| 🔜 À faire (prochaines) | DC-24, DC-25, DC-26 |
+| 📋 Backlog | DC-27 à DC-38 |
+| 🖥️ À tester sur ton PC | DC-23 |
+| ✅ Terminé | DC-01 à DC-22 |
 
 ---
 
@@ -67,11 +67,6 @@ _Aucune tâche._
 
 ## 🔜 À faire (prochaines)
 
-### DC-23 · Alerte en direct
-- **Critères**
-  - [ ] Bandeau sur « Maintenant » quand une application écoute un retour.
-  - [ ] Bouton « Basculer » qui corrige sans couper l'appel.
-
 ### DC-24 · Identifier les écrans
 - **Docs** : `gtk::Window::fullscreen_on_monitor`, `gdk::Display::monitors`.
 - **Critères**
@@ -84,6 +79,12 @@ _Aucune tâche._
   - [ ] Écran principal, résolution, échelle, position.
   - [ ] Retour arrière automatique si l'utilisateur ne confirme pas.
 
+### DC-26 · Sur quel écran est la souris ? 🧪
+- **But** : sous Wayland, une application ne voit pas la position globale du pointeur.
+  Chercher une solution (petite extension GNOME Shell, ou autre).
+- **Critères**
+  - [ ] Solution choisie et documentée, ou fonction retirée de la v0.1.0.
+
 ---
 
 ## 📋 Backlog
@@ -93,12 +94,6 @@ _Aucune tâche._
 ### Phase 6 · Interface graphique
 
 ### Phase 7 · Agir sur les écrans
-
-#### DC-26 · Sur quel écran est la souris ? 🧪
-- **But** : sous Wayland, une application ne voit pas la position globale du pointeur.
-  Chercher une solution (petite extension GNOME Shell, ou autre).
-- **Critères**
-  - [ ] Solution choisie et documentée, ou fonction retirée de la v0.1.0.
 
 ### Phase 8 · Lieux
 
@@ -173,63 +168,25 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-### DC-21 · Page « Écrans »
-- **But** : voir chaque écran à sa vraie place, avec son numéro et sa couleur, et régler
-  celui qu'on choisit.
-- **Docs lues** : `gtk4` 0.10 (`Fixed`, `GestureClick`, `EventControllerFocus`, `Entry`,
-  `DropDown` et `StringList`, `CheckButton`, `Overflow`), CSS de GTK 4 (`radial-gradient`,
-  `background-size`, `box-shadow` à plusieurs anneaux), `hwdata` (format de `pnp.ids`),
-  maquette « Écrans ».
+### DC-23 · Alerte en direct
+- **But** : prévenir tout de suite, pendant un appel, quand une application écoute un retour.
+- **Docs lues** : `gtk4` 0.10 (`Button::set_label`, `Widget::set_visible`), règles de DC-11
+  (`RecordsMonitor`), maquette « Maintenant » (bandeau).
 - **Critères**
-  - [x] Plan des écrans à leur vraie place, sur un bureau à points : numéro, nom, ligne
-    technique, étiquettes « Primary », « Top bar here », « Built-in ».
-  - [x] Un clic choisit l'écran (anneau noir) et montre ses réglages.
-  - [x] Nom et couleur repère (les quatre de la maquette) enregistrés aussitôt.
-  - [x] « Sound of this screen » : les haut-parleurs de l'écran, avec « Use ».
-  - [x] « How DeskCheck recognizes it » : fabricant, modèle, n° de série, branchement.
-  - [x] Vu ici sur un écran virtuel : couleur et nom enregistrés et affichés, « Use » qui
-    change vraiment la sortie, mode sombre.
+  - [x] Bandeau orange en haut de « Now » dès qu'une application écoute un retour : le nom de
+    l'application, du retour et du micro à utiliser.
+  - [x] « hears your voice well » quand ce micro vient d'entendre une voix (moins de 10 s).
+  - [x] « Switch Firefox to … » corrige sans couper l'appel ; le bandeau disparaît.
+  - [x] « Run the diagnostic » ouvre la page Diagnostic ; « Ignore » cache le bandeau.
+  - [x] Vu ici sur un écran virtuel : Firefox déplacé sur le micro, bandeau caché, lien vers
+    le Diagnostic.
 - **Décisions**
-  - Onglets Extend, Mirror, One screen, case « Primary screen », résolution et échelle : ils
-    montrent l'état actuel, grisés. Les changer vient avec DC-25.
-  - « Identify screens » vient avec DC-24, « Votre souris est ici » avec DC-26.
-    « Bring back lost windows » est grisé (pas encore de tâche).
-  - Haut-parleurs d'un écran : la sortie HDMI dont le nom contient le modèle de l'écran, ou la
-    seule sortie HDMI quand un seul écran externe est allumé. Sinon, DeskCheck le dit.
-  - Le nom du fabricant vient de `/usr/share/hwdata/pnp.ids` s'il est là, sinon d'une petite liste.
-  - Les quatre couleurs de la maquette sont maintenant les couleurs par défaut des écrans.
-  - Retour de Godwin : l'anneau de l'écran choisi était trop épais. GTK dessine les ombres
-    (`box-shadow`) dans l'ordre inverse du CSS : l'anneau noir de 6 px cachait l'écart de 4 px.
-    Corrigé : 4 px d'écart puis 2 px de trait, comme la maquette.
-- **À tester** : `cargo run -p deskcheck-app`, page Screens : tes deux écrans à la bonne place,
-  clique chacun, change sa couleur et son nom (regarde aussi la page Now), « Use » si ton
-  écran a des haut-parleurs.
-
-
-### DC-22 · Page « Diagnostic »
-- **But** : pour le problème que tu as, une liste de vérifications avec leur état, et une
-  correction en un clic quand DeskCheck peut la faire.
-- **Docs lues** : `gtk4` 0.10 (`ProgressBar` et ses nœuds CSS `trough` et `progress`,
-  `CheckButton`, `Box` homogène), `glib` 0.21 (`timeout_add_seconds_local`, `ControlFlow`),
-  moteur de diagnostic de DC-11, maquette « Diagnostic ».
-- **Critères**
-  - [x] « They can't hear me » : micro non coupé, micro qui entend ta voix (barre en direct,
-    « You spoke 2 s ago »), application qui écoute un vrai micro, droit du site (tu réponds),
-    test final.
-  - [x] « I hear nothing » : sortie non coupée, applications sur la bonne sortie, son de test.
-  - [x] « A screen is not detected » : GNOME voit les écrans, ils sont allumés, câble et entrée.
-  - [x] Barre de progression « 3 of 5 · 1 problem found », boutons pour passer d'un cas à l'autre.
-  - [x] Correction en un clic (bouton orange), sans couper l'appel.
-  - [x] Vu ici sur un écran virtuel : « Switch Firefox to Jabra-Mic » déplace vraiment Firefox
-    sur le micro, la vérification passe au vert.
-- **Décisions**
-  - Les vérifications viennent des règles de DC-11 : même résultat que `deskcheck doctor`.
-  - Ce que DeskCheck ne peut pas voir (droit du site, son entendu, câble) est une question.
-  - Le test final reste grisé tant qu'une vérification au-dessus n'est pas bonne, comme la maquette.
-  - « Remember the fix for this place » est grisé : il vient avec les lieux (DC-28).
-- **À tester** : `cargo run -p deskcheck-app`, page Diagnostic : coupe ton micro puis « Turn
-  the microphone on », parle (« You spoke … »), réponds aux questions, « Record ». Essaie
-  « I hear nothing » avec une vidéo. Au bureau avec Teams : « Switch Firefox to … ».
+  - « Ignore » vaut pour les flux présents. Une nouvelle écoute d'un retour fait revenir le bandeau.
+  - Le nom de l'onglet (« Teams ») n'est pas connu : Firefox ne le donne pas au serveur son.
+    Le bandeau dit « In Firefox ».
+- **À tester** : `cargo run -p deskcheck-app` avec un enregistrement sur un retour, par
+  exemple `parecord --device=<sortie>.monitor /dev/null` : le bandeau arrive, puis
+  « Switch … », et une autre fois « Ignore ». Au bureau avec Teams : le vrai cas.
 
 ---
 
@@ -673,3 +630,56 @@ _Aucune tâche._
   - L'étiquette garde le niveau le plus fort un court moment, pour ne pas changer entre deux mots.
   - « Name a new device », « Advanced options » et « Hidden devices » sont présents comme dans
     la maquette, grisés : ils viendront plus tard (assistant DC-32).
+
+### DC-21 · Page « Écrans »
+- **But** : voir chaque écran à sa vraie place, avec son numéro et sa couleur, et régler
+  celui qu'on choisit.
+- **Docs lues** : `gtk4` 0.10 (`Fixed`, `GestureClick`, `EventControllerFocus`, `Entry`,
+  `DropDown` et `StringList`, `CheckButton`, `Overflow`), CSS de GTK 4 (`radial-gradient`,
+  `background-size`, `box-shadow` à plusieurs anneaux), `hwdata` (format de `pnp.ids`),
+  maquette « Écrans ».
+- **Critères**
+  - [x] Plan des écrans à leur vraie place, sur un bureau à points : numéro, nom, ligne
+    technique, étiquettes « Primary », « Top bar here », « Built-in ».
+  - [x] Un clic choisit l'écran (anneau noir) et montre ses réglages.
+  - [x] Nom et couleur repère (les quatre de la maquette) enregistrés aussitôt.
+  - [x] « Sound of this screen » : les haut-parleurs de l'écran, avec « Use ».
+  - [x] « How DeskCheck recognizes it » : fabricant, modèle, n° de série, branchement.
+  - [x] Vu ici sur un écran virtuel : couleur et nom enregistrés et affichés, « Use » qui
+    change vraiment la sortie, mode sombre.
+  - [x] Testé sur le PC de Godwin (17 oct. 2026) : plan, clic, couleur et nom, anneau fin.
+- **Décisions**
+  - Onglets Extend, Mirror, One screen, case « Primary screen », résolution et échelle : ils
+    montrent l'état actuel, grisés. Les changer vient avec DC-25.
+  - « Identify screens » vient avec DC-24, « Votre souris est ici » avec DC-26.
+    « Bring back lost windows » est grisé (pas encore de tâche).
+  - Haut-parleurs d'un écran : la sortie HDMI dont le nom contient le modèle de l'écran, ou la
+    seule sortie HDMI quand un seul écran externe est allumé. Sinon, DeskCheck le dit.
+  - Le nom du fabricant vient de `/usr/share/hwdata/pnp.ids` s'il est là, sinon d'une petite liste.
+  - Les quatre couleurs de la maquette sont maintenant les couleurs par défaut des écrans.
+  - Retour de Godwin : l'anneau de l'écran choisi était trop épais. GTK dessine les ombres
+    (`box-shadow`) dans l'ordre inverse du CSS : l'anneau noir de 6 px cachait l'écart de 4 px.
+    Corrigé : 4 px d'écart puis 2 px de trait, comme la maquette.
+
+### DC-22 · Page « Diagnostic »
+- **But** : pour le problème que tu as, une liste de vérifications avec leur état, et une
+  correction en un clic quand DeskCheck peut la faire.
+- **Docs lues** : `gtk4` 0.10 (`ProgressBar` et ses nœuds CSS `trough` et `progress`,
+  `CheckButton`, `Box` homogène), `glib` 0.21 (`timeout_add_seconds_local`, `ControlFlow`),
+  moteur de diagnostic de DC-11, maquette « Diagnostic ».
+- **Critères**
+  - [x] « They can't hear me » : micro non coupé, micro qui entend ta voix (barre en direct,
+    « You spoke 2 s ago »), application qui écoute un vrai micro, droit du site (tu réponds),
+    test final.
+  - [x] « I hear nothing » : sortie non coupée, applications sur la bonne sortie, son de test.
+  - [x] « A screen is not detected » : GNOME voit les écrans, ils sont allumés, câble et entrée.
+  - [x] Barre de progression « 3 of 5 · 1 problem found », boutons pour passer d'un cas à l'autre.
+  - [x] Correction en un clic (bouton orange), sans couper l'appel.
+  - [x] Vu ici sur un écran virtuel : « Switch Firefox to Jabra-Mic » déplace vraiment Firefox
+    sur le micro, la vérification passe au vert.
+  - [x] Testé sur le PC de Godwin (17 oct. 2026) : les trois cas et la correction en un clic.
+- **Décisions**
+  - Les vérifications viennent des règles de DC-11 : même résultat que `deskcheck doctor`.
+  - Ce que DeskCheck ne peut pas voir (droit du site, son entendu, câble) est une question.
+  - Le test final reste grisé tant qu'une vérification au-dessus n'est pas bonne, comme la maquette.
+  - « Remember the fix for this place » est grisé : il vient avec les lieux (DC-28).
