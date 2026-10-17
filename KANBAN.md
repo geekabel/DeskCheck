@@ -4,15 +4,15 @@ Ce fichier suit toutes les tâches jusqu'à la version 0.1.0.
 On le met à jour à la fin de chaque tâche, dans la même branche que la tâche.
 Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact/SEKGtbp6ACVXhpff8rK89i) (privé, mis à jour en même temps).
 
-**Avancement : 17 / 38 tâches terminées**
+**Avancement : 18 / 38 tâches terminées**
 
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
 | 🔜 À faire (prochaines) | DC-19, DC-20, DC-21 |
 | 📋 Backlog | DC-22 à DC-38 |
-| 🖥️ À tester sur ton PC | DC-18 |
-| ✅ Terminé | DC-01 à DC-17 |
+| 🖥️ À tester sur ton PC | aucune |
+| ✅ Terminé | DC-01 à DC-18 |
 
 ---
 
@@ -190,29 +190,7 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-### DC-18 · Structure de l'application
-- **But** : la charpente de la fenêtre, comme la maquette, et le travail système à part.
-- **Docs lues** : caisse `libadwaita` 0.8 et `gtk4` 0.10 (`ListBox` et style `navigation-sidebar`,
-  `Stack`, `MenuButton`, `gio::SimpleAction`, `CssProvider::load_from_data`, `AboutDialog`),
-  `glib` 0.21 (`spawn_future_local`), caisse `async-channel` 2.5 (`unbounded`, `send_blocking`, `recv`),
-  maquette DeskCheck (artboard « Maintenant »).
-- **Critères**
-  - [x] `AdwApplication`, barre latérale à 5 sections (Now, Audio, Screens, Places, Diagnostic),
-    badge du lieu (« No place yet » jusqu'à DC-27), menu (Refresh, About, Quit).
-  - [x] Le travail système tourne hors du fil de l'interface, résultats envoyés à l'interface :
-    un fil « backend » lit et surveille le son et les écrans, et envoie chaque nouvel état sur un
-    canal `async-channel`, attendu par l'interface avec `glib::spawn_future_local`.
-  - [x] En bas de la barre latérale : « Sound: PulseAudio » (ou PipeWire), « Screens: GNOME, Wayland ».
-  - [x] La page Now montre déjà l'état en direct (sortie, micro, nombre d'écrans), en attendant ses cartes.
-  - [x] Vu ici sur un écran virtuel avec un serveur son de test et un faux GNOME : clair et sombre,
-    clic sur une section, mise à jour toute seule quand un casque arrive.
-- **Décisions**
-  - Interface en anglais, traduction française plus tard (nouvelle tâche DC-38, choix de Godwin).
-  - libadwaita 1.1 n'a pas `NavigationSplitView` (1.4) : `ListBox` + `Stack` côte à côte.
-  - libadwaita 1.1 n'a pas `AboutWindow` (1.2) : `gtk::AboutDialog`.
-  - Une seule fenêtre : relancer DeskCheck montre celle qui est déjà ouverte.
-- **À tester** : `cargo run -p deskcheck-app`, clique sur chaque section, ouvre le menu
-  (About, puis Quit ou Ctrl+Q). Branche ou débranche ton casque : la page Now change toute seule.
+_Aucune tâche._
 
 ---
 
@@ -570,3 +548,26 @@ _Aucune tâche._
   - Options `v4_6` et `v1_1` : un appel plus récent que Ubuntu 22.04 ne compile pas.
   - libadwaita 1.1 n'a pas `ToolbarView` (1.4) : la barre d'en-tête est dans une boîte verticale.
   - Il faut les paquets `libgtk-4-dev` et `libadwaita-1-dev` pour construire.
+
+### DC-18 · Structure de l'application
+- **But** : la charpente de la fenêtre, comme la maquette, et le travail système à part.
+- **Docs lues** : caisse `libadwaita` 0.8 et `gtk4` 0.10 (`ListBox` et style `navigation-sidebar`,
+  `Stack`, `MenuButton`, `gio::SimpleAction`, `CssProvider::load_from_data`, `AboutDialog`),
+  `glib` 0.21 (`spawn_future_local`), caisse `async-channel` 2.5 (`unbounded`, `send_blocking`, `recv`),
+  maquette DeskCheck (artboard « Maintenant »).
+- **Critères**
+  - [x] `AdwApplication`, barre latérale à 5 sections (Now, Audio, Screens, Places, Diagnostic),
+    badge du lieu (« No place yet » jusqu'à DC-27), menu (Refresh, About, Quit).
+  - [x] Le travail système tourne hors du fil de l'interface, résultats envoyés à l'interface :
+    un fil « backend » lit et surveille le son et les écrans, et envoie chaque nouvel état sur un
+    canal `async-channel`, attendu par l'interface avec `glib::spawn_future_local`.
+  - [x] En bas de la barre latérale : « Sound: PulseAudio » (ou PipeWire), « Screens: GNOME, Wayland ».
+  - [x] La page Now montre déjà l'état en direct (sortie, micro, nombre d'écrans), en attendant ses cartes.
+  - [x] Vu ici sur un écran virtuel avec un serveur son de test et un faux GNOME : clair et sombre,
+    clic sur une section, mise à jour toute seule quand un casque arrive.
+  - [x] Testé sur le PC de Godwin (17 oct. 2026) : sections, menu et mise à jour en direct.
+- **Décisions**
+  - Interface en anglais, traduction française plus tard (nouvelle tâche DC-38, choix de Godwin).
+  - libadwaita 1.1 n'a pas `NavigationSplitView` (1.4) : `ListBox` + `Stack` côte à côte.
+  - libadwaita 1.1 n'a pas `AboutWindow` (1.2) : `gtk::AboutDialog`.
+  - Une seule fenêtre : relancer DeskCheck montre celle qui est déjà ouverte.
