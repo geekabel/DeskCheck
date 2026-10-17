@@ -15,6 +15,7 @@ publish = false
 [workspace.dependencies]
 deskcheck-core = { path = "crates/deskcheck-core" }
 deskcheck-pulse = { path = "crates/deskcheck-pulse" }
+deskcheck-mutter = { path = "crates/deskcheck-mutter" }
 
 [workspace.lints.rust]
 unsafe_code = "deny"
