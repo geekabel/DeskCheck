@@ -4,15 +4,15 @@ Ce fichier suit toutes les tâches jusqu'à la version 0.1.0.
 On le met à jour à la fin de chaque tâche, dans la même branche que la tâche.
 Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact/SEKGtbp6ACVXhpff8rK89i) (privé, mis à jour en même temps).
 
-**Avancement : 1 / 37 tâches terminées**
+**Avancement : 2 / 37 tâches terminées**
 
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-02, DC-03, DC-04 |
-| 📋 Backlog | DC-05 à DC-37 |
+| 🔜 À faire (prochaines) | DC-03, DC-04, DC-05 |
+| 📋 Backlog | DC-06 à DC-37 |
 | 🖥️ À tester sur ton PC | aucune |
-| ✅ Terminé | DC-01 |
+| ✅ Terminé | DC-01, DC-02 |
 
 ---
 
@@ -67,12 +67,6 @@ _Aucune tâche._
 
 ## 🔜 À faire (prochaines)
 
-### DC-02 · Licence du projet ❓
-- **But** : choisir la licence (ex. MIT, Apache-2.0, GPL-3.0) et l'ajouter.
-- **Critères**
-  - [ ] Choix fait par Godwin.
-  - [ ] Fichier `LICENSE` et champ `license` du workspace.
-
 ### DC-03 · Modèle de domaine
 - **But** : décrire en Rust pur les appareils son, les flux des applications et les écrans.
   Aucune dépendance système, tout est testable.
@@ -91,19 +85,19 @@ _Aucune tâche._
   - [ ] Conversion vers le modèle de domaine.
   - [ ] Marche aussi avec PipeWire (`pipewire-pulse`).
 
----
-
-## 📋 Backlog
-
-### Phase 1 · Lire l'état du son
-
-#### DC-05 · Classer les appareils son
+### DC-05 · Classer les appareils son
 - **But** : reconnaître un « retour » (monitor), un casque, un HDMI, un USB, le micro interne.
 - **Docs** : propriétés PulseAudio (`device.form_factor`, `device.bus`, `monitor_of_sink`).
 - **Critères**
   - [ ] Un retour n'est jamais classé comme micro.
   - [ ] Type d'appareil et icône déduits des propriétés.
   - [ ] Tests avec des données enregistrées.
+
+---
+
+## 📋 Backlog
+
+### Phase 1 · Lire l'état du son
 
 #### DC-06 · Commande `deskcheck audio`
 - **But** : premier outil utile, en terminal : qui écoute quoi.
@@ -318,3 +312,12 @@ _Aucune tâche._
 - **Notes** : Clippy 1.99 a ajouté la règle `assert_is_empty`, corrigée avec `assert_ne!`.
   Les messages de Clippy remontent en annotations GitHub, lisibles même sans le journal.
 - **Décision** : identifiant d'application `io.github.geekabel.DeskCheck`.
+
+### DC-02 · Licence du projet
+- **But** : choisir la licence et l'ajouter.
+- **Docs lues** : Cargo Book (champs `license` et `license-file`), liste SPDX (texte officiel MIT).
+- **Critères**
+  - [x] Choix fait par Godwin : MIT.
+  - [x] Fichier `LICENSE` (texte SPDX, « Copyright (c) 2026 Godwin »).
+  - [x] `license = "MIT"` dans le workspace, hérité par les deux caisses.
+  - [x] Mention de la licence dans le README.
