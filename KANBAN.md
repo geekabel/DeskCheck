@@ -235,6 +235,9 @@ _Aucune tâche._
     des haut-parleurs. Elle était prise pour un appel, et `--fix` ne pouvait pas la déplacer
     (flux créé avec `DONT_MOVE`). Corrigé : les mesureurs de niveau sont reconnus et ignorés.
   - [x] Vérifié ici avec un vrai flux de mesure (`PEAK_DETECT`) sur un serveur de test.
+  - [x] Retour de Godwin : il fallait lancer `--fix` deux fois. GNOME coupe la sortie et la met
+    à 0 % quand le curseur va tout en bas ; seule la coupure était signalée. Corrigé : les deux
+    problèmes sont signalés, un seul `--fix` suffit (reproduit puis vérifié sur un serveur de test).
 - **Docs lues (correction)** : code de GNOME Settings 41 (`panels/sound/cc-level-bar.c`),
   de pavucontrol (`createMonitorStreamForSource`) et de PulseAudio 15 (`record_stream_new`
   dans `protocol-native.c`).
@@ -465,5 +468,6 @@ _Aucune tâche._
     graphique utiliseront les mêmes règles.
   - Meilleur micro proposé : celui par défaut, sinon un casque, puis un micro, puis une webcam.
   - Seuls les appareils utilisés comptent (par défaut, ou utilisés par une application).
-  - Un appareil coupé et à 0 % est signalé une fois, comme coupé.
+  - Un appareil coupé et à 0 % est signalé deux fois, avec les deux corrections
+    (changé pendant DC-12 : sinon il fallait lancer `--fix` deux fois).
   - « Brancher un micro » n'est pas une correction automatique (`Fix::is_automatic`).
