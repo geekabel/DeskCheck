@@ -9,9 +9,9 @@ Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-14, DC-15, DC-16 |
-| 📋 Backlog | DC-17 à DC-37 |
-| 🖥️ À tester sur ton PC | aucune |
+| 🔜 À faire (prochaines) | DC-15, DC-16, DC-17 |
+| 📋 Backlog | DC-18 à DC-37 |
+| 🖥️ À tester sur ton PC | DC-14 |
 | ✅ Terminé | DC-01 à DC-13 |
 
 ---
@@ -67,12 +67,6 @@ _Aucune tâche._
 
 ## 🔜 À faire (prochaines)
 
-### DC-14 · Barres de niveau en direct 🧪
-- **Docs** : flux de mesure de crête PulseAudio (`PEAK_DETECT`).
-- **Critères**
-  - [ ] Niveau de chaque micro, mis à jour environ 20 fois par seconde.
-  - [ ] Faible charge processeur.
-
 ### DC-15 · Tester le son et le micro
 - **Critères**
   - [ ] Jouer un son court sur une sortie.
@@ -84,6 +78,12 @@ _Aucune tâche._
   - [ ] Abonnement au signal `MonitorsChanged` de Mutter.
   - [ ] Un seul canal d'événements pour l'interface.
 
+### DC-17 · Fenêtre GTK compatible Ubuntu 22.04 🧪
+- **But** : vérifier tôt que GTK 4.6 et libadwaita 1.1 compilent et tournent.
+- **Docs** : livre « GUI development with Rust and GTK 4 », docs `gtk4` et `libadwaita`.
+- **Critères**
+  - [ ] Fenêtre vide avec barre d'en-tête, construite dans la CI Ubuntu 22.04.
+
 ---
 
 ## 📋 Backlog
@@ -91,12 +91,6 @@ _Aucune tâche._
 ### Phase 5 · Agir sur le son
 
 ### Phase 6 · Interface graphique
-
-#### DC-17 · Fenêtre GTK compatible Ubuntu 22.04 🧪
-- **But** : vérifier tôt que GTK 4.6 et libadwaita 1.1 compilent et tournent.
-- **Docs** : livre « GUI development with Rust and GTK 4 », docs `gtk4` et `libadwaita`.
-- **Critères**
-  - [ ] Fenêtre vide avec barre d'en-tête, construite dans la CI Ubuntu 22.04.
 
 #### DC-18 · Structure de l'application
 - **Critères**
@@ -209,7 +203,27 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-_Aucune tâche._
+### DC-14 · Barres de niveau en direct 🧪
+- **But** : voir en direct quel micro entend ta voix.
+- **Docs lues** : `libpulse-binding` 2.30 (`Stream`, `connect_record`, `FlagSet::PEAK_DETECT`,
+  `peek`, `discard`, `readable_size`, `BufferAttr`, `Mainloop::prepare/poll/dispatch`),
+  code de GNOME Settings 41 (`cc-level-bar.c` : 25 valeurs par seconde, fragment d'un float),
+  doc Rust (`std::sync::mpsc`, `std::thread`, `std::io::IsTerminal`).
+- **Critères**
+  - [x] Niveau de chaque micro, mis à jour 25 fois par seconde (mesuré : 25,0 par seconde).
+  - [x] Faible charge processeur (mesuré : 0,4 % d'un cœur, en version de débogage).
+  - [x] `Meters` dans `deskcheck-pulse` : un fil d'exécution à part, des événements sur un canal,
+    arrêt en moins de 50 ms quand on le lâche. Prêt pour l'interface graphique.
+  - [x] Commande `deskcheck levels` : une barre par micro, jusqu'à Ctrl+C ou `--seconds N`.
+  - [x] Les barres de DeskCheck elles-mêmes sont des mesureurs de niveau : jamais un problème.
+- **Décisions**
+  - Échelle en décibels, de -60 dB (vide) à 0 dB (plein), comme l'oreille entend.
+  - La barre monte tout de suite et descend doucement (vide en 0,8 s), comme dans GNOME.
+  - Le fil d'exécution a sa propre connexion : la boucle de la bibliothèque ne peut pas changer de fil.
+  - Une source qui envoie le son par gros paquets donne une barre par à-coups (vu avec la source
+    de test `module-sine-source`). Les vrais micros envoient de petits paquets.
+- **À tester** : `cargo run -p deskcheck -- levels`, puis parle : la barre de ton micro doit bouger.
+  Tape dans tes mains pour voir le haut de la barre. Ctrl+C pour arrêter.
 
 ---
 
