@@ -15,7 +15,8 @@ use deskcheck_core::audio::AudioState;
 use deskcheck_core::display::DisplayState;
 use deskcheck_pulse::ServerKind;
 
-use crate::backend::Update;
+use crate::backend::{Backend, Update};
+use crate::now_page::NowPage;
 use crate::sections::Section;
 use crate::status;
 
@@ -37,7 +38,8 @@ pub struct MainWindow {
     pub window: adw::ApplicationWindow,
     title: adw::WindowTitle,
     stack: gtk::Stack,
-    now_page: adw::StatusPage,
+    now: Rc<NowPage>,
+    toasts: adw::ToastOverlay,
     sound_footer: gtk::Label,
     screens_footer: gtk::Label,
     latest: Rc<RefCell<Latest>>,
@@ -96,7 +98,7 @@ fn footer_label() -> gtk::Label {
 
 impl MainWindow {
     /// Builds the window, with the Now section shown.
-    pub fn new(app: &adw::Application) -> Self {
+    pub fn new(app: &adw::Application, backend: Backend) -> Self {
         let title = adw::WindowTitle::new(Section::Now.title(), "");
         let header = adw::HeaderBar::builder().title_widget(&title).build();
         header.pack_start(
@@ -113,19 +115,19 @@ impl MainWindow {
             .hexpand(true)
             .transition_type(gtk::StackTransitionType::Crossfade)
             .build();
-        let mut now_page = None;
+        let now = NowPage::new(backend);
         for section in Section::ALL {
+            if section == Section::Now {
+                stack.add_named(&now.root, Some(section.id()));
+                continue;
+            }
             let page = adw::StatusPage::builder()
                 .icon_name(section.icon_name())
                 .title(section.title())
                 .description(section.summary())
                 .build();
             stack.add_named(&page, Some(section.id()));
-            if section == Section::Now {
-                now_page = Some(page);
-            }
         }
-        let now_page = now_page.unwrap_or_default();
 
         let list = gtk::ListBox::builder()
             .css_classes(["navigation-sidebar"])
@@ -158,9 +160,12 @@ impl MainWindow {
         body.append(&gtk::Separator::new(gtk::Orientation::Vertical));
         body.append(&stack);
 
+        // Short messages, like the result of a sound test, over the body.
+        let toasts = adw::ToastOverlay::new();
+        toasts.set_child(Some(&body));
         let content = gtk::Box::new(gtk::Orientation::Vertical, 0);
         content.append(&header);
-        content.append(&body);
+        content.append(&toasts);
 
         let window = adw::ApplicationWindow::builder()
             .application(app)
@@ -174,7 +179,8 @@ impl MainWindow {
             window,
             title,
             stack,
-            now_page,
+            now,
+            toasts,
             sound_footer,
             screens_footer,
             latest: Rc::default(),
@@ -209,6 +215,17 @@ impl MainWindow {
                 Update::SoundServer(server) => latest.server = Some(server),
                 Update::Sound(sound) => latest.sound = Some(sound),
                 Update::Screens(screens) => latest.screens = Some(screens),
+                // Peaks come 25 times a second: only the meter moves.
+                Update::Peak { source, peak } => {
+                    self.now.peak(&source, peak);
+                    return;
+                }
+                Update::Message(text) => {
+                    let toast = adw::Toast::new(&text);
+                    toast.set_timeout(6);
+                    self.toasts.add_toast(toast);
+                    return;
+                }
             }
         }
         self.render();
@@ -229,10 +246,7 @@ impl MainWindow {
             latest.screens.as_ref(),
             session.as_deref(),
         ));
-        self.now_page.set_description(Some(&status::now_summary(
-            &config,
-            latest.sound.as_ref(),
-            latest.screens.as_ref(),
-        )));
+        self.now.show_sound(&config, latest.sound.as_ref());
+        self.now.show_screens(&config, latest.screens.as_ref());
     }
 }

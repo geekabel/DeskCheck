@@ -13,6 +13,8 @@ use deskcheck_core::{APP_ID, APP_NAME, VERSION};
 use gtk::{gio, glib};
 
 mod backend;
+mod now_model;
+mod now_page;
 mod sections;
 mod status;
 mod window;
@@ -25,6 +27,52 @@ const CSS: &str = "
     border-radius: 999px;
     padding: 2px 10px;
     font-weight: bold;
+}
+.now-card {
+    padding: 16px;
+}
+.icon-tile {
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: 10px;
+    background-color: alpha(@accent_bg_color, 0.15);
+    color: @accent_color;
+}
+.tag {
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: smaller;
+    font-weight: bold;
+}
+.tag-ok {
+    background-color: alpha(@success_color, 0.15);
+    color: @success_color;
+}
+.tag-warn {
+    background-color: alpha(@warning_color, 0.18);
+    color: @warning_color;
+}
+.tag-error {
+    background-color: alpha(@error_color, 0.15);
+    color: @error_color;
+}
+.screen-map {
+    border-radius: 8px;
+    background-color: alpha(@window_fg_color, 0.05);
+}
+.screen-tile {
+    border: 2px solid @accent_color;
+    border-radius: 6px;
+    background-color: @card_bg_color;
+}
+.screen-number {
+    font-weight: bold;
+    font-size: larger;
+}
+/* Adwaita gives each block 26 px at least: 16 blocks would make the card
+   too wide to shrink. */
+levelbar.now-meter.horizontal.discrete > trough > block {
+    min-width: 6px;
 }
 ";
 
@@ -89,9 +137,9 @@ fn activate(app: &adw::Application) {
         return;
     }
     load_css();
-    let window = window::MainWindow::new(app);
     let (updates, received) = async_channel::unbounded();
     let backend = backend::start(updates);
+    let window = window::MainWindow::new(app, backend.clone());
     add_actions(app, &window, &backend);
     {
         let window = window.clone();
