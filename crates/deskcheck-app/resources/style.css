@@ -373,8 +373,11 @@ menubutton.dc-btn > button:disabled {
     border-radius: 8px;
     padding: 10px 12px;
 }
+/* As in the design: a gap of 4 px, then a thin dark ring of 2 px. GTK
+   draws the shadows in the reverse order of CSS (the first one under the
+   others), so the dark ring comes first here. */
 .dc-map-screen.selected {
-    box-shadow: 0 0 0 4px @dc_dots_bg, 0 0 0 6px @window_fg_color;
+    box-shadow: 0 0 0 6px @window_fg_color, 0 0 0 4px @dc_dots_bg;
 }
 .dc-map-screen.small {
     padding: 6px 8px;
