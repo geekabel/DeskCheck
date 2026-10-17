@@ -4,15 +4,15 @@ Ce fichier suit toutes les tâches jusqu'à la version 0.1.0.
 On le met à jour à la fin de chaque tâche, dans la même branche que la tâche.
 Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact/SEKGtbp6ACVXhpff8rK89i) (privé, mis à jour en même temps).
 
-**Avancement : 16 / 37 tâches terminées**
+**Avancement : 17 / 37 tâches terminées**
 
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
 | 🔜 À faire (prochaines) | DC-18, DC-19, DC-20 |
 | 📋 Backlog | DC-21 à DC-37 |
-| 🖥️ À tester sur ton PC | DC-17 |
-| ✅ Terminé | DC-01 à DC-16 |
+| 🖥️ À tester sur ton PC | aucune |
+| ✅ Terminé | DC-01 à DC-17 |
 
 ---
 
@@ -186,24 +186,7 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-### DC-17 · Fenêtre GTK compatible Ubuntu 22.04 🧪
-- **But** : vérifier tôt que GTK 4.6 et libadwaita 1.1 compilent et tournent.
-- **Docs lues** : doc de la caisse `libadwaita` 0.8 (exemple `Application`, `ApplicationWindow`,
-  `HeaderBar`), `Cargo.toml` de `gtk4-sys` 0.10 et `libadwaita-sys` 0.8 (versions système
-  minimales), index crates.io (`rust-version` de chaque version).
-- **Critères**
-  - [x] Fenêtre vide avec barre d'en-tête (titre et sous-titre) et page d'accueil :
-    nouvelle caisse `deskcheck-app`.
-  - [x] Construite dans la CI Ubuntu 22.04 : GTK 4.6.9 et libadwaita 1.1.7 (lus dans la CI),
-    et avec Rust 1.85.
-  - [x] Vue ici sur un écran virtuel (Xvfb) : barre d'en-tête, icône Adwaita et texte bien placés.
-- **Décisions**
-  - `gtk4` 0.10 et `libadwaita` 0.8 : `gtk4` 0.11 demande Rust 1.92, au-dessus du 1.85 du projet.
-  - Options `v4_6` et `v1_1` : un appel plus récent que Ubuntu 22.04 ne compile pas.
-  - libadwaita 1.1 n'a pas `ToolbarView` (1.4) : la barre d'en-tête est dans une boîte verticale.
-  - Il faut les paquets `libgtk-4-dev` et `libadwaita-1-dev` pour construire.
-- **À tester** : `sudo apt install libgtk-4-dev libadwaita-1-dev`, puis
-  `cargo run -p deskcheck-app`. Essaie aussi le mode sombre de GNOME.
+_Aucune tâche._
 
 ---
 
@@ -543,3 +526,21 @@ _Aucune tâche._
   - Un flux qui démarre change aussi l'état de son appareil : `watch` saute une ligne identique
     à la précédente du même genre.
   - Sans GNOME, `watch` surveille le son seul et le dit.
+
+### DC-17 · Fenêtre GTK compatible Ubuntu 22.04 🧪
+- **But** : vérifier tôt que GTK 4.6 et libadwaita 1.1 compilent et tournent.
+- **Docs lues** : doc de la caisse `libadwaita` 0.8 (exemple `Application`, `ApplicationWindow`,
+  `HeaderBar`), `Cargo.toml` de `gtk4-sys` 0.10 et `libadwaita-sys` 0.8 (versions système
+  minimales), index crates.io (`rust-version` de chaque version).
+- **Critères**
+  - [x] Fenêtre vide avec barre d'en-tête (titre et sous-titre) et page d'accueil :
+    nouvelle caisse `deskcheck-app`.
+  - [x] Construite dans la CI Ubuntu 22.04 : GTK 4.6.9 et libadwaita 1.1.7 (lus dans la CI),
+    et avec Rust 1.85.
+  - [x] Vue ici sur un écran virtuel (Xvfb) : barre d'en-tête, icône Adwaita et texte bien placés.
+  - [x] Testé sur le PC de Godwin (17 oct. 2026) : la fenêtre s'ouvre sur Ubuntu 22.04.
+- **Décisions**
+  - `gtk4` 0.10 et `libadwaita` 0.8 : `gtk4` 0.11 demande Rust 1.92, au-dessus du 1.85 du projet.
+  - Options `v4_6` et `v1_1` : un appel plus récent que Ubuntu 22.04 ne compile pas.
+  - libadwaita 1.1 n'a pas `ToolbarView` (1.4) : la barre d'en-tête est dans une boîte verticale.
+  - Il faut les paquets `libgtk-4-dev` et `libadwaita-1-dev` pour construire.
