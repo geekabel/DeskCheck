@@ -70,6 +70,9 @@ pub(crate) struct StreamProps {
     pub media_name: Option<String>,
     /// Name of the stream itself.
     pub stream_name: Option<String>,
+    /// The client that owns the stream. `None` for a stream that a module
+    /// of the server made itself (loopback, remap, echo cancel).
+    pub client: Option<u32>,
 }
 
 /// A sink input: an application stream that plays on a sink.

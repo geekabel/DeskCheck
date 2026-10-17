@@ -116,7 +116,11 @@ pub(crate) fn turn(
 }
 
 /// Copies the properties that name the application of a stream.
-fn stream_props(proplist: &Proplist, stream_name: Option<&str>) -> StreamProps {
+fn stream_props(
+    proplist: &Proplist,
+    stream_name: Option<&str>,
+    client: Option<u32>,
+) -> StreamProps {
     StreamProps {
         app_name: proplist.get_str(properties::APPLICATION_NAME),
         binary: proplist.get_str(properties::APPLICATION_PROCESS_BINARY),
@@ -124,6 +128,7 @@ fn stream_props(proplist: &Proplist, stream_name: Option<&str>) -> StreamProps {
         app_id: proplist.get_str(properties::APPLICATION_ID),
         media_name: proplist.get_str(properties::MEDIA_NAME),
         stream_name: stream_name.map(str::to_owned),
+        client,
     }
 }
 
@@ -131,7 +136,7 @@ fn sink_input(info: &SinkInputInfo) -> SinkInput {
     SinkInput {
         index: info.index,
         sink: info.sink,
-        props: stream_props(&info.proplist, info.name.as_deref()),
+        props: stream_props(&info.proplist, info.name.as_deref(), info.client),
         volume: info.volume.avg().0,
         mute: info.mute,
     }
@@ -141,7 +146,7 @@ fn source_output(info: &SourceOutputInfo) -> SourceOutput {
     SourceOutput {
         index: info.index,
         source: info.source,
-        props: stream_props(&info.proplist, info.name.as_deref()),
+        props: stream_props(&info.proplist, info.name.as_deref(), info.client),
         volume: info.volume.avg().0,
         mute: info.mute,
         resample_method: info.resample_method.as_deref().map(str::to_owned),

@@ -76,6 +76,52 @@ fn app(props: &StreamProps) -> App {
     }
 }
 
+/// The app streams, linked to their devices by name.
+///
+/// Streams a module of the server made itself (loopback, remap, echo
+/// cancel) have no client: they are not apps, so they are left out.
+fn streams(
+    snapshot: &Snapshot,
+    sink_names: &HashMap<u32, &str>,
+    source_names: &HashMap<u32, &str>,
+) -> (Vec<Playback>, Vec<Recording>) {
+    let playbacks: Vec<Playback> = snapshot
+        .sink_inputs
+        .iter()
+        .filter(|stream| stream.props.client.is_some())
+        .filter_map(|stream| {
+            let sink = sink_names.get(&stream.sink)?;
+            Some(Playback {
+                id: StreamId::new(stream.index),
+                app: app(&stream.props),
+                media: stream.props.media_name.clone(),
+                output: DeviceId::new(*sink),
+                volume: volume_from_raw(stream.volume),
+                muted: stream.mute,
+            })
+        })
+        .collect();
+
+    let recordings: Vec<Recording> = snapshot
+        .source_outputs
+        .iter()
+        .filter(|stream| stream.props.client.is_some())
+        .filter_map(|stream| {
+            let source = source_names.get(&stream.source)?;
+            Some(Recording {
+                id: StreamId::new(stream.index),
+                app: app(&stream.props),
+                media: stream.props.media_name.clone(),
+                input: DeviceId::new(*source),
+                volume: volume_from_raw(stream.volume),
+                muted: stream.mute,
+                level_meter: is_level_meter(stream),
+            })
+        })
+        .collect();
+    (playbacks, recordings)
+}
+
 /// Converts a snapshot to the DeskCheck model.
 ///
 /// Streams are linked to devices by index in the sound server, and to
@@ -148,38 +194,7 @@ pub(crate) fn audio_state(snapshot: &Snapshot) -> AudioState {
         })
         .collect();
 
-    let playbacks = snapshot
-        .sink_inputs
-        .iter()
-        .filter_map(|stream| {
-            let sink = sink_names.get(&stream.sink)?;
-            Some(Playback {
-                id: StreamId::new(stream.index),
-                app: app(&stream.props),
-                media: stream.props.media_name.clone(),
-                output: DeviceId::new(*sink),
-                volume: volume_from_raw(stream.volume),
-                muted: stream.mute,
-            })
-        })
-        .collect();
-
-    let recordings = snapshot
-        .source_outputs
-        .iter()
-        .filter_map(|stream| {
-            let source = source_names.get(&stream.source)?;
-            Some(Recording {
-                id: StreamId::new(stream.index),
-                app: app(&stream.props),
-                media: stream.props.media_name.clone(),
-                input: DeviceId::new(*source),
-                volume: volume_from_raw(stream.volume),
-                muted: stream.mute,
-                level_meter: is_level_meter(stream),
-            })
-        })
-        .collect();
+    let (playbacks, recordings) = streams(snapshot, &sink_names, &source_names);
 
     AudioState {
         outputs,
@@ -209,6 +224,7 @@ mod tests {
             app_id: None,
             media_name: Some("AudioStream".to_owned()),
             stream_name: Some("AudioStream".to_owned()),
+            client: Some(7),
         };
         Snapshot {
             default_sink: Some("alsa_output.usb-Headset-00.analog-stereo".to_owned()),
@@ -425,8 +441,22 @@ mod tests {
 
         // Any app with a peak detect stream on PulseAudio.
         let stream = &mut snapshot.source_outputs[0];
-        stream.props = StreamProps::default();
+        stream.props = StreamProps {
+            client: Some(9),
+            ..StreamProps::default()
+        };
         stream.resample_method = Some("peaks".to_owned());
         assert!(audio_state(&snapshot).recordings[0].level_meter);
+    }
+
+    #[test]
+    fn streams_without_a_client_are_left_out() {
+        // As module-remap-source, module-loopback or module-echo-cancel do.
+        let mut snapshot = office();
+        snapshot.source_outputs[0].props.client = None;
+        snapshot.sink_inputs[0].props.client = None;
+        let state = audio_state(&snapshot);
+        assert_eq!(state.recordings, [] as [Recording; 0]);
+        assert!(state.playbacks.is_empty(), "{:?}", state.playbacks);
     }
 }
