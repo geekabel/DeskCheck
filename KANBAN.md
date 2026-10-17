@@ -9,9 +9,9 @@ Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-16, DC-17, DC-18 |
-| 📋 Backlog | DC-19 à DC-37 |
-| 🖥️ À tester sur ton PC | aucune |
+| 🔜 À faire (prochaines) | DC-17, DC-18, DC-19 |
+| 📋 Backlog | DC-20 à DC-37 |
+| 🖥️ À tester sur ton PC | DC-16 |
 | ✅ Terminé | DC-01 à DC-15 |
 
 ---
@@ -67,12 +67,6 @@ _Aucune tâche._
 
 ## 🔜 À faire (prochaines)
 
-### DC-16 · Événements en direct
-- **Critères**
-  - [ ] Abonnement aux changements PulseAudio (appareil branché, flux nouveau).
-  - [ ] Abonnement au signal `MonitorsChanged` de Mutter.
-  - [ ] Un seul canal d'événements pour l'interface.
-
 ### DC-17 · Fenêtre GTK compatible Ubuntu 22.04 🧪
 - **But** : vérifier tôt que GTK 4.6 et libadwaita 1.1 compilent et tournent.
 - **Docs** : livre « GUI development with Rust and GTK 4 », docs `gtk4` et `libadwaita`.
@@ -84,6 +78,10 @@ _Aucune tâche._
   - [ ] `AdwApplication`, barre latérale à 5 sections, badge du lieu.
   - [ ] Le travail système tourne hors du fil de l'interface, résultats envoyés à l'interface.
 
+### DC-19 · Page « Maintenant »
+- **Critères**
+  - [ ] Cartes sortie, micro, applications, écrans, conformes à la maquette.
+
 ---
 
 ## 📋 Backlog
@@ -91,10 +89,6 @@ _Aucune tâche._
 ### Phase 5 · Agir sur le son
 
 ### Phase 6 · Interface graphique
-
-#### DC-19 · Page « Maintenant »
-- **Critères**
-  - [ ] Cartes sortie, micro, applications, écrans, conformes à la maquette.
 
 #### DC-20 · Page « Audio »
 - **Critères**
@@ -198,7 +192,28 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-_Aucune tâche._
+### DC-16 · Événements en direct
+- **But** : savoir tout de suite qu'un casque, une application ou un écran change.
+- **Docs lues** : `libpulse-binding` 2.30 (`context::subscribe` : `InterestMaskSet`, `Facility`,
+  `Operation`, `set_subscribe_callback`), `zbus` 5.13 (signaux d'un proxy : `#[zbus(signal)]`,
+  `receive_*`, `SignalIterator` bloquant, `Connection::close`, `emit_signal`),
+  XML de Mutter (signal `MonitorsChanged`), doc Rust (`std::sync::mpsc`).
+- **Critères**
+  - [x] Abonnement aux changements PulseAudio (appareil branché, flux nouveau, défauts) :
+    `deskcheck_pulse::SoundWatcher`.
+  - [x] Abonnement au signal `MonitorsChanged` de Mutter : `deskcheck_mutter::ScreenWatcher`,
+    testé avec le faux Mutter (deux signaux, deux changements, arrêt en moins d'une seconde).
+  - [x] Un seul canal d'événements pour l'interface : le type `Change` du cœur, envoyé par les deux.
+  - [x] Commande `deskcheck watch` : une ligne par changement, avec le nouvel état.
+  - [x] Testé ici de bout en bout : serveur PulseAudio de test et faux GNOME sur un bus de test.
+- **Décisions**
+  - Un changement dit *quoi* a changé, pas le nouvel état : l'interface relit l'état (une seule vérité).
+  - Les rafales (un curseur de volume envoie beaucoup d'événements) sont regroupées sur 150 ms.
+  - Un flux qui démarre change aussi l'état de son appareil : `watch` saute une ligne identique
+    à la précédente du même genre.
+  - Sans GNOME, `watch` surveille le son seul et le dit.
+- **À tester** : `cargo run -p deskcheck -- watch`, puis : change le volume, lance une vidéo,
+  branche ou débranche l'écran ASUS (ou change sa disposition dans les réglages). Ctrl+C pour arrêter.
 
 ---
 
