@@ -9,9 +9,9 @@ Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-06, DC-07, DC-08 |
-| 📋 Backlog | DC-09 à DC-37 |
-| 🖥️ À tester sur ton PC | aucune |
+| 🔜 À faire (prochaines) | DC-07, DC-08, DC-09 |
+| 📋 Backlog | DC-10 à DC-37 |
+| 🖥️ À tester sur ton PC | DC-06 |
 | ✅ Terminé | DC-01 à DC-05 |
 
 ---
@@ -67,13 +67,6 @@ _Aucune tâche._
 
 ## 🔜 À faire (prochaines)
 
-### DC-06 · Commande `deskcheck audio`
-- **But** : premier outil utile, en terminal : qui écoute quoi.
-- **Docs** : `clap` (derive).
-- **Critères**
-  - [ ] Affiche sortie et micro par défaut, et les applications avec leur appareil.
-  - [ ] Signale une application qui écoute un retour.
-
 ### DC-07 · Lecture des écrans via Mutter 🧪
 - **But** : lire les écrans avec `org.gnome.Mutter.DisplayConfig.GetCurrentState`.
 - **Docs** : `zbus` (proxy, blocking), XML de l'interface DisplayConfig dans le dépôt Mutter.
@@ -85,19 +78,19 @@ _Aucune tâche._
 - **Critères**
   - [ ] Liste les écrans avec numéro, nom, résolution, échelle, principal.
 
----
-
-## 📋 Backlog
-
-### Phase 3 · Noms et configuration
-
-#### DC-09 · Fichier de configuration
+### DC-09 · Fichier de configuration
 - **But** : garder les noms donnés aux appareils et les couleurs des écrans.
 - **Docs** : `serde`, `toml`, `directories` (dossier XDG).
 - **Critères**
   - [ ] Fichier TOML dans `~/.config/deskcheck/`.
   - [ ] Écriture sûre (fichier temporaire puis renommage).
   - [ ] Version du format pour les migrations futures.
+
+---
+
+## 📋 Backlog
+
+### Phase 3 · Noms et configuration
 
 #### DC-10 · Renommer un appareil
 - **Critères**
@@ -261,7 +254,29 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-_Aucune tâche._
+### DC-06 · Commande `deskcheck audio`
+- **But** : premier outil utile, en terminal : qui écoute quoi.
+- **Docs lues** : `clap` 4.6 (tutoriel derive : `Parser`, `Subcommand`, `version`, options,
+  test avec `Command::debug_assert` et `try_parse_from`).
+- **Critères**
+  - [x] Affiche la sortie et le micro par défaut, et les applications avec leur appareil
+    (regroupées : « Firefox (3 streams) »).
+  - [x] Signale une application qui écoute un retour, avec la correction proposée.
+  - [x] Signale aussi un retour choisi comme entrée par défaut.
+  - [x] `--verbose` : tous les appareils avec leur nom technique.
+  - [x] Tests du rapport avec les données relevées sur le PC de Godwin (maison), et du cas
+    Teams du bureau sur un vrai serveur PulseAudio de test.
+  - [ ] Lancé sur le PC de Godwin.
+- **Comment tester** :
+  ```sh
+  cargo run -p deskcheck -- audio
+  cargo run -p deskcheck -- audio --verbose
+  ```
+- **Décisions**
+  - Le rapport est une fonction pure (`render`), testée sans serveur son.
+  - Deux premières règles dans le cœur (`recordings_from_monitors`, `default_input_monitor`),
+    reprises par le moteur de diagnostic (DC-11).
+  - Code de sortie : 0 si le serveur son répond, 1 sinon.
 
 ---
 
