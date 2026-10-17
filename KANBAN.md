@@ -9,9 +9,9 @@ Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-19, DC-20, DC-21 |
-| 📋 Backlog | DC-22 à DC-38 |
-| 🖥️ À tester sur ton PC | aucune |
+| 🔜 À faire (prochaines) | DC-20, DC-21, DC-22 |
+| 📋 Backlog | DC-23 à DC-38 |
+| 🖥️ À tester sur ton PC | DC-19 |
 | ✅ Terminé | DC-01 à DC-18 |
 
 ---
@@ -67,10 +67,6 @@ _Aucune tâche._
 
 ## 🔜 À faire (prochaines)
 
-### DC-19 · Page « Maintenant »
-- **Critères**
-  - [ ] Cartes sortie, micro, applications, écrans, conformes à la maquette.
-
 ### DC-20 · Page « Audio »
 - **Critères**
   - [ ] Onglets Sorties, Micros, Applications ; retours rangés à part.
@@ -80,6 +76,10 @@ _Aucune tâche._
 - **Critères**
   - [ ] Carte des écrans avec numéro et couleur ; réglages de l'écran choisi.
 
+### DC-22 · Page « Diagnostic »
+- **Critères**
+  - [ ] Liste des vérifications avec état, correction en un clic.
+
 ---
 
 ## 📋 Backlog
@@ -87,10 +87,6 @@ _Aucune tâche._
 ### Phase 5 · Agir sur le son
 
 ### Phase 6 · Interface graphique
-
-#### DC-22 · Page « Diagnostic »
-- **Critères**
-  - [ ] Liste des vérifications avec état, correction en un clic.
 
 #### DC-23 · Alerte en direct
 - **Critères**
@@ -190,7 +186,36 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-_Aucune tâche._
+### DC-19 · Page « Maintenant »
+- **But** : en un coup d'œil, par où sort le son, quel micro t'entend, quelles applications
+  utilisent le son, et tes écrans.
+- **Docs lues** : `gtk4` 0.10 (`Scale`, `LevelBar` en mode discret, `Fixed`, `Popover`,
+  `MenuButton`, `Grid`, `CssProvider`), `libadwaita` 0.8 (`Clamp`, `ToastOverlay`, `Toast`),
+  `glib` (`timeout_add_local_once`), feuille de style Adwaita (taille des blocs de `levelbar`),
+  `libpulse-binding` (`client` et `owner_module` des flux), maquette (artboard « Maintenant »).
+- **Critères**
+  - [x] Carte sortie : nom, nom technique, curseur de volume (jusqu'à 150 %), mesure en direct
+    de ce qui sort, « Test the sound », « Change » (liste des sorties).
+  - [x] Carte micro : nom, « Not muted » ou « Muted », barre de niveau en direct
+    (« Speak: the bar moves »), « Record 3 s and play back », « Change ».
+  - [x] Carte applications : une ligne par application, « Not a microphone » si elle écoute un retour.
+  - [x] Carte écrans : plan avec numéro et couleur de chaque écran, « Extended · Primary: 1 ».
+  - [x] Vu ici sur un écran virtuel avec un serveur son de test et un faux GNOME : mise en page,
+    barres qui bougent, liste « Change » qui bascule vraiment la sortie, message du test.
+- **Décisions**
+  - Bandeau d'alerte (DC-23), « Identify » (DC-24, bouton grisé), « Souris ici » (DC-26) et
+    ligne du lieu (DC-28) viendront avec leurs tâches.
+  - « Change » ouvre une liste dans la carte, plus rapide que d'aller sur la page Audio.
+  - Le curseur de volume attend 120 ms après le dernier mouvement avant d'envoyer, et ne se
+    laisse pas déplacer par l'état pendant que tu le bouges.
+  - Couleurs des écrans : celle choisie dans les réglages, sinon le bleu et l'orange de la maquette.
+  - Correction trouvée en route : les flux créés par un module du serveur son (loopback,
+    echo cancel) n'ont pas de client et ne sont plus pris pour des applications.
+  - Pièges notés : `css_classes` remplace aussi les classes que GTK pose lui-même (les blocs
+    d'une `LevelBar` disparaissaient) ; Adwaita donne 26 px à chaque bloc de `LevelBar`.
+- **À tester** : `cargo run -p deskcheck-app`, avec une vidéo qui joue dans Firefox :
+  bouge le volume, parle (la barre du micro bouge), « Test the sound », « Record 3 s and play
+  back », « Change ». Vérifie que tes deux écrans sont bien placés et numérotés.
 
 ---
 
