@@ -15,6 +15,8 @@ use adw::prelude::*;
 use deskcheck_core::{APP_ID, APP_NAME, VERSION};
 use gtk::{gio, glib};
 
+mod audio_model;
+mod audio_page;
 mod backend;
 mod now_model;
 mod now_page;

@@ -14,7 +14,7 @@ use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use deskcheck_core::audio::{AudioState, DeviceId, InputKind, Target, Volume, tone};
+use deskcheck_core::audio::{AudioState, DeviceId, InputKind, StreamId, Target, Volume, tone};
 use deskcheck_core::display::DisplayState;
 use deskcheck_core::events::{Change, coalesce};
 use deskcheck_pulse::{Action, Meters, ServerKind};
@@ -48,11 +48,38 @@ pub enum Update {
     Message(String),
 }
 
+/// Which sources the level meters measure.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum MeterScope {
+    /// What the Now page shows: the default microphone, and the monitor of
+    /// the default output.
+    #[default]
+    Now,
+    /// Every microphone and every monitor, for the Audio page.
+    Everything,
+}
+
 /// What the interface asks the backend.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Request {
     /// Read everything again.
     Refresh,
+    /// Measure other sources.
+    Meter(MeterScope),
+    /// Move an app that plays to another output.
+    MovePlayback {
+        /// The stream of the app.
+        stream: StreamId,
+        /// The output.
+        to: DeviceId,
+    },
+    /// Move an app that records to another input.
+    MoveRecording {
+        /// The stream of the app.
+        stream: StreamId,
+        /// The input.
+        to: DeviceId,
+    },
     /// Make an output or an input the default one.
     SetDefault(Target),
     /// Set the volume of a device.
@@ -139,16 +166,30 @@ pub fn metered_sources(state: &AudioState) -> Vec<DeviceId> {
     sources
 }
 
+/// The sources measured for a scope.
+pub fn sources_of(scope: MeterScope, state: &AudioState) -> Vec<DeviceId> {
+    let mut sources = metered_sources(state);
+    if scope == MeterScope::Everything {
+        for input in &state.inputs {
+            if !sources.contains(&input.id) {
+                sources.push(input.id.clone());
+            }
+        }
+    }
+    sources
+}
+
 /// The level meters, started again when the measured sources change.
 #[derive(Default)]
 struct MeterSet {
+    scope: MeterScope,
     sources: Vec<DeviceId>,
     meters: Option<Meters>,
 }
 
 impl MeterSet {
     fn follow(&mut self, state: &AudioState) {
-        let wanted = metered_sources(state);
+        let wanted = sources_of(self.scope, state);
         if wanted == self.sources && (self.meters.is_some() || wanted.is_empty()) {
             return;
         }
@@ -229,7 +270,18 @@ fn apply(request: &Request) -> Option<String> {
         Request::SetDefault(Target::Output(id)) => Action::SetDefaultOutput(id.clone()),
         Request::SetDefault(Target::Input(id)) => Action::SetDefaultInput(id.clone()),
         Request::SetVolume(target, volume) => Action::SetVolume(target.clone(), *volume),
-        Request::Refresh | Request::TestOutput(_) | Request::TestInput { .. } => return None,
+        Request::MovePlayback { stream, to } => Action::MovePlayback {
+            stream: *stream,
+            to: to.clone(),
+        },
+        Request::MoveRecording { stream, to } => Action::MoveRecording {
+            stream: *stream,
+            to: to.clone(),
+        },
+        Request::Refresh
+        | Request::Meter(_)
+        | Request::TestOutput(_)
+        | Request::TestInput { .. } => return None,
     };
     deskcheck_pulse::apply(&action)
         .err()
@@ -244,16 +296,22 @@ fn run(
 ) {
     let send = |update: Update| updates.send_blocking(update).is_ok();
     let mut meters = MeterSet::default();
-    let send_sound = |meters: &mut MeterSet| {
+    // The last state read, to start other meters without reading again.
+    let mut last: Option<AudioState> = None;
+    let send_sound = |meters: &mut MeterSet, last: &mut Option<AudioState>| {
         let sound = read_sound();
         if let Ok(state) = &sound {
             meters.follow(state);
         }
+        *last = sound.as_ref().ok().cloned();
         send(Update::Sound(sound))
     };
 
     let server = deskcheck_pulse::server_kind().map_err(|error| error.to_string());
-    if !(send(Update::SoundServer(server)) && send_sound(&mut meters) && send(read_screens())) {
+    if !(send(Update::SoundServer(server))
+        && send_sound(&mut meters, &mut last)
+        && send(read_screens()))
+    {
         return;
     }
 
@@ -278,6 +336,12 @@ fn run(
                 refresh = true;
                 deadline.get_or_insert_with(Instant::now);
             }
+            Ok(Input::Request(Request::Meter(scope))) => {
+                meters.scope = scope;
+                if let Some(state) = &last {
+                    meters.follow(state);
+                }
+            }
             Ok(Input::Request(request @ (Request::TestOutput(_) | Request::TestInput { .. }))) => {
                 run_test(request, updates.clone());
             }
@@ -297,7 +361,9 @@ fn run(
         }
         if deadline.is_some_and(|deadline| Instant::now() >= deadline) {
             let changes = coalesce(std::mem::take(&mut pending));
-            if (refresh || changes.iter().any(Change::is_sound)) && !send_sound(&mut meters) {
+            if (refresh || changes.iter().any(Change::is_sound))
+                && !send_sound(&mut meters, &mut last)
+            {
                 return;
             }
             if (refresh || changes.contains(&Change::Screens)) && !send(read_screens()) {

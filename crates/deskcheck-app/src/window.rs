@@ -15,7 +15,9 @@ use deskcheck_core::audio::AudioState;
 use deskcheck_core::display::DisplayState;
 use deskcheck_pulse::ServerKind;
 
-use crate::backend::{Backend, Update};
+use crate::audio_model::AudioTab;
+use crate::audio_page::AudioPage;
+use crate::backend::{Backend, MeterScope, Request, Update};
 use crate::now_page::NowPage;
 use crate::sections::Section;
 use crate::status;
@@ -38,8 +40,13 @@ pub struct MainWindow {
     /// The window itself.
     pub window: adw::ApplicationWindow,
     title: gtk::Label,
+    /// The title, or the tabs of the Audio page.
+    title_stack: gtk::Stack,
     stack: gtk::Stack,
+    sidebar: gtk::ListBox,
+    backend: Backend,
     now: Rc<NowPage>,
+    audio: Rc<AudioPage>,
     toasts: adw::ToastOverlay,
     sound_footer: gtk::Label,
     screens_footer: gtk::Label,
@@ -99,6 +106,33 @@ fn menu_button() -> gtk::MenuButton {
         .build()
 }
 
+/// The sidebar: the sections, and two lines about the system at the
+/// bottom.
+fn sidebar() -> (gtk::Box, gtk::ListBox, gtk::Label, gtk::Label) {
+    let list = gtk::ListBox::builder().vexpand(true).build();
+    for section in Section::ALL {
+        list.append(&sidebar_row(section));
+    }
+    let sound_footer = footer_label();
+    let screens_footer = footer_label();
+    let footer = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .spacing(2)
+        .css_classes(["dc-sidebar-footer"])
+        .build();
+    footer.append(&sound_footer);
+    footer.append(&screens_footer);
+    let sidebar = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .width_request(SIDEBAR_WIDTH)
+        .css_classes(["dc-sidebar"])
+        .build();
+    sidebar.append(&list);
+    sidebar.append(&footer);
+
+    (sidebar, list, sound_footer, screens_footer)
+}
+
 /// A small line at the bottom of the sidebar.
 fn footer_label() -> gtk::Label {
     gtk::Label::builder().label("…").xalign(0.0).build()
@@ -111,7 +145,12 @@ impl MainWindow {
             .label(Section::Now.title())
             .css_classes(["dc-header-title"])
             .build();
-        let header = adw::HeaderBar::builder().title_widget(&title).build();
+        let title_stack = gtk::Stack::builder()
+            .transition_type(gtk::StackTransitionType::Crossfade)
+            .hhomogeneous(false)
+            .build();
+        title_stack.add_named(&title, Some("title"));
+        let header = adw::HeaderBar::builder().title_widget(&title_stack).build();
         header.pack_start(&brand());
         header.pack_end(&menu_button());
         header.pack_end(&place_badge());
@@ -120,11 +159,20 @@ impl MainWindow {
             .hexpand(true)
             .transition_type(gtk::StackTransitionType::Crossfade)
             .build();
-        let now = NowPage::new(backend);
+        let now = NowPage::new(backend.clone());
+        let audio = AudioPage::new(backend.clone());
+        title_stack.add_named(&audio.tabs, Some(Section::Audio.id()));
         for section in Section::ALL {
-            if section == Section::Now {
-                stack.add_named(&now.root, Some(section.id()));
-                continue;
+            match section {
+                Section::Now => {
+                    stack.add_named(&now.root, Some(section.id()));
+                    continue;
+                }
+                Section::Audio => {
+                    stack.add_named(&audio.root, Some(section.id()));
+                    continue;
+                }
+                _ => {}
             }
             let page = adw::StatusPage::builder()
                 .icon_name(section.icon_name())
@@ -134,26 +182,7 @@ impl MainWindow {
             stack.add_named(&page, Some(section.id()));
         }
 
-        let list = gtk::ListBox::builder().vexpand(true).build();
-        for section in Section::ALL {
-            list.append(&sidebar_row(section));
-        }
-        let sound_footer = footer_label();
-        let screens_footer = footer_label();
-        let footer = gtk::Box::builder()
-            .orientation(gtk::Orientation::Vertical)
-            .spacing(2)
-            .css_classes(["dc-sidebar-footer"])
-            .build();
-        footer.append(&sound_footer);
-        footer.append(&screens_footer);
-        let sidebar = gtk::Box::builder()
-            .orientation(gtk::Orientation::Vertical)
-            .width_request(SIDEBAR_WIDTH)
-            .css_classes(["dc-sidebar"])
-            .build();
-        sidebar.append(&list);
-        sidebar.append(&footer);
+        let (sidebar, list, sound_footer, screens_footer) = sidebar();
 
         let body = gtk::Box::new(gtk::Orientation::Horizontal, 0);
         body.set_vexpand(true);
@@ -178,8 +207,12 @@ impl MainWindow {
         let this = Self {
             window,
             title,
+            title_stack,
             stack,
+            sidebar: list.clone(),
+            backend,
             now,
+            audio,
             toasts,
             sound_footer,
             screens_footer,
@@ -196,15 +229,41 @@ impl MainWindow {
                 }
             });
         }
+        {
+            let this = this.clone();
+            this.now
+                .clone()
+                .connect_change(move |tab| this.show_audio(tab));
+        }
         list.select_row(list.row_at_index(0).as_ref());
         this.render();
         this
     }
 
-    /// Shows a section.
+    /// Shows a section. The Audio page has its tabs in the header bar, and
+    /// measures every source while it is shown.
     pub fn show(&self, section: Section) {
         self.stack.set_visible_child_name(section.id());
         self.title.set_label(section.title());
+        let (title, scope) = if section == Section::Audio {
+            (Section::Audio.id(), MeterScope::Everything)
+        } else {
+            ("title", MeterScope::Now)
+        };
+        self.title_stack.set_visible_child_name(title);
+        self.backend.request(Request::Meter(scope));
+    }
+
+    /// Shows a tab of the Audio page, and selects Audio in the sidebar.
+    pub fn show_audio(&self, tab: AudioTab) {
+        self.audio.show_tab(tab);
+        let index = Section::ALL
+            .iter()
+            .position(|section| *section == Section::Audio)
+            .and_then(|at| i32::try_from(at).ok())
+            .unwrap_or(1);
+        self.sidebar
+            .select_row(self.sidebar.row_at_index(index).as_ref());
     }
 
     /// Keeps what the backend sent, and shows it.
@@ -218,6 +277,7 @@ impl MainWindow {
                 // Peaks come 25 times a second: only the meter moves.
                 Update::Peak { source, peak } => {
                     self.now.peak(&source, peak);
+                    self.audio.peak(&source, peak);
                     return;
                 }
                 Update::Message(text) => {
@@ -247,6 +307,7 @@ impl MainWindow {
             session.as_deref(),
         ));
         self.now.show_sound(&config, latest.sound.as_ref());
+        self.audio.show_sound(&config, latest.sound.as_ref());
         self.now.show_screens(&config, latest.screens.as_ref());
     }
 }

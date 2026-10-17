@@ -16,6 +16,7 @@ use deskcheck_core::audio::{AudioState, DeviceId, Target, Volume};
 use deskcheck_core::display::DisplayState;
 use gtk::glib;
 
+use crate::audio_model::AudioTab;
 use crate::backend::{Backend, Request, metered_sources};
 use crate::now_model::{self, AppTag};
 use crate::ui;
@@ -85,62 +86,8 @@ impl DeviceHeader {
     }
 }
 
-/// A "Change" button with a list of devices to choose from.
-struct Chooser {
-    button: gtk::MenuButton,
-    list: gtk::Box,
-    popover: gtk::Popover,
-}
-
-impl Chooser {
-    fn new(tooltip: &str) -> Self {
-        let list = gtk::Box::builder()
-            .orientation(gtk::Orientation::Vertical)
-            .spacing(2)
-            .build();
-        let popover = gtk::Popover::builder().child(&list).build();
-        // A child instead of a label: GTK then draws no arrow, as in the
-        // design.
-        let button = gtk::MenuButton::builder()
-            .child(&gtk::Label::new(Some("Change")))
-            .popover(&popover)
-            .tooltip_text(tooltip)
-            .valign(gtk::Align::Center)
-            .css_classes(["dc-btn", "dc-flat"])
-            .build();
-        Self {
-            button,
-            list,
-            popover,
-        }
-    }
-
-    /// Fills the list: one button per device, the current one checked.
-    fn fill(&self, backend: &Backend, choices: Vec<(Target, String, bool)>) {
-        while let Some(child) = self.list.first_child() {
-            self.list.remove(&child);
-        }
-        self.button.set_sensitive(choices.len() > 1);
-        for (target, name, current) in choices {
-            let line = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-            let check = ui::icon("dc-ok-symbolic", 16);
-            check.set_opacity(if current { 1.0 } else { 0.0 });
-            line.append(&check);
-            line.append(&gtk::Label::new(Some(&name)));
-            let choice = gtk::Button::builder()
-                .child(&line)
-                .css_classes(["flat"])
-                .build();
-            let backend = backend.clone();
-            let popover = self.popover.clone();
-            choice.connect_clicked(move |_| {
-                popover.popdown();
-                backend.request(Request::SetDefault(target.clone()));
-            });
-            self.list.append(&choice);
-        }
-    }
-}
+/// What a Change button calls.
+type ChangeHandler = Box<dyn Fn(AudioTab)>;
 
 /// What the page remembers between updates.
 #[derive(Default)]
@@ -163,12 +110,14 @@ pub struct NowPage {
     volume: gtk::Scale,
     output_meter: ui::Meter,
     test_output: gtk::Button,
-    output_chooser: Chooser,
+    output_change: gtk::Button,
     input: DeviceHeader,
     input_meter: ui::Meter,
     input_hint: gtk::Label,
     test_input: gtk::Button,
-    input_chooser: Chooser,
+    input_change: gtk::Button,
+    /// Called by the Change buttons, to show the Audio page.
+    on_change: RefCell<Option<ChangeHandler>>,
     apps: gtk::Box,
     map: gtk::Box,
     screens_line: gtk::Label,
@@ -220,9 +169,10 @@ impl NowPage {
             ui::ButtonKind::Normal,
         );
         test_output.set_tooltip_text(Some("Plays a short chime"));
-        let output_chooser = Chooser::new("Choose another output");
+        let output_change = ui::button("Change", None, ui::ButtonKind::Flat);
+        output_change.set_tooltip_text(Some("Choose another output"));
         output_buttons.append(&test_output);
-        output_buttons.append(&output_chooser.button);
+        output_buttons.append(&output_change);
         output_card.append(&output_buttons);
 
         // The microphone card.
@@ -243,9 +193,10 @@ impl NowPage {
             ui::ButtonKind::Normal,
         );
         test_input.set_tooltip_text(Some("Records 3 seconds, then plays them on the output"));
-        let input_chooser = Chooser::new("Choose another microphone");
+        let input_change = ui::button("Change", None, ui::ButtonKind::Flat);
+        input_change.set_tooltip_text(Some("Choose another microphone"));
         input_buttons.append(&test_input);
-        input_buttons.append(&input_chooser.button);
+        input_buttons.append(&input_change);
         input_card.append(&input_buttons);
 
         // The apps card.
@@ -316,12 +267,13 @@ impl NowPage {
             volume,
             output_meter,
             test_output,
-            output_chooser,
+            output_change,
             input,
             input_meter,
             input_hint,
             test_input,
-            input_chooser,
+            input_change,
+            on_change: RefCell::default(),
             apps,
             map,
             screens_line,
@@ -334,13 +286,30 @@ impl NowPage {
         page
     }
 
+    /// Calls `handler` when a Change button is pressed, with the tab of
+    /// the Audio page to show.
+    pub fn connect_change(&self, handler: impl Fn(AudioTab) + 'static) {
+        *self.on_change.borrow_mut() = Some(Box::new(handler));
+    }
+
     /// Connects the buttons and the slider to the backend.
     fn connect(self: &Rc<Self>) {
+        for (button, tab) in [
+            (&self.output_change, AudioTab::Outputs),
+            (&self.input_change, AudioTab::Microphones),
+        ] {
+            let page = Rc::clone(self);
+            button.connect_clicked(move |_| {
+                if let Some(handler) = page.on_change.borrow().as_ref() {
+                    handler(tab);
+                }
+            });
+        }
         let page = Rc::clone(self);
         self.test_output.connect_clicked(move |_| {
             if let Some(output) = page.current.borrow().output.clone() {
                 page.backend.request(Request::TestOutput(output));
-                page.toast_soon("Playing a test sound…");
+                ui::toast(&page.root, "Playing a test sound…");
             }
         });
         let page = Rc::clone(self);
@@ -348,7 +317,7 @@ impl NowPage {
             let current = page.current.borrow();
             if let (Some(input), Some(output)) = (current.input.clone(), current.output.clone()) {
                 page.backend.request(Request::TestInput { input, output });
-                page.toast_soon("Recording 3 seconds: speak now.");
+                ui::toast(&page.root, "Recording 3 seconds: speak now.");
             }
         });
         let page = Rc::clone(self);
@@ -379,19 +348,6 @@ impl NowPage {
                 ));
             }));
         });
-    }
-
-    /// Shows a short message from the page, through the window.
-    fn toast_soon(&self, text: &str) {
-        if let Some(overlay) = self
-            .root
-            .ancestor(adw::ToastOverlay::static_type())
-            .and_downcast::<adw::ToastOverlay>()
-        {
-            let toast = adw::Toast::new(text);
-            toast.set_timeout(3);
-            overlay.add_toast(toast);
-        }
     }
 
     /// Shows the sound: the output and microphone cards, and the apps.
@@ -451,20 +407,6 @@ impl NowPage {
         }
         self.volume.set_sensitive(output.is_some());
         self.test_output.set_sensitive(output.is_some());
-        let choices = state.map_or_else(Vec::new, |state| {
-            state
-                .outputs
-                .iter()
-                .map(|o| {
-                    (
-                        Target::Output(o.id.clone()),
-                        config.output_label(o).to_owned(),
-                        state.default_output.as_ref() == Some(&o.id),
-                    )
-                })
-                .collect()
-        });
-        self.output_chooser.fill(&self.backend, choices);
     }
 
     fn show_input(&self, config: &Config, state: Option<&AudioState>, waiting: &str) {
@@ -504,19 +446,6 @@ impl NowPage {
         let output_known = self.current.borrow().output.is_some();
         self.test_input
             .set_sensitive(input.is_some() && output_known);
-        let choices = state.map_or_else(Vec::new, |state| {
-            state
-                .microphones()
-                .map(|i| {
-                    (
-                        Target::Input(i.id.clone()),
-                        config.input_label(i).into_owned(),
-                        state.default_input.as_ref() == Some(&i.id),
-                    )
-                })
-                .collect()
-        });
-        self.input_chooser.fill(&self.backend, choices);
     }
 
     fn show_apps(&self, config: &Config, state: Option<&AudioState>) {

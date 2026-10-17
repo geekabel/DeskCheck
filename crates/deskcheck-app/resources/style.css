@@ -270,6 +270,18 @@ button.dc-btn.dc-warn {
 button.dc-btn.dc-warn:hover {
     background-color: shade(@dc_warn_strong, 0.9);
 }
+button.dc-btn.dc-primary {
+    border-color: @accent_bg_color;
+    background-color: @accent_bg_color;
+    color: #ffffff;
+}
+button.dc-btn.dc-primary:hover {
+    background-color: shade(@accent_bg_color, 0.9);
+}
+menubutton.dc-btn.dc-icon-only > button {
+    min-width: 38px;
+    padding: 0;
+}
 button.dc-btn:disabled,
 menubutton.dc-btn > button:disabled {
     opacity: 0.5;
@@ -336,4 +348,13 @@ menubutton.dc-btn > button:disabled {
 }
 .dc-screen-name {
     font-size: 11px;
+}
+
+/* The form to rename a device. */
+.dc-rename {
+    padding: 6px;
+}
+.dc-rename entry {
+    min-height: 38px;
+    font-size: 14px;
 }

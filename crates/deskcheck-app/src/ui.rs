@@ -73,12 +73,21 @@ pub fn page_title(title: &str, subtitle: &str) -> (gtk::Box, gtk::Label, gtk::La
 pub enum ButtonKind {
     /// White, with a border.
     Normal,
+    /// Only the text.
+    Flat,
+    /// Filled in orange: the fix of a problem.
+    Warn,
+    /// Filled in blue: the main action of a form.
+    Primary,
 }
 
 impl ButtonKind {
     fn classes(self) -> &'static [&'static str] {
         match self {
             Self::Normal => &["dc-btn"],
+            Self::Flat => &["dc-btn", "dc-flat"],
+            Self::Warn => &["dc-btn", "dc-warn"],
+            Self::Primary => &["dc-btn", "dc-primary"],
         }
     }
 }
@@ -155,6 +164,12 @@ pub enum TagKind {
     Ok,
     /// Light orange: something to look at.
     Warn,
+    /// Darker orange, on an orange row.
+    WarnStrong,
+    /// Blue: "Default".
+    Accent,
+    /// Grey: neither good nor bad.
+    Neutral,
     /// Red: muted, broken.
     Error,
 }
@@ -164,6 +179,9 @@ impl TagKind {
         match self {
             Self::Ok => "ok",
             Self::Warn => "warn",
+            Self::WarnStrong => "warn-strong",
+            Self::Accent => "accent",
+            Self::Neutral => "neutral",
             Self::Error => "error",
         }
     }
@@ -181,6 +199,31 @@ pub fn set_tag(tag: &gtk::Label, text: &str, kind: TagKind) {
     tag.set_label(text);
     tag.set_css_classes(&["dc-tag", kind.class()]);
     tag.set_visible(true);
+}
+
+/// A tag with a small icon before its text.
+pub fn icon_tag(icon_name: &str, text: &str, kind: TagKind) -> gtk::Box {
+    let tag = gtk::Box::builder()
+        .orientation(gtk::Orientation::Horizontal)
+        .spacing(5)
+        .valign(gtk::Align::Center)
+        .css_classes(["dc-tag", kind.class()])
+        .build();
+    tag.append(&icon(icon_name, 12));
+    tag.append(&gtk::Label::new(Some(text)));
+    tag
+}
+
+/// Shows a short message at the bottom of the window of `widget`.
+pub fn toast(widget: &impl IsA<gtk::Widget>, text: &str) {
+    if let Some(overlay) = widget
+        .ancestor(adw::ToastOverlay::static_type())
+        .and_downcast::<adw::ToastOverlay>()
+    {
+        let toast = adw::Toast::new(text);
+        toast.set_timeout(4);
+        overlay.add_toast(toast);
+    }
 }
 
 /// Removes every child of a box.
