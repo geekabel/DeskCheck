@@ -30,6 +30,8 @@ cargo run -p deskcheck -- audio                       # who hears what, and prob
 cargo run -p deskcheck -- audio --verbose             # with every device
 cargo run -p deskcheck -- displays                    # which screen is which
 cargo run -p deskcheck -- displays --verbose          # with identity and position
+cargo run -p deskcheck -- rename screen 2 Laptop      # give screen 2 a name
+cargo run -p deskcheck -- rename screen 2 --reset     # remove that name
 cargo run -p deskcheck-pulse --example audio_dump     # what the sound server reports
 cargo run -p deskcheck-mutter --example display_dump  # what GNOME reports about screens
 cargo run -p deskcheck-config --example config_dump   # where the settings file is
