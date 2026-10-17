@@ -1,0 +1,7 @@
+{
+  "uuid": "deskcheck-pointer@geekabel.github.io",
+  "name": "DeskCheck pointer",
+  "description": "Tells DeskCheck where the mouse is, so it can show which screen you are on. Wayland only lets GNOME Shell know it.",
+  "shell-version": ["45", "46", "47", "48", "49"],
+  "url": "https://github.com/geekabel/DeskCheck"
+}

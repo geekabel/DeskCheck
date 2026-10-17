@@ -235,6 +235,20 @@ separator.dc-line {
     color: @dc_error_fg;
 }
 
+/* Where the mouse is: a dark tag. */
+.dc-tag.dark {
+    background-color: #1d1d20;
+    color: #ffffff;
+}
+.dc-tag.dark.dc-mouse-small {
+    font-size: 11px;
+    padding: 3px 7px;
+}
+.dc-tag.dc-identify-mouse {
+    background-color: #ffffff;
+    color: #1d1d20;
+}
+
 /* Buttons of the design: white with a border, flat, or filled. */
 button.dc-btn,
 menubutton.dc-btn > button {

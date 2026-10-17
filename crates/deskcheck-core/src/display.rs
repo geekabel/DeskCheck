@@ -187,6 +187,29 @@ impl DisplayState {
         screens
     }
 
+    /// The screen that is on under a point of the desktop, like the mouse.
+    ///
+    /// `physical` tells how GNOME sizes screens on the desktop: with the
+    /// size of their mode on X11 (`true`), or with that size divided by
+    /// their scale on Wayland (`false`).
+    #[must_use]
+    pub fn screen_at(&self, x: i32, y: i32, physical: bool) -> Option<&Screen> {
+        self.screens.iter().find(|screen| {
+            let (Some(placement), Some(mode)) = (screen.placement, screen.current_mode) else {
+                return false;
+            };
+            let scale = if physical || placement.scale <= 0.0 {
+                1.0
+            } else {
+                placement.scale
+            };
+            let width = f64::from(mode.width) / scale;
+            let height = f64::from(mode.height) / scale;
+            let (dx, dy) = (f64::from(x - placement.x), f64::from(y - placement.y));
+            (0.0..width).contains(&dx) && (0.0..height).contains(&dy)
+        })
+    }
+
     /// Screens that are on, with their number: 1 for the leftmost one.
     ///
     /// Every part of DeskCheck shows the same numbers, so a number on the
@@ -249,6 +272,40 @@ mod tests {
         DisplayState {
             screens: vec![office_screen(), laptop()],
         }
+    }
+
+    #[test]
+    fn the_screen_under_the_mouse_is_found() {
+        let state = office();
+        // On Wayland the laptop at 125 % is 1536 wide; the Dell starts there.
+        assert_eq!(
+            state
+                .screen_at(100, 100, false)
+                .map(|s| s.connector.as_str()),
+            Some("eDP-1")
+        );
+        assert_eq!(
+            state
+                .screen_at(1536, 0, false)
+                .map(|s| s.connector.as_str()),
+            Some("DP-1")
+        );
+        assert_eq!(
+            state
+                .screen_at(1600, 900, false)
+                .map(|s| s.connector.as_str()),
+            Some("DP-1")
+        );
+        // Below the laptop, or past the Dell: no screen.
+        assert_eq!(state.screen_at(100, 1000, false), None);
+        assert_eq!(state.screen_at(3456, 10, false), None);
+        // On X11 the laptop keeps its 1080 pixels of height.
+        assert_eq!(
+            state
+                .screen_at(100, 1000, true)
+                .map(|s| s.connector.as_str()),
+            Some("eDP-1")
+        );
     }
 
     #[test]

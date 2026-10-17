@@ -271,6 +271,8 @@ pub fn alert(
 /// on a desk, from left to right, each as big as its share of the desktop.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ScreenTile {
+    /// Its identity, to show the mouse on it.
+    pub id: deskcheck_core::display::ScreenId,
     /// Number, as in `deskcheck displays`.
     pub number: usize,
     /// Name to show.
@@ -355,6 +357,7 @@ pub fn screen_map(
     boxes
         .into_iter()
         .map(|(number, screen, _, w, h)| ScreenTile {
+            id: screen.id.clone(),
             number,
             name: config.screen_label(screen).to_owned(),
             color: screen_color(config, &screen.id, number).to_string(),

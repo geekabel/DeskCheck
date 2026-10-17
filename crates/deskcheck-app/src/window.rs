@@ -18,7 +18,7 @@ use deskcheck_pulse::ServerKind;
 
 use crate::audio_model::AudioTab;
 use crate::audio_page::AudioPage;
-use crate::backend::{Backend, MeterScope, Request, Update};
+use crate::backend::{Backend, MeterScope, Mouse, Request, Update};
 use crate::diag_page::{DiagPage, Go};
 use crate::identify::Identifier;
 use crate::now_page::{NowLink, NowPage};
@@ -37,6 +37,7 @@ struct Latest {
     sound: Option<Result<AudioState, String>>,
     screens: Option<Result<DisplayState, String>>,
     setup: Option<Setup>,
+    mouse: Option<Mouse>,
 }
 
 /// The window and the widgets that change.
@@ -306,6 +307,13 @@ impl MainWindow {
                 Update::Sound(sound) => latest.sound = Some(sound),
                 Update::Screens(screens) => latest.screens = Some(screens),
                 Update::Setup(setup) => latest.setup = setup,
+                // The mouse moved to another screen: only the tags change.
+                Update::Mouse(mouse) => {
+                    self.now.show_mouse(&mouse);
+                    self.screens.show_mouse(&mouse);
+                    latest.mouse = Some(mouse);
+                    return;
+                }
                 // Peaks come 25 times a second: only the meter moves.
                 Update::Peak { source, peak } => {
                     self.now.peak(&source, peak);
@@ -337,7 +345,11 @@ impl MainWindow {
         let config = Store::new()
             .and_then(|store| store.load())
             .unwrap_or_else(|_| Config::default());
-        self.identifier.show(&app, &config, screens, only);
+        let mouse = match &latest.mouse {
+            Some(Mouse::On(id)) => Some(id),
+            _ => None,
+        };
+        self.identifier.show(&app, &config, screens, only, mouse);
     }
 
     /// Shows the latest state.

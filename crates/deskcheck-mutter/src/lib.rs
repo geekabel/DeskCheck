@@ -22,6 +22,7 @@ pub use watch::ScreenWatcher;
 
 mod convert;
 pub mod dbus;
+pub mod pointer;
 mod raw;
 pub mod setup;
 mod watch;

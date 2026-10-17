@@ -11,6 +11,7 @@ publish.workspace = true
 
 [dependencies]
 deskcheck-core.workspace = true
+x11rb = "0.14.0"
 zbus = "5.13.2"
 
 [lints]

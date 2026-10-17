@@ -17,7 +17,7 @@ use deskcheck_config::{Color, Config, Store};
 use deskcheck_core::audio::{AudioState, Target};
 use deskcheck_core::display::{DisplayState, Screen, ScreenId};
 
-use crate::backend::{Backend, Request};
+use crate::backend::{Backend, Mouse, Request};
 use crate::now_model::screen_color;
 use deskcheck_mutter::setup::{Arrangement, Change, Setup};
 
@@ -160,6 +160,10 @@ pub struct ScreensPage {
     css: gtk::CssProvider,
     chosen_css: gtk::CssProvider,
     tiles: RefCell<Vec<(ScreenId, gtk::Box)>>,
+    /// The "Your mouse is here" tag of each screen of the map (DC-26).
+    mouse_tags: RefCell<Vec<(ScreenId, gtk::Box)>>,
+    /// Where the mouse is.
+    mouse: RefCell<Option<Mouse>>,
     backend: Backend,
     pnp_ids: Option<String>,
     current: RefCell<Current>,
@@ -408,6 +412,8 @@ impl ScreensPage {
             css,
             chosen_css,
             tiles: RefCell::default(),
+            mouse_tags: RefCell::default(),
+            mouse: RefCell::default(),
             backend,
             pnp_ids: std::fs::read_to_string(PNP_IDS).ok(),
             current: RefCell::default(),
@@ -501,6 +507,32 @@ impl ScreensPage {
         });
     }
 
+    /// Shows which screen the mouse is on.
+    pub fn show_mouse(&self, mouse: &Mouse) {
+        *self.mouse.borrow_mut() = Some(mouse.clone());
+        self.show_mouse_tags();
+        if self.details.is_visible() {
+            self.hint.set_label(&self.hint_text());
+        }
+    }
+
+    fn show_mouse_tags(&self) {
+        let mouse = self.mouse.borrow();
+        for (id, tag) in self.mouse_tags.borrow().iter() {
+            tag.set_visible(matches!(mouse.as_ref(), Some(Mouse::On(on)) if on == id));
+        }
+    }
+
+    /// The line under the map, with a word on the mouse when it is not known.
+    fn hint_text(&self) -> String {
+        match self.mouse.borrow().as_ref() {
+            Some(Mouse::NeedsExtension) => {
+                format!("{HINT} · To see your mouse on Wayland, turn on the DeskCheck extension")
+            }
+            _ => HINT.to_owned(),
+        }
+    }
+
     /// Asks GNOME for a change of the screens.
     fn ask(&self, change: Change) {
         self.backend.request(Request::Screens(change));
@@ -590,6 +622,7 @@ impl ScreensPage {
         while let Some(child) = self.map.first_child() {
             self.map.remove(&child);
         }
+        self.mouse_tags.borrow_mut().clear();
         let state = match screens {
             Some(Ok(state)) => state,
             Some(Err(_)) => {
@@ -616,7 +649,7 @@ impl ScreensPage {
             self.empty("No screen is on.");
             return;
         };
-        self.hint.set_label(HINT);
+        self.hint.set_label(&self.hint_text());
         self.details.set_visible(true);
 
         let tiles = screens_model::layout_map(config, state, MAP_ROOM.0, MAP_ROOM.1, MAP_GAP);
@@ -636,6 +669,7 @@ impl ScreensPage {
             widgets.push((tile.id.clone(), widget));
         }
         *self.tiles.borrow_mut() = widgets;
+        self.show_mouse_tags();
         #[allow(deprecated, reason = "load_from_string needs GTK 4.12")]
         self.css.load_from_data(&css);
         self.show_chosen();
@@ -751,6 +785,13 @@ impl ScreensPage {
             }
             widget.append(&tags);
         }
+        // At the bottom, as in the design.
+        let mouse = ui::mouse_tag("Your mouse is here");
+        mouse.set_halign(gtk::Align::Start);
+        mouse.set_valign(gtk::Align::End);
+        mouse.set_vexpand(true);
+        widget.append(&mouse);
+        self.mouse_tags.borrow_mut().push((tile.id.clone(), mouse));
         let click = gtk::GestureClick::new();
         let page = Rc::clone(self);
         let id = tile.id.clone();

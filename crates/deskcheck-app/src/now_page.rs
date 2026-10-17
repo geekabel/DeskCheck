@@ -13,11 +13,11 @@ use adw::prelude::*;
 use deskcheck_config::Config;
 use deskcheck_core::audio::level::{LevelBar, to_db};
 use deskcheck_core::audio::{AudioState, DeviceId, StreamId, Target, Volume};
-use deskcheck_core::display::DisplayState;
+use deskcheck_core::display::{DisplayState, ScreenId};
 use gtk::glib;
 
 use crate::audio_model::{AudioTab, VOICE_DB};
-use crate::backend::{Backend, Request, metered_sources};
+use crate::backend::{Backend, Mouse, Request, metered_sources};
 use crate::now_model::{self, AppTag};
 use crate::ui;
 
@@ -37,7 +37,8 @@ const INPUT_BLOCKS: usize = 16;
 
 /// Room for the screens in the map, inside its padding, and the gap
 /// between two screens, in pixels.
-const MAP_ROOM: (i32, i32) = (336, 72);
+// Lower than the map, so the mouse tag fits above the tallest screen.
+const MAP_ROOM: (i32, i32) = (336, 62);
 const MAP_GAP: i32 = 10;
 
 /// The top of a device card: caption, icon, name, technical name, tag.
@@ -203,6 +204,10 @@ pub struct NowPage {
     map: gtk::Box,
     screens_line: gtk::Label,
     screen_css: gtk::CssProvider,
+    /// The "Mouse here" tag of each screen of the map (DC-26).
+    mouse_tags: RefCell<Vec<(ScreenId, gtk::Box)>>,
+    /// The screen the mouse is on.
+    mouse: RefCell<Option<ScreenId>>,
     current: Rc<RefCell<Current>>,
     /// `true` while the page itself moves the slider.
     setting_volume: Rc<Cell<bool>>,
@@ -363,6 +368,8 @@ impl NowPage {
             map,
             screens_line,
             screen_css,
+            mouse_tags: RefCell::default(),
+            mouse: RefCell::default(),
             current: Rc::default(),
             setting_volume: Rc::default(),
         });
@@ -605,6 +612,7 @@ impl NowPage {
     /// Shows the screens: the map and the layout line.
     pub fn show_screens(&self, config: &Config, screens: Option<&Result<DisplayState, String>>) {
         ui::clear(&self.map);
+        self.mouse_tags.borrow_mut().clear();
         let state = match screens {
             Some(Ok(state)) => state,
             Some(Err(_)) => {
@@ -626,11 +634,26 @@ impl NowPage {
                 "#{name} {{ border-color: {color}; }} #{name} .dc-screen-number {{ color: {color}; }}",
                 color = tile.color
             );
-            self.map.append(&screen_tile(tile, &name));
+            let (widget, tag) = screen_tile(tile, &name);
+            tag.set_visible(self.mouse.borrow().as_ref() == Some(&tile.id));
+            self.mouse_tags.borrow_mut().push((tile.id.clone(), tag));
+            self.map.append(&widget);
         }
         #[allow(deprecated, reason = "load_from_string needs GTK 4.12")]
         self.screen_css.load_from_data(&css);
         self.screens_line.set_label(&now_model::screens_line(state));
+    }
+
+    /// Shows on the map which screen the mouse is on.
+    pub fn show_mouse(&self, mouse: &Mouse) {
+        let on = match mouse {
+            Mouse::On(id) => Some(id.clone()),
+            _ => None,
+        };
+        for (id, tag) in self.mouse_tags.borrow().iter() {
+            tag.set_visible(on.as_ref() == Some(id));
+        }
+        *self.mouse.borrow_mut() = on;
     }
 
     /// Shows the alert, or hides it, from the last state.
@@ -689,8 +712,9 @@ impl NowPage {
     }
 }
 
-/// A screen of the map: its number, big and in its color, and its name.
-fn screen_tile(tile: &now_model::ScreenTile, widget_name: &str) -> gtk::Box {
+/// A screen of the map: its number, big and in its color, and its name,
+/// with the "Mouse here" tag over its top right corner, as in the design.
+fn screen_tile(tile: &now_model::ScreenTile, widget_name: &str) -> (gtk::Overlay, gtk::Box) {
     let classes: &[&str] = if tile.primary {
         &["dc-screen-tile", "primary"]
     } else {
@@ -730,5 +754,17 @@ fn screen_tile(tile: &now_model::ScreenTile, widget_name: &str) -> gtk::Box {
             .build(),
     );
     screen.append(&middle);
-    screen
+    // Room above and on the right, so the tag sits over the corner.
+    screen.set_margin_top(11);
+    screen.set_margin_end(9);
+    let tag = ui::mouse_tag("Mouse here");
+    tag.add_css_class("dc-mouse-small");
+    tag.set_halign(gtk::Align::End);
+    tag.set_valign(gtk::Align::Start);
+    let overlay = gtk::Overlay::builder()
+        .child(&screen)
+        .valign(gtk::Align::End)
+        .build();
+    overlay.add_overlay(&tag);
+    (overlay, tag)
 }

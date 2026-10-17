@@ -172,6 +172,8 @@ pub enum TagKind {
     Neutral,
     /// Red: muted, broken.
     Error,
+    /// Dark: where the mouse is.
+    Dark,
 }
 
 impl TagKind {
@@ -183,6 +185,7 @@ impl TagKind {
             Self::Accent => "accent",
             Self::Neutral => "neutral",
             Self::Error => "error",
+            Self::Dark => "dark",
         }
     }
 }
@@ -211,6 +214,13 @@ pub fn icon_tag(icon_name: &str, text: &str, kind: TagKind) -> gtk::Box {
         .build();
     tag.append(&icon(icon_name, 12));
     tag.append(&gtk::Label::new(Some(text)));
+    tag
+}
+
+/// The dark tag that says where the mouse is, hidden at first.
+pub fn mouse_tag(text: &str) -> gtk::Box {
+    let tag = icon_tag("dc-pointer-symbolic", text, TagKind::Dark);
+    tag.set_visible(false);
     tag
 }
 

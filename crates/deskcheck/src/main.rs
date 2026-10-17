@@ -59,6 +59,9 @@ enum Command {
         #[arg(short, long)]
         verbose: bool,
     },
+    /// Say which screen the mouse is on. On Wayland, it needs the DeskCheck
+    /// extension for GNOME Shell.
+    Mouse,
     /// Find the sound problems and say how to fix them.
     ///
     /// Exit code: 0 when there is no problem, 1 when the sound server
@@ -495,6 +498,30 @@ fn run_rename(what: RenameWhat) -> Result<String, String> {
 }
 
 /// Prints the report, or the error on stderr with a failure exit code.
+/// `deskcheck mouse`: the screen under the mouse.
+fn run_mouse() -> Result<String, String> {
+    use deskcheck_mutter::pointer::{PointerReader, Session};
+    let reader = PointerReader::new().map_err(|error| error.to_string())?;
+    let (x, y) = reader.position().map_err(|error| error.to_string())?;
+    let state = deskcheck_mutter::read_state().map_err(|error| error.to_string())?;
+    let physical = reader.session() == Session::X11;
+    let settings = settings();
+    Ok(match state.screen_at(x, y, physical) {
+        Some(screen) => {
+            let number = state
+                .numbered()
+                .iter()
+                .find(|(_, s)| s.id == screen.id)
+                .map_or(0, |(number, _)| *number);
+            format!(
+                "The mouse is on screen {number}, {} (at {x}, {y}).\n",
+                settings.screen_label(screen)
+            )
+        }
+        None => format!("The mouse is at {x}, {y}, on no screen that is on.\n"),
+    })
+}
+
 fn show<S, E: std::fmt::Display>(state: Result<S, E>, render: impl Fn(&S) -> String) -> ExitCode {
     match state {
         Ok(state) => {
@@ -517,6 +544,7 @@ fn main() -> ExitCode {
         Command::Displays { verbose } => show(deskcheck_mutter::read_state(), |state| {
             display_report::render(state, &settings(), display_report::Options { verbose })
         }),
+        Command::Mouse => show(run_mouse(), String::clone),
         Command::Doctor { fix } => match run_doctor(fix) {
             Ok((report, problems_left)) => {
                 say!("{report}");
@@ -586,6 +614,12 @@ mod tests {
         assert!(matches!(cli.command, Command::Audio { verbose: true }));
         let cli = Cli::try_parse_from(["deskcheck", "audio"]).unwrap();
         assert!(matches!(cli.command, Command::Audio { verbose: false }));
+    }
+
+    #[test]
+    fn mouse_command() {
+        let cli = Cli::try_parse_from(["deskcheck", "mouse"]).unwrap();
+        assert!(matches!(cli.command, Command::Mouse));
     }
 
     #[test]

@@ -16,8 +16,10 @@ use std::time::{Duration, Instant};
 
 use deskcheck_core::audio::{AudioState, DeviceId, Fix, InputKind, StreamId, Target, Volume, tone};
 use deskcheck_core::display::DisplayState;
+use deskcheck_core::display::ScreenId;
 use deskcheck_core::events::{Change, coalesce};
-use deskcheck_mutter::setup::{Change as ScreenChange, Setup};
+use deskcheck_mutter::pointer::{PointerError, PointerReader, Session};
+use deskcheck_mutter::setup::{Change as ScreenChange, LayoutMode, Setup};
 use deskcheck_pulse::{Action, Meters, ServerKind};
 
 /// How long to gather a burst of changes before reading again.
@@ -40,6 +42,8 @@ pub enum Update {
     Screens(Result<DisplayState, String>),
     /// What is needed to change the screens: every mode, every scale.
     Setup(Option<Setup>),
+    /// The screen the mouse is on, when it changes.
+    Mouse(Mouse),
     /// A new peak of a level meter, from 0.0 to 1.0.
     Peak {
         /// The source measured: a microphone, or the monitor of an output.
@@ -125,11 +129,109 @@ fn read_sound() -> Result<AudioState, String> {
     deskcheck_pulse::read_state().map_err(|error| error.to_string())
 }
 
-/// Reads the screens, and what is needed to change them.
-fn send_screens(send: &impl Fn(Update) -> bool) -> bool {
-    send(Update::Screens(
-        deskcheck_mutter::read_state().map_err(|error| error.to_string()),
-    )) && send(Update::Setup(deskcheck_mutter::read_setup().ok()))
+/// Reads the screens, and what is needed to change them, and keeps them
+/// for the mouse. Returns `false` when the interface is gone.
+fn send_screens(send: &impl Fn(Update) -> bool, mouse: &mut MouseWatch) -> bool {
+    let screens = deskcheck_mutter::read_state().map_err(|error| error.to_string());
+    let setup = deskcheck_mutter::read_setup().ok();
+    mouse.screens = screens.as_ref().ok().cloned();
+    if let Some(setup) = &setup {
+        mouse.physical = setup.layout_mode == LayoutMode::Physical;
+    }
+    send(Update::Screens(screens)) && send(Update::Setup(setup))
+}
+
+/// Where the mouse is, for the interface (DC-26).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Mouse {
+    /// On this screen.
+    On(ScreenId),
+    /// Known, but on no screen that is on.
+    Elsewhere,
+    /// On Wayland, the extension for GNOME Shell is needed.
+    NeedsExtension,
+    /// Not known, for this reason.
+    Unknown(String),
+}
+
+/// How often the mouse is read.
+const MOUSE_TICK: Duration = Duration::from_millis(300);
+
+/// How often a failed way to read the mouse is tried again: the user may
+/// have turned the extension on.
+const MOUSE_RETRY: Duration = Duration::from_secs(10);
+
+/// Reads the mouse now and then, and tells the interface when it moves to
+/// another screen.
+struct MouseWatch {
+    reader: Option<PointerReader>,
+    screens: Option<DisplayState>,
+    physical: bool,
+    last_read: Option<Instant>,
+    last_try: Option<Instant>,
+    sent: Option<Mouse>,
+}
+
+impl MouseWatch {
+    fn new() -> Self {
+        Self {
+            reader: None,
+            screens: None,
+            physical: Session::current() == Some(Session::X11),
+            last_read: None,
+            last_try: None,
+            sent: None,
+        }
+    }
+
+    /// What the mouse is on now, or `None` when it is not time to look.
+    fn look(&mut self) -> Option<Mouse> {
+        let now = Instant::now();
+        if self.last_read.is_some_and(|at| now - at < MOUSE_TICK) {
+            return None;
+        }
+        self.last_read = Some(now);
+        if self.reader.is_none() {
+            if self.last_try.is_some_and(|at| now - at < MOUSE_RETRY) {
+                return None;
+            }
+            self.last_try = Some(now);
+            match PointerReader::new() {
+                Ok(reader) => self.reader = Some(reader),
+                Err(error) => return Some(Mouse::Unknown(error.to_string())),
+            }
+        }
+        let reader = self.reader.as_ref()?;
+        Some(match reader.position() {
+            Ok((x, y)) => self
+                .screens
+                .as_ref()
+                .and_then(|state| state.screen_at(x, y, self.physical))
+                .map_or(Mouse::Elsewhere, |screen| Mouse::On(screen.id.clone())),
+            Err(PointerError::NeedsExtension) => {
+                // Asked again later, when the user may have turned it on.
+                self.reader = None;
+                Mouse::NeedsExtension
+            }
+            Err(error) => {
+                self.reader = None;
+                Mouse::Unknown(error.to_string())
+            }
+        })
+    }
+
+    /// Sends where the mouse is, when it changed. Returns `false` when the
+    /// interface is gone.
+    fn send(&mut self, send: &impl Fn(Update) -> bool) -> bool {
+        let Some(mouse) = self.look() else {
+            return true;
+        };
+        if self.sent.as_ref() == Some(&mouse) {
+            return true;
+        }
+        self.sent = Some(mouse.clone());
+        send(Update::Mouse(mouse))
+    }
 }
 
 /// Changes the screens. GNOME then asks the user to keep the change.
@@ -329,10 +431,11 @@ fn run(
         send(Update::Sound(sound))
     };
 
+    let mut mouse = MouseWatch::new();
     let server = deskcheck_pulse::server_kind().map_err(|error| error.to_string());
     if !(send(Update::SoundServer(server))
         && send_sound(&mut meters, &mut last)
-        && send_screens(&send))
+        && send_screens(&send, &mut mouse))
     {
         return;
     }
@@ -385,7 +488,7 @@ fn run(
             Err(RecvTimeoutError::Timeout) => {}
             Err(RecvTimeoutError::Disconnected) => return,
         }
-        if !meters.send_peaks(&send) {
+        if !meters.send_peaks(&send) || !mouse.send(&send) {
             return;
         }
         if deadline.is_some_and(|deadline| Instant::now() >= deadline) {
@@ -395,7 +498,7 @@ fn run(
             {
                 return;
             }
-            if (refresh || changes.contains(&Change::Screens)) && !send_screens(&send) {
+            if (refresh || changes.contains(&Change::Screens)) && !send_screens(&send, &mut mouse) {
                 return;
             }
             refresh = false;

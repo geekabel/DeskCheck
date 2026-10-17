@@ -17,7 +17,7 @@ use std::time::Duration;
 
 use adw::prelude::*;
 use deskcheck_config::Config;
-use deskcheck_core::display::DisplayState;
+use deskcheck_core::display::{DisplayState, ScreenId};
 use gtk::{gdk, glib};
 
 use crate::now_model::screen_color;
@@ -45,6 +45,7 @@ impl Identifier {
         config: &Config,
         state: &DisplayState,
         only: Option<usize>,
+        mouse: Option<&ScreenId>,
     ) {
         self.close();
         let Some(display) = gdk::Display::default() else {
@@ -80,7 +81,8 @@ impl Identifier {
                 css,
                 "#identify-badge-{number} {{ background-color: {color}; }}"
             );
-            let window = self.window(app, *number, config.screen_label(screen), screen);
+            let has_mouse = mouse == Some(&screen.id);
+            let window = self.window(app, *number, config.screen_label(screen), screen, has_mouse);
             window.fullscreen_on_monitor(monitor);
             window.present();
             self.windows.borrow_mut().push(window);
@@ -127,6 +129,7 @@ impl Identifier {
         number: usize,
         name: &str,
         screen: &deskcheck_core::display::Screen,
+        has_mouse: bool,
     ) -> gtk::Window {
         let card = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
@@ -152,15 +155,23 @@ impl Identifier {
             .css_classes(["dc-identify-line"])
             .build();
         card.append(&line);
-        if screen.is_primary() {
+        if screen.is_primary() || has_mouse {
             let tags = gtk::Box::builder()
                 .orientation(gtk::Orientation::Horizontal)
                 .spacing(6)
                 .halign(gtk::Align::Center)
                 .build();
-            let primary = ui::tag("Primary", TagKind::WarnStrong);
-            primary.add_css_class("dc-identify-tag");
-            tags.append(&primary);
+            if screen.is_primary() {
+                let primary = ui::tag("Primary", TagKind::WarnStrong);
+                primary.add_css_class("dc-identify-tag");
+                tags.append(&primary);
+            }
+            if has_mouse {
+                let here = ui::mouse_tag("Your mouse is here");
+                here.add_css_class("dc-identify-mouse");
+                here.set_visible(true);
+                tags.append(&here);
+            }
             card.append(&tags);
         }
         let countdown = gtk::Label::builder()
