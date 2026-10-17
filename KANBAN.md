@@ -4,15 +4,15 @@ Ce fichier suit toutes les tâches jusqu'à la version 0.1.0.
 On le met à jour à la fin de chaque tâche, dans la même branche que la tâche.
 Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact/SEKGtbp6ACVXhpff8rK89i) (privé, mis à jour en même temps).
 
-**Avancement : 8 / 37 tâches terminées**
+**Avancement : 9 / 37 tâches terminées**
 
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-09, DC-10, DC-11 |
-| 📋 Backlog | DC-12 à DC-37 |
+| 🔜 À faire (prochaines) | DC-10, DC-11, DC-12 |
+| 📋 Backlog | DC-13 à DC-37 |
 | 🖥️ À tester sur ton PC | aucune |
-| ✅ Terminé | DC-01 à DC-08 |
+| ✅ Terminé | DC-01 à DC-09 |
 
 ---
 
@@ -67,14 +67,6 @@ _Aucune tâche._
 
 ## 🔜 À faire (prochaines)
 
-### DC-09 · Fichier de configuration
-- **But** : garder les noms donnés aux appareils et les couleurs des écrans.
-- **Docs** : `serde`, `toml`, `directories` (dossier XDG).
-- **Critères**
-  - [ ] Fichier TOML dans `~/.config/deskcheck/`.
-  - [ ] Écriture sûre (fichier temporaire puis renommage).
-  - [ ] Version du format pour les migrations futures.
-
 ### DC-10 · Renommer un appareil
 - **Critères**
   - [ ] Commandes CLI pour nommer un appareil son ou un écran.
@@ -87,16 +79,14 @@ _Aucune tâche._
   - [ ] Chaque problème propose une correction.
   - [ ] Tests unitaires pour chaque règle.
 
----
-
-## 📋 Backlog
-
-### Phase 4 · Diagnostic
-
-#### DC-12 · Commande `deskcheck doctor`
+### DC-12 · Commande `deskcheck doctor`
 - **Critères**
   - [ ] Affiche les problèmes trouvés.
   - [ ] Option `--fix` pour appliquer la correction proposée.
+
+---
+
+## 📋 Backlog
 
 ### Phase 5 · Agir sur le son
 
@@ -397,3 +387,28 @@ _Aucune tâche._
   - Le rapport est une fonction pure (`render`), testée sans GNOME.
   - Échelle affichée en pourcentage (1.25 donne 125%).
   - Code de sortie : 0 si GNOME répond, 1 sinon.
+
+### DC-09 · Fichier de configuration
+- **But** : garder les noms donnés aux appareils et les couleurs des écrans.
+- **Docs lues** : `serde` (attributs `default`, `skip_serializing_if`, `deny_unknown_fields`),
+  `toml` 1.1 (`from_str`, `to_string_pretty`), `directories` 6 (`ProjectDirs`, code Linux),
+  doc Rust `std::fs` (`rename`, `File::create_new`, `sync_all`, `read_link`).
+- **Critères**
+  - [x] Fichier TOML dans `~/.config/deskcheck/config.toml` (ou sous `$XDG_CONFIG_HOME`),
+    nouvelle caisse `deskcheck-config`.
+  - [x] Écriture sûre : fichier temporaire caché dans le même dossier, vidé sur le disque,
+    puis renommé sur l'ancien. En cas d'échec, l'ancien fichier reste intact.
+  - [x] Version du format (`version = 1`) pour les migrations futures.
+  - [x] Noms des appareils son, noms et couleurs (`#rrggbb`) des écrans.
+  - [x] 24 tests : format, versions, erreurs, vrais fichiers (dossier créé, remplacement,
+    lien symbolique, échec d'écriture).
+- **Décisions**
+  - Le cœur reste sans `serde` : le format du fichier a ses propres structures, une par version.
+  - Un fichier d'une version plus récente est refusé, pour ne pas le lire de travers.
+  - Un champ inconnu est une erreur : une faute de frappe n'est jamais perdue en silence.
+  - Si le même appareil apparaît deux fois, la dernière entrée gagne.
+  - Un lien symbolique vers le fichier (dossier dotfiles) est gardé, la cible est remplacée.
+  - Les commentaires écrits à la main sont perdus quand DeskCheck réécrit le fichier
+    (le fichier le dit dans son en-tête).
+  - Deux écrans du même modèle sans numéro de série ont la même identité.
+- **Pour voir** : `cargo run -p deskcheck-config --example config_dump` (lecture seule).
