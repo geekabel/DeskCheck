@@ -9,9 +9,9 @@ Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-12, DC-13, DC-14 |
-| 📋 Backlog | DC-15 à DC-37 |
-| 🖥️ À tester sur ton PC | aucune |
+| 🔜 À faire (prochaines) | DC-13, DC-14, DC-15 |
+| 📋 Backlog | DC-16 à DC-37 |
+| 🖥️ À tester sur ton PC | DC-12 |
 | ✅ Terminé | DC-01 à DC-11 |
 
 ---
@@ -67,12 +67,9 @@ _Aucune tâche._
 
 ## 🔜 À faire (prochaines)
 
-### DC-12 · Commande `deskcheck doctor`
-- **Critères**
-  - [ ] Affiche les problèmes trouvés.
-  - [ ] Option `--fix` pour appliquer la correction proposée.
-
 ### DC-13 · Changer les appareils et les volumes
+- **Note** : les actions sur le serveur son existent déjà depuis DC-12
+  (`deskcheck_pulse::apply`). Il reste les commandes pour les utiliser à la main.
 - **Critères**
   - [ ] Choisir la sortie et le micro par défaut.
   - [ ] Volume et coupure du son.
@@ -84,16 +81,16 @@ _Aucune tâche._
   - [ ] Niveau de chaque micro, mis à jour environ 20 fois par seconde.
   - [ ] Faible charge processeur.
 
+### DC-15 · Tester le son et le micro
+- **Critères**
+  - [ ] Jouer un son court sur une sortie.
+  - [ ] Enregistrer 3 secondes sur un micro, puis les réécouter.
+
 ---
 
 ## 📋 Backlog
 
 ### Phase 5 · Agir sur le son
-
-#### DC-15 · Tester le son et le micro
-- **Critères**
-  - [ ] Jouer un son court sur une sortie.
-  - [ ] Enregistrer 3 secondes sur un micro, puis les réécouter.
 
 #### DC-16 · Événements en direct
 - **Critères**
@@ -220,7 +217,27 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-_Aucune tâche._
+### DC-12 · Commande `deskcheck doctor`
+- **But** : afficher les problèmes du son et les corriger.
+- **Docs lues** : `libpulse-binding` 2.30 (`set_default_source`, `set_default_sink`,
+  `move_source_output_by_name`, `move_sink_input_by_name`, `set_*_mute_by_name`,
+  `set_*_volume_by_name`, `get_*_info_by_name`, `ChannelVolumes::scale`, `Operation`).
+- **Critères**
+  - [x] Affiche les problèmes trouvés, avec leur correction.
+  - [x] Option `--fix` : applique les corrections, chacune une fois, dit ce qui a marché,
+    puis vérifie à nouveau et dit ce qui reste.
+  - [x] Code de sortie : 0 sans problème, 1 si le serveur son ne répond pas, 2 s'il reste des problèmes.
+  - [x] Actions dans `deskcheck-pulse` : sortie et entrée par défaut, déplacer un flux,
+    couper ou remettre le son, volume (l'équilibre entre canaux est gardé).
+  - [x] Testé ici sur un vrai serveur PulseAudio de test : application qui écoute un retour,
+    retour par défaut, micro à 0 %, sortie coupée. Un seul `--fix` corrige les quatre.
+- **Décisions**
+  - Le micro vers lequel les corrections basculent est vérifié lui aussi (trouvé pendant le test :
+    sinon son volume à 0 % n'apparaissait qu'après la première correction).
+  - « Brancher un micro » s'affiche comme « À faire toi-même ».
+- **À tester** : `cargo run -p deskcheck -- doctor`. Pour voir `--fix` agir : coupe le son
+  de tes haut-parleurs (réglages de GNOME), lance `cargo run -p deskcheck -- doctor`, puis
+  `cargo run -p deskcheck -- doctor --fix`.
 
 ---
 
