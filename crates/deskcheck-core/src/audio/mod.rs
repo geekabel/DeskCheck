@@ -338,6 +338,27 @@ impl AudioState {
             .iter()
             .filter(move |playback| &playback.output == id)
     }
+
+    /// Recording streams that take their sound from a monitor, with that
+    /// monitor. In a call, such an app sends a copy of an output, not the
+    /// voice of the user.
+    pub fn recordings_from_monitors(&self) -> impl Iterator<Item = (&Recording, &Input)> {
+        self.recordings.iter().filter_map(|recording| {
+            self.input(&recording.input)
+                .filter(|input| input.is_monitor())
+                .map(|input| (recording, input))
+        })
+    }
+
+    /// Returns the default input when it is a monitor, not a microphone.
+    ///
+    /// The sound server picks a monitor as the default input when it finds
+    /// no microphone. New recordings then hear the speakers, not the user.
+    #[must_use]
+    pub fn default_input_monitor(&self) -> Option<&Input> {
+        self.default_input_device()
+            .filter(|input| input.is_monitor())
+    }
 }
 
 #[cfg(test)]
@@ -482,6 +503,33 @@ mod tests {
         };
         assert!(state.default_input_device().is_none());
         assert!(AudioState::default().default_output_device().is_none());
+    }
+
+    #[test]
+    fn recordings_from_monitors_are_found() {
+        let state = office();
+        let found: Vec<(StreamId, &str)> = state
+            .recordings_from_monitors()
+            .map(|(recording, input)| (recording.id, input.id.as_str()))
+            .collect();
+        assert_eq!(found, [(StreamId::new(42), HDMI_MONITOR)]);
+
+        let mut fixed = office();
+        fixed.recordings[0].input = DeviceId::new(HEADSET_MIC);
+        assert_eq!(fixed.recordings_from_monitors().count(), 0);
+    }
+
+    #[test]
+    fn default_input_monitor_is_reported() {
+        assert!(office().default_input_monitor().is_none());
+        let state = AudioState {
+            default_input: Some(DeviceId::new(HDMI_MONITOR)),
+            ..office()
+        };
+        assert_eq!(
+            state.default_input_monitor().unwrap().id.as_str(),
+            HDMI_MONITOR
+        );
     }
 
     #[test]
