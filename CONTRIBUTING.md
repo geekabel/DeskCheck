@@ -30,6 +30,10 @@ cargo run -p deskcheck -- audio                       # who hears what, and prob
 cargo run -p deskcheck -- audio --verbose             # with every device
 cargo run -p deskcheck -- doctor                      # the sound problems and their fixes
 cargo run -p deskcheck -- doctor --fix                # apply the fixes
+cargo run -p deskcheck -- use input jabra             # make a microphone the default
+cargo run -p deskcheck -- volume output default 80    # set a volume
+cargo run -p deskcheck -- mute input default          # mute (unmute to undo)
+cargo run -p deskcheck -- move recording firefox usb  # move an app to a device
 cargo run -p deskcheck -- displays                    # which screen is which
 cargo run -p deskcheck -- displays --verbose          # with identity and position
 cargo run -p deskcheck -- rename screen 2 Laptop      # give screen 2 a name
