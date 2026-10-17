@@ -9,9 +9,9 @@ Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-22, DC-23, DC-24 |
-| 📋 Backlog | DC-25 à DC-38 |
-| 🖥️ À tester sur ton PC | DC-21 |
+| 🔜 À faire (prochaines) | DC-23, DC-24, DC-25 |
+| 📋 Backlog | DC-26 à DC-38 |
+| 🖥️ À tester sur ton PC | DC-21, DC-22 |
 | ✅ Terminé | DC-01 à DC-20 |
 
 ---
@@ -67,10 +67,6 @@ _Aucune tâche._
 
 ## 🔜 À faire (prochaines)
 
-### DC-22 · Page « Diagnostic »
-- **Critères**
-  - [ ] Liste des vérifications avec état, correction en un clic.
-
 ### DC-23 · Alerte en direct
 - **Critères**
   - [ ] Bandeau sur « Maintenant » quand une application écoute un retour.
@@ -82,6 +78,12 @@ _Aucune tâche._
   - [ ] Un grand numéro coloré sur chaque vrai écran pendant 5 secondes.
   - [ ] Échap ferme tout.
 
+### DC-25 · Appliquer une disposition d'écrans
+- **Docs** : `ApplyMonitorsConfig` (méthode temporaire, puis persistante).
+- **Critères**
+  - [ ] Écran principal, résolution, échelle, position.
+  - [ ] Retour arrière automatique si l'utilisateur ne confirme pas.
+
 ---
 
 ## 📋 Backlog
@@ -91,12 +93,6 @@ _Aucune tâche._
 ### Phase 6 · Interface graphique
 
 ### Phase 7 · Agir sur les écrans
-
-#### DC-25 · Appliquer une disposition d'écrans
-- **Docs** : `ApplyMonitorsConfig` (méthode temporaire, puis persistante).
-- **Critères**
-  - [ ] Écran principal, résolution, échelle, position.
-  - [ ] Retour arrière automatique si l'utilisateur ne confirme pas.
 
 #### DC-26 · Sur quel écran est la souris ? 🧪
 - **But** : sous Wayland, une application ne voit pas la position globale du pointeur.
@@ -202,9 +198,38 @@ _Aucune tâche._
     seule sortie HDMI quand un seul écran externe est allumé. Sinon, DeskCheck le dit.
   - Le nom du fabricant vient de `/usr/share/hwdata/pnp.ids` s'il est là, sinon d'une petite liste.
   - Les quatre couleurs de la maquette sont maintenant les couleurs par défaut des écrans.
+  - Retour de Godwin : l'anneau de l'écran choisi était trop épais. GTK dessine les ombres
+    (`box-shadow`) dans l'ordre inverse du CSS : l'anneau noir de 6 px cachait l'écart de 4 px.
+    Corrigé : 4 px d'écart puis 2 px de trait, comme la maquette.
 - **À tester** : `cargo run -p deskcheck-app`, page Screens : tes deux écrans à la bonne place,
   clique chacun, change sa couleur et son nom (regarde aussi la page Now), « Use » si ton
   écran a des haut-parleurs.
+
+
+### DC-22 · Page « Diagnostic »
+- **But** : pour le problème que tu as, une liste de vérifications avec leur état, et une
+  correction en un clic quand DeskCheck peut la faire.
+- **Docs lues** : `gtk4` 0.10 (`ProgressBar` et ses nœuds CSS `trough` et `progress`,
+  `CheckButton`, `Box` homogène), `glib` 0.21 (`timeout_add_seconds_local`, `ControlFlow`),
+  moteur de diagnostic de DC-11, maquette « Diagnostic ».
+- **Critères**
+  - [x] « They can't hear me » : micro non coupé, micro qui entend ta voix (barre en direct,
+    « You spoke 2 s ago »), application qui écoute un vrai micro, droit du site (tu réponds),
+    test final.
+  - [x] « I hear nothing » : sortie non coupée, applications sur la bonne sortie, son de test.
+  - [x] « A screen is not detected » : GNOME voit les écrans, ils sont allumés, câble et entrée.
+  - [x] Barre de progression « 3 of 5 · 1 problem found », boutons pour passer d'un cas à l'autre.
+  - [x] Correction en un clic (bouton orange), sans couper l'appel.
+  - [x] Vu ici sur un écran virtuel : « Switch Firefox to Jabra-Mic » déplace vraiment Firefox
+    sur le micro, la vérification passe au vert.
+- **Décisions**
+  - Les vérifications viennent des règles de DC-11 : même résultat que `deskcheck doctor`.
+  - Ce que DeskCheck ne peut pas voir (droit du site, son entendu, câble) est une question.
+  - Le test final reste grisé tant qu'une vérification au-dessus n'est pas bonne, comme la maquette.
+  - « Remember the fix for this place » est grisé : il vient avec les lieux (DC-28).
+- **À tester** : `cargo run -p deskcheck-app`, page Diagnostic : coupe ton micro puis « Turn
+  the microphone on », parle (« You spoke … »), réponds aux questions, « Record ». Essaie
+  « I hear nothing » avec une vidéo. Au bureau avec Teams : « Switch Firefox to … ».
 
 ---
 
