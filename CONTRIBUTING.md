@@ -28,6 +28,8 @@ through `pipewire-pulse`.
 ```sh
 cargo run -p deskcheck -- audio                       # who hears what, and problems
 cargo run -p deskcheck -- audio --verbose             # with every device
+cargo run -p deskcheck -- doctor                      # the sound problems and their fixes
+cargo run -p deskcheck -- doctor --fix                # apply the fixes
 cargo run -p deskcheck -- displays                    # which screen is which
 cargo run -p deskcheck -- displays --verbose          # with identity and position
 cargo run -p deskcheck -- rename screen 2 Laptop      # give screen 2 a name
