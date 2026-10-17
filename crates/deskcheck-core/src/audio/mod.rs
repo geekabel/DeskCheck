@@ -23,6 +23,7 @@ use std::fmt;
 
 mod diagnose;
 mod hardware;
+pub mod level;
 
 pub use diagnose::{Finding, Fix, Problem, Target, best_microphone, diagnose};
 pub use hardware::{Clues, Connection, Direction, Form, Hardware, classify};
