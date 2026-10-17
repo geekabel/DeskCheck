@@ -4,15 +4,15 @@ Ce fichier suit toutes les tâches jusqu'à la version 0.1.0.
 On le met à jour à la fin de chaque tâche, dans la même branche que la tâche.
 Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact/SEKGtbp6ACVXhpff8rK89i) (privé, mis à jour en même temps).
 
-**Avancement : 14 / 37 tâches terminées**
+**Avancement : 15 / 37 tâches terminées**
 
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
 | 🔜 À faire (prochaines) | DC-16, DC-17, DC-18 |
 | 📋 Backlog | DC-19 à DC-37 |
-| 🖥️ À tester sur ton PC | DC-15 |
-| ✅ Terminé | DC-01 à DC-14 |
+| 🖥️ À tester sur ton PC | aucune |
+| ✅ Terminé | DC-01 à DC-15 |
 
 ---
 
@@ -198,26 +198,7 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-### DC-15 · Tester le son et le micro
-- **But** : vérifier en quelques secondes qu'une sortie joue et qu'un micro entend.
-- **Docs lues** : `libpulse-binding` 2.30 (`connect_playback`, `write_copy`, `writable_size`,
-  `drain`, `BufferAttr` : `tlength` et `prebuf`), doc Rust (`f32::to_le_bytes`,
-  `std::io::Write` et l'erreur de tuyau fermé).
-- **Critères**
-  - [x] Jouer un son court sur une sortie : `deskcheck test output [QUOI]` (un carillon de 0,6 s).
-  - [x] Enregistrer 3 secondes sur un micro, puis les réécouter : `deskcheck test input [QUOI]`
-    (`--seconds N` jusqu'à 10). L'enregistrement reste en mémoire, jamais sur le disque.
-  - [x] Dit le niveau le plus fort entendu ; presque rien (sous -50 dB) : le dit et propose `levels`.
-  - [x] Prévient avant si l'appareil est coupé ou à 0 %.
-  - [x] Testé ici sur un serveur PulseAudio de test : le carillon arrive bien sur la sortie,
-    l'enregistrement est bien rejoué.
-- **Décisions**
-  - Latence de lecture de 100 ms : par défaut le serveur attend 2 s de son avant de jouer.
-  - Sur le serveur de test, la commande dure 2 s : la sortie de test (`module-null-sink`) a
-    2 s de latence. Une vraie carte son en a quelques dizaines de millisecondes.
-  - Correction au passage : `deskcheck audio | head` ne plante plus (tuyau fermé ignoré).
-- **À tester** : `cargo run -p deskcheck -- test output` (tu dois entendre deux notes), puis
-  `cargo run -p deskcheck -- test input` : parle pendant 3 secondes, tu dois te réentendre.
+_Aucune tâche._
 
 ---
 
@@ -515,3 +496,23 @@ _Aucune tâche._
   - Le fil d'exécution a sa propre connexion : la boucle de la bibliothèque ne peut pas changer de fil.
   - Une source qui envoie le son par gros paquets donne une barre par à-coups (vu avec la source
     de test `module-sine-source`). Les vrais micros envoient de petits paquets.
+
+### DC-15 · Tester le son et le micro
+- **But** : vérifier en quelques secondes qu'une sortie joue et qu'un micro entend.
+- **Docs lues** : `libpulse-binding` 2.30 (`connect_playback`, `write_copy`, `writable_size`,
+  `drain`, `BufferAttr` : `tlength` et `prebuf`), doc Rust (`f32::to_le_bytes`,
+  `std::io::Write` et l'erreur de tuyau fermé).
+- **Critères**
+  - [x] Jouer un son court sur une sortie : `deskcheck test output [QUOI]` (un carillon de 0,6 s).
+  - [x] Enregistrer 3 secondes sur un micro, puis les réécouter : `deskcheck test input [QUOI]`
+    (`--seconds N` jusqu'à 10). L'enregistrement reste en mémoire, jamais sur le disque.
+  - [x] Dit le niveau le plus fort entendu ; presque rien (sous -50 dB) : le dit et propose `levels`.
+  - [x] Prévient avant si l'appareil est coupé ou à 0 %.
+  - [x] Testé ici sur un serveur PulseAudio de test : le carillon arrive bien sur la sortie,
+    l'enregistrement est bien rejoué.
+  - [x] Testé sur le PC de Godwin (17 oct. 2026) : carillon entendu, voix réentendue.
+- **Décisions**
+  - Latence de lecture de 100 ms : par défaut le serveur attend 2 s de son avant de jouer.
+  - Sur le serveur de test, la commande dure 2 s : la sortie de test (`module-null-sink`) a
+    2 s de latence. Une vraie carte son en a quelques dizaines de millisecondes.
+  - Correction au passage : `deskcheck audio | head` ne plante plus (tuyau fermé ignoré).
