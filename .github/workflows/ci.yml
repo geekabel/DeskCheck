@@ -23,7 +23,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
-            ca-certificates curl git build-essential pkg-config
+            ca-certificates curl git build-essential pkg-config libpulse-dev
       - uses: actions/checkout@v6
       - name: Install Rust (stable)
         run: |
@@ -62,7 +62,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
-            ca-certificates curl git build-essential pkg-config
+            ca-certificates curl git build-essential pkg-config libpulse-dev
       - uses: actions/checkout@v6
       - name: Install Rust (1.85, same as rust-version in Cargo.toml)
         run: |
