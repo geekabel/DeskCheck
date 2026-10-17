@@ -9,9 +9,9 @@ Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-20, DC-21, DC-22 |
-| 📋 Backlog | DC-23 à DC-38 |
-| 🖥️ À tester sur ton PC | DC-19 |
+| 🔜 À faire (prochaines) | DC-21, DC-22, DC-23 |
+| 📋 Backlog | DC-24 à DC-38 |
+| 🖥️ À tester sur ton PC | DC-19, DC-20 |
 | ✅ Terminé | DC-01 à DC-18 |
 
 ---
@@ -67,11 +67,6 @@ _Aucune tâche._
 
 ## 🔜 À faire (prochaines)
 
-### DC-20 · Page « Audio »
-- **Critères**
-  - [ ] Onglets Sorties, Micros, Applications ; retours rangés à part.
-  - [ ] Bouton Tester et bouton Renommer.
-
 ### DC-21 · Page « Écrans »
 - **Critères**
   - [ ] Carte des écrans avec numéro et couleur ; réglages de l'écran choisi.
@@ -80,6 +75,11 @@ _Aucune tâche._
 - **Critères**
   - [ ] Liste des vérifications avec état, correction en un clic.
 
+### DC-23 · Alerte en direct
+- **Critères**
+  - [ ] Bandeau sur « Maintenant » quand une application écoute un retour.
+  - [ ] Bouton « Basculer » qui corrige sans couper l'appel.
+
 ---
 
 ## 📋 Backlog
@@ -87,11 +87,6 @@ _Aucune tâche._
 ### Phase 5 · Agir sur le son
 
 ### Phase 6 · Interface graphique
-
-#### DC-23 · Alerte en direct
-- **Critères**
-  - [ ] Bandeau sur « Maintenant » quand une application écoute un retour.
-  - [ ] Bouton « Basculer » qui corrige sans couper l'appel.
 
 ### Phase 7 · Agir sur les écrans
 
@@ -202,10 +197,18 @@ _Aucune tâche._
   - [x] Carte écrans : plan avec numéro et couleur de chaque écran, « Extended · Primary: 1 ».
   - [x] Vu ici sur un écran virtuel avec un serveur son de test et un faux GNOME : mise en page,
     barres qui bougent, liste « Change » qui bascule vraiment la sortie, message du test.
+  - [x] Reprise du design (17 oct. 2026), à la demande de Godwin : la page suit maintenant la
+    maquette. Couleurs de la maquette, en-tête et barre latérale gris, section choisie en bleu,
+    boutons blancs bordés avec icône, barres de niveau en petits blocs verts, étiquettes, écrans
+    posés côte à côte comme sur un bureau. Mode sombre vérifié aussi.
 - **Décisions**
   - Bandeau d'alerte (DC-23), « Identify » (DC-24, bouton grisé), « Souris ici » (DC-26) et
     ligne du lieu (DC-28) viendront avec leurs tâches.
-  - « Change » ouvre une liste dans la carte, plus rapide que d'aller sur la page Audio.
+  - « Change » ouvre l'onglet Sorties ou Micros de la page Audio, comme dans la maquette
+    (avant la reprise, c'était une liste dans la carte).
+  - Les icônes sont celles de la maquette (dessinées en traits). `icons/build.sh` les
+    transforme en icônes symboliques pleines, que GTK sait colorer ; `build.rs` les met dans
+    l'application avec les styles (`resources/style.css`, `style-dark.css`).
   - Le curseur de volume attend 120 ms après le dernier mouvement avant d'envoyer, et ne se
     laisse pas déplacer par l'état pendant que tu le bouges.
   - Couleurs des écrans : celle choisie dans les réglages, sinon le bleu et l'orange de la maquette.
@@ -214,8 +217,36 @@ _Aucune tâche._
   - Pièges notés : `css_classes` remplace aussi les classes que GTK pose lui-même (les blocs
     d'une `LevelBar` disparaissaient) ; Adwaita donne 26 px à chaque bloc de `LevelBar`.
 - **À tester** : `cargo run -p deskcheck-app`, avec une vidéo qui joue dans Firefox :
-  bouge le volume, parle (la barre du micro bouge), « Test the sound », « Record 3 s and play
-  back », « Change ». Vérifie que tes deux écrans sont bien placés et numérotés.
+  compare avec la maquette, bouge le volume, parle (la barre du micro bouge), « Test the
+  sound », « Record 3 s and play back ». Vérifie que tes deux écrans sont bien numérotés.
+
+### DC-20 · Page « Audio »
+- **But** : voir et régler chaque sortie, chaque micro et chaque application, avec les
+  retours rangés à part pour ne pas les prendre pour des micros.
+- **Docs lues** : `gtk4` 0.10 (`ToggleButton` en groupe, `CheckButton` en radio, `DropDown`,
+  `Popover`, `FlowBox`, `Entry`, `Stack`, `Overflow`), `libadwaita` 0.8 (feuilles de style
+  chargées depuis les ressources), `glib-build-tools` 0.21 et `gio::resources_register_include`,
+  GTK (icônes dans `icons/` sous le chemin des ressources), maquettes « Audio » et « Nommage ».
+- **Critères**
+  - [x] Onglets Outputs, Microphones, Apps dans la barre du haut, avec leur nombre.
+  - [x] Sorties et micros : radio pour choisir celui par défaut, barre en direct, étiquette
+    (« Hears your voice », « Faint, far away », « Silent », « Playing », « Quiet »).
+  - [x] Retours rangés à part : « Output monitors (n): these are not microphones ». Celui
+    qu'une application écoute est en orange, avec « Switch to <micro> ».
+  - [x] Applications : l'appareil de chaque flux, à changer dans une liste, sans couper.
+  - [x] Bouton « Test » et bouton Renommer (petit formulaire, noms proposés, « Use the system
+    name »). Le nom est enregistré dans le fichier de réglages.
+  - [x] Vu ici sur un écran virtuel avec un serveur son de test : radio qui change la sortie
+    par défaut, « Switch » qui déplace vraiment Firefox sur le micro, nom enregistré et affiché.
+- **Décisions**
+  - Les barres de tous les micros et retours ne tournent que pendant que la page Audio est
+    affichée (sinon, seulement le micro et la sortie par défaut).
+  - L'étiquette garde le niveau le plus fort un court moment, pour ne pas changer entre deux mots.
+  - « Name a new device », « Advanced options » et « Hidden devices » sont présents comme dans
+    la maquette, grisés : ils viendront plus tard (assistant DC-32).
+- **À tester** : `cargo run -p deskcheck-app`, page Audio : parle et regarde quel micro dit
+  « Hears your voice », « Test » sur une sortie et un micro, choisis une autre sortie avec la
+  radio, renomme un appareil. Au bureau avec Teams : « Switch to … » dans l'onglet Microphones.
 
 ---
 
