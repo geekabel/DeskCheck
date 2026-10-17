@@ -40,6 +40,8 @@
 @define-color dc_error_fg #a51d2d;
 @define-color dc_selected_row #f7fafe;
 @define-color dc_map_bg #f1f1f4;
+@define-color dc_dots_bg #f3f3f6;
+@define-color dc_dots #d3d3da;
 
 /* Header bar: the name of the app, the place, the menu. */
 headerbar {
@@ -357,4 +359,102 @@ menubutton.dc-btn > button:disabled {
 .dc-rename entry {
     min-height: 38px;
     font-size: 14px;
+}
+
+/* The Screens page: the screens on a dotted desk. */
+.dc-dots {
+    background-color: @dc_dots_bg;
+    background-image: radial-gradient(circle, @dc_dots 1px, transparent 1.5px);
+    background-size: 16px 16px;
+}
+.dc-map-screen {
+    background-color: @card_bg_color;
+    border: 3px solid @accent_color;
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+.dc-map-screen.selected {
+    box-shadow: 0 0 0 4px @dc_dots_bg, 0 0 0 6px @window_fg_color;
+}
+.dc-map-screen.small {
+    padding: 6px 8px;
+}
+.dc-big-number {
+    font-weight: bold;
+    font-size: 42px;
+}
+.dc-map-screen.large .dc-big-number {
+    font-size: 52px;
+}
+.dc-map-screen.small .dc-big-number {
+    font-size: 26px;
+}
+.dc-map-name {
+    font-size: 15px;
+    font-weight: bold;
+}
+.dc-map-screen.large .dc-map-name {
+    font-size: 16px;
+}
+.dc-map-screen.small .dc-map-name {
+    font-size: 13px;
+}
+
+/* Settings cards. */
+.dc-form {
+    padding: 6px 16px;
+}
+.dc-form-heading {
+    padding: 10px 0 6px;
+}
+.dc-section-title {
+    font-size: 15px;
+    font-weight: bold;
+}
+.dc-field {
+    min-height: 44px;
+}
+.dc-field-label {
+    font-size: 14px;
+    color: @dc_neutral_fg;
+}
+.dc-value {
+    font-size: 14px;
+}
+.dc-mono-value {
+    font-family: "Ubuntu Mono", monospace;
+}
+.dc-number-badge {
+    min-width: 22px;
+    min-height: 22px;
+    border-radius: 6px;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: bold;
+}
+.dc-warn-icon {
+    color: @dc_warn_strong;
+}
+entry.dc-input,
+dropdown.dc-input > button {
+    min-height: 34px;
+    border: 1px solid @dc_button_border;
+    border-radius: 8px;
+    background-color: @dc_button_bg;
+    box-shadow: none;
+    font-size: 14px;
+}
+dropdown.dc-input:disabled > button {
+    opacity: 0.7;
+}
+button.dc-swatch {
+    min-width: 24px;
+    min-height: 24px;
+    padding: 0;
+    border-radius: 999px;
+    border: 2px solid @card_bg_color;
+    box-shadow: 0 0 0 1px @dc_button_border;
+}
+button.dc-swatch.on {
+    box-shadow: 0 0 0 2px @window_fg_color;
 }

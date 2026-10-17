@@ -38,3 +38,5 @@
 @define-color dc_error_fg #f0959f;
 @define-color dc_selected_row #232a35;
 @define-color dc_map_bg #242428;
+@define-color dc_dots_bg #242428;
+@define-color dc_dots #3a3a40;

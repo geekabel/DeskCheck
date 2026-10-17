@@ -5,8 +5,10 @@ use deskcheck_config::{Color, Config};
 use deskcheck_core::audio::{App, AudioState, Connection, Form, Hardware};
 use deskcheck_core::display::DisplayState;
 
+use crate::screens_model::Layout;
+
 /// Colors given to screens without a color of their own, by number: the
-/// blue and orange of the design, then other colors of the GNOME palette.
+/// four colors of the design, then two more.
 const SCREEN_COLORS: [Color; 6] = [
     Color {
         red: 0x1a,
@@ -19,14 +21,14 @@ const SCREEN_COLORS: [Color; 6] = [
         blue: 0x08,
     },
     Color {
-        red: 0x26,
-        green: 0xa2,
-        blue: 0x69,
+        red: 0x0f,
+        green: 0x76,
+        blue: 0x6e,
     },
     Color {
-        red: 0x91,
-        green: 0x41,
-        blue: 0xac,
+        red: 0x6d,
+        green: 0x28,
+        blue: 0xd9,
     },
     Color {
         red: 0xc6,
@@ -270,27 +272,17 @@ pub fn screen_map(
 
 /// One line about the layout: `Extended · Primary: 2`.
 pub fn screens_line(state: &DisplayState) -> String {
-    let numbered = state.numbered();
-    let primary = numbered
+    let Some(layout) = crate::screens_model::layout(state) else {
+        return "No screen is on.".to_owned();
+    };
+    let primary = state
+        .numbered()
         .iter()
         .find(|(_, screen)| screen.is_primary())
         .map(|(number, _)| *number);
-    let mut places: Vec<_> = numbered
-        .iter()
-        .filter_map(|(_, screen)| screen.placement.map(|p| (p.x, p.y)))
-        .collect();
-    let count = places.len();
-    places.sort_unstable();
-    places.dedup();
-    let layout = match (count, places.len()) {
-        (0, _) => return "No screen is on.".to_owned(),
-        (1, _) => "One screen",
-        (_, 1) => "Mirrored",
-        _ => "Extended",
-    };
-    match primary {
-        Some(number) if count > 1 => format!("{layout} · Primary: {number}"),
-        _ => layout.to_owned(),
+    match (layout, primary) {
+        (Layout::Single, _) | (_, None) => layout.word().to_owned(),
+        (_, Some(number)) => format!("{} · Primary: {number}", layout.word()),
     }
 }
 

@@ -20,6 +20,8 @@ mod audio_page;
 mod backend;
 mod now_model;
 mod now_page;
+mod screens_model;
+mod screens_page;
 mod sections;
 mod status;
 mod ui;

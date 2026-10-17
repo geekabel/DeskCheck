@@ -19,6 +19,7 @@ use crate::audio_model::AudioTab;
 use crate::audio_page::AudioPage;
 use crate::backend::{Backend, MeterScope, Request, Update};
 use crate::now_page::NowPage;
+use crate::screens_page::ScreensPage;
 use crate::sections::Section;
 use crate::status;
 use crate::ui;
@@ -47,6 +48,7 @@ pub struct MainWindow {
     backend: Backend,
     now: Rc<NowPage>,
     audio: Rc<AudioPage>,
+    screens: Rc<ScreensPage>,
     toasts: adw::ToastOverlay,
     sound_footer: gtk::Label,
     screens_footer: gtk::Label,
@@ -162,6 +164,8 @@ impl MainWindow {
         let now = NowPage::new(backend.clone());
         let audio = AudioPage::new(backend.clone());
         title_stack.add_named(&audio.tabs, Some(Section::Audio.id()));
+        let screens = ScreensPage::new(backend.clone());
+        title_stack.add_named(&screens.tabs, Some(Section::Screens.id()));
         for section in Section::ALL {
             match section {
                 Section::Now => {
@@ -170,6 +174,10 @@ impl MainWindow {
                 }
                 Section::Audio => {
                     stack.add_named(&audio.root, Some(section.id()));
+                    continue;
+                }
+                Section::Screens => {
+                    stack.add_named(&screens.root, Some(section.id()));
                     continue;
                 }
                 _ => {}
@@ -213,6 +221,7 @@ impl MainWindow {
             backend,
             now,
             audio,
+            screens,
             toasts,
             sound_footer,
             screens_footer,
@@ -245,10 +254,11 @@ impl MainWindow {
     pub fn show(&self, section: Section) {
         self.stack.set_visible_child_name(section.id());
         self.title.set_label(section.title());
-        let (title, scope) = if section == Section::Audio {
-            (Section::Audio.id(), MeterScope::Everything)
-        } else {
-            ("title", MeterScope::Now)
+        // The Audio and Screens pages have tabs in the header bar.
+        let (title, scope) = match section {
+            Section::Audio => (section.id(), MeterScope::Everything),
+            Section::Screens => (section.id(), MeterScope::Now),
+            _ => ("title", MeterScope::Now),
         };
         self.title_stack.set_visible_child_name(title);
         self.backend.request(Request::Meter(scope));
@@ -309,5 +319,7 @@ impl MainWindow {
         self.now.show_sound(&config, latest.sound.as_ref());
         self.audio.show_sound(&config, latest.sound.as_ref());
         self.now.show_screens(&config, latest.screens.as_ref());
+        self.screens
+            .show(&config, latest.screens.as_ref(), latest.sound.as_ref());
     }
 }
