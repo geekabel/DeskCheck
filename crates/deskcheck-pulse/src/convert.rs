@@ -296,7 +296,7 @@ mod tests {
     fn stream_on_a_missing_device_is_left_out() {
         let mut snapshot = office();
         snapshot.source_outputs[0].source = 99;
-        assert!(audio_state(&snapshot).recordings.is_empty());
+        assert_eq!(audio_state(&snapshot).recordings, [] as [Recording; 0]);
     }
 
     #[test]
