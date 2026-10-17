@@ -9,9 +9,9 @@ Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-08, DC-09, DC-10 |
-| 📋 Backlog | DC-11 à DC-37 |
-| 🖥️ À tester sur ton PC | aucune |
+| 🔜 À faire (prochaines) | DC-09, DC-10, DC-11 |
+| 📋 Backlog | DC-12 à DC-37 |
+| 🖥️ À tester sur ton PC | DC-08 |
 | ✅ Terminé | DC-01 à DC-07 |
 
 ---
@@ -67,10 +67,6 @@ _Aucune tâche._
 
 ## 🔜 À faire (prochaines)
 
-### DC-08 · Commande `deskcheck displays`
-- **Critères**
-  - [ ] Liste les écrans avec numéro, nom, résolution, échelle, principal.
-
 ### DC-09 · Fichier de configuration
 - **But** : garder les noms donnés aux appareils et les couleurs des écrans.
 - **Docs** : `serde`, `toml`, `directories` (dossier XDG).
@@ -84,18 +80,18 @@ _Aucune tâche._
   - [ ] Commandes CLI pour nommer un appareil son ou un écran.
   - [ ] Le nom donné s'affiche partout, le nom technique reste disponible.
 
----
-
-## 📋 Backlog
-
-### Phase 4 · Diagnostic
-
-#### DC-11 · Moteur de diagnostic
+### DC-11 · Moteur de diagnostic
 - **But** : des règles pures qui trouvent les problèmes courants.
 - **Critères**
   - [ ] Règles : application qui écoute un retour, micro coupé, aucun micro, micro par défaut = retour, volume à 0.
   - [ ] Chaque problème propose une correction.
   - [ ] Tests unitaires pour chaque règle.
+
+---
+
+## 📋 Backlog
+
+### Phase 4 · Diagnostic
 
 #### DC-12 · Commande `deskcheck doctor`
 - **Critères**
@@ -246,7 +242,19 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-_Aucune tâche._
+### DC-08 · Commande `deskcheck displays`
+- **But** : savoir quel écran est lequel, avec un numéro par écran.
+- **Docs lues** : `std::fmt` (largeur `{:w$}`, alignement `<` et `>`, précision `{:.0}`),
+  `clap` 4.6 derive (sous-commandes et options).
+- **Critères**
+  - [x] Liste les écrans allumés avec numéro, nom, résolution, échelle, principal.
+  - [x] Numéros de 1 à n, de gauche à droite : les mêmes serviront pour « Identifier » (DC-24).
+  - [x] Nom de GNOME, sinon le modèle de l'écran.
+  - [x] Écrans branchés mais éteints listés à part.
+  - [x] `--verbose` ajoute l'identité (fabricant, modèle, série), le connecteur et la position.
+  - [x] Message clair et code de sortie 1 hors GNOME (testé ici).
+  - [x] Tests avec tes écrans de la maison relevés par `display_dump`.
+- **À tester** : `cargo run -p deskcheck -- displays` puis `cargo run -p deskcheck -- displays --verbose`.
 
 ---
 
