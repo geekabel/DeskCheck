@@ -30,6 +30,7 @@ cargo run -p deskcheck -- audio                       # who hears what, and prob
 cargo run -p deskcheck -- audio --verbose             # with every device
 cargo run -p deskcheck -- doctor                      # the sound problems and their fixes
 cargo run -p deskcheck -- doctor --fix                # apply the fixes
+cargo run -p deskcheck -- levels                      # which microphone hears you, live
 cargo run -p deskcheck -- use input jabra             # make a microphone the default
 cargo run -p deskcheck -- volume output default 80    # set a volume
 cargo run -p deskcheck -- mute input default          # mute (unmute to undo)
