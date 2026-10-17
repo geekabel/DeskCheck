@@ -41,6 +41,9 @@
 @define-color dc_selected_row #f7fafe;
 @define-color dc_map_bg #f1f1f4;
 @define-color dc_dots_bg #f3f3f6;
+@define-color dc_problem_bg #ffe2bf;
+@define-color dc_problem_fg #7a3205;
+@define-color dc_warn_title #6b2c05;
 @define-color dc_dots #d3d3da;
 
 /* Header bar: the name of the app, the place, the menu. */
@@ -460,4 +463,58 @@ button.dc-swatch {
 }
 button.dc-swatch.on {
     box-shadow: 0 0 0 2px @window_fg_color;
+}
+
+/* The Diagnostic page. */
+progressbar.dc-progress > trough {
+    min-height: 8px;
+    border-radius: 999px;
+    background-color: @dc_round_bg;
+}
+progressbar.dc-progress > trough > progress {
+    min-height: 8px;
+    border-radius: 999px;
+    background-color: @accent_bg_color;
+}
+.dc-check-row {
+    padding: 12px 18px;
+}
+.dc-check-row.warn {
+    background-color: @dc_warn_row;
+}
+.dc-check-title {
+    font-size: 15px;
+    font-weight: bold;
+}
+.dc-check-title.warn {
+    color: @dc_warn_title;
+}
+.dc-check-title.locked {
+    color: @dc_neutral_fg;
+}
+.dc-check-detail {
+    font-size: 14px;
+    color: @dc_neutral_fg;
+}
+.dc-status {
+    border-radius: 999px;
+}
+.dc-status.ok {
+    background-color: @dc_ok_bg;
+    color: @dc_ok_fg;
+}
+.dc-status.problem {
+    background-color: @dc_problem_bg;
+    color: @dc_problem_fg;
+}
+.dc-status.question {
+    background-color: @dc_accent_tint;
+    color: @dc_accent_strong;
+}
+.dc-status.waiting {
+    background-color: @dc_neutral_bg;
+    color: @dc_dim;
+}
+.dc-bottom-bar {
+    padding: 12px 16px;
 }

@@ -353,7 +353,7 @@ pub fn playing_label(hearing: Hearing) -> &'static str {
 }
 
 /// Above this level, a microphone hears your voice.
-const VOICE_DB: f32 = -35.0;
+pub const VOICE_DB: f32 = -35.0;
 /// Above this level, it hears something.
 const FAINT_DB: f32 = -58.0;
 /// How fast the remembered level falls, in dB per second, so a tag does

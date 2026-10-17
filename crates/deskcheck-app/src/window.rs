@@ -18,6 +18,7 @@ use deskcheck_pulse::ServerKind;
 use crate::audio_model::AudioTab;
 use crate::audio_page::AudioPage;
 use crate::backend::{Backend, MeterScope, Request, Update};
+use crate::diag_page::{DiagPage, Go};
 use crate::now_page::NowPage;
 use crate::screens_page::ScreensPage;
 use crate::sections::Section;
@@ -49,6 +50,7 @@ pub struct MainWindow {
     now: Rc<NowPage>,
     audio: Rc<AudioPage>,
     screens: Rc<ScreensPage>,
+    diagnostic: Rc<DiagPage>,
     toasts: adw::ToastOverlay,
     sound_footer: gtk::Label,
     screens_footer: gtk::Label,
@@ -135,6 +137,15 @@ fn sidebar() -> (gtk::Box, gtk::ListBox, gtk::Label, gtk::Label) {
     (sidebar, list, sound_footer, screens_footer)
 }
 
+/// The page of a section that comes in a later version.
+fn coming_soon(section: Section) -> adw::StatusPage {
+    adw::StatusPage::builder()
+        .icon_name(section.icon_name())
+        .title(section.title())
+        .description(section.summary())
+        .build()
+}
+
 /// A small line at the bottom of the sidebar.
 fn footer_label() -> gtk::Label {
     gtk::Label::builder().label("…").xalign(0.0).build()
@@ -165,28 +176,16 @@ impl MainWindow {
         let audio = AudioPage::new(backend.clone());
         title_stack.add_named(&audio.tabs, Some(Section::Audio.id()));
         let screens = ScreensPage::new(backend.clone());
+        let diagnostic = DiagPage::new(backend.clone());
         title_stack.add_named(&screens.tabs, Some(Section::Screens.id()));
         for section in Section::ALL {
-            match section {
-                Section::Now => {
-                    stack.add_named(&now.root, Some(section.id()));
-                    continue;
-                }
-                Section::Audio => {
-                    stack.add_named(&audio.root, Some(section.id()));
-                    continue;
-                }
-                Section::Screens => {
-                    stack.add_named(&screens.root, Some(section.id()));
-                    continue;
-                }
-                _ => {}
-            }
-            let page = adw::StatusPage::builder()
-                .icon_name(section.icon_name())
-                .title(section.title())
-                .description(section.summary())
-                .build();
+            let page: gtk::Widget = match section {
+                Section::Now => now.root.clone().upcast(),
+                Section::Audio => audio.root.clone().upcast(),
+                Section::Screens => screens.root.clone().upcast(),
+                Section::Diagnostic => diagnostic.root.clone().upcast(),
+                Section::Places => coming_soon(section).upcast(),
+            };
             stack.add_named(&page, Some(section.id()));
         }
 
@@ -222,6 +221,7 @@ impl MainWindow {
             now,
             audio,
             screens,
+            diagnostic,
             toasts,
             sound_footer,
             screens_footer,
@@ -244,6 +244,13 @@ impl MainWindow {
                 .clone()
                 .connect_change(move |tab| this.show_audio(tab));
         }
+        {
+            let this = this.clone();
+            this.diagnostic.clone().connect_go(move |to| match to {
+                Go::Now => this.select(Section::Now),
+                Go::Audio(tab) => this.show_audio(tab),
+            });
+        }
         list.select_row(list.row_at_index(0).as_ref());
         this.render();
         this
@@ -258,6 +265,9 @@ impl MainWindow {
         let (title, scope) = match section {
             Section::Audio => (section.id(), MeterScope::Everything),
             Section::Screens => (section.id(), MeterScope::Now),
+            // The voice check listens to the best microphone, maybe not the
+            // default one.
+            Section::Diagnostic => ("title", MeterScope::Everything),
             _ => ("title", MeterScope::Now),
         };
         self.title_stack.set_visible_child_name(title);
@@ -267,11 +277,16 @@ impl MainWindow {
     /// Shows a tab of the Audio page, and selects Audio in the sidebar.
     pub fn show_audio(&self, tab: AudioTab) {
         self.audio.show_tab(tab);
+        self.select(Section::Audio);
+    }
+
+    /// Selects a section in the sidebar, which shows it.
+    pub fn select(&self, section: Section) {
         let index = Section::ALL
             .iter()
-            .position(|section| *section == Section::Audio)
+            .position(|s| *s == section)
             .and_then(|at| i32::try_from(at).ok())
-            .unwrap_or(1);
+            .unwrap_or(0);
         self.sidebar
             .select_row(self.sidebar.row_at_index(index).as_ref());
     }
@@ -288,6 +303,7 @@ impl MainWindow {
                 Update::Peak { source, peak } => {
                     self.now.peak(&source, peak);
                     self.audio.peak(&source, peak);
+                    self.diagnostic.peak(&source, peak);
                     return;
                 }
                 Update::Message(text) => {
@@ -321,5 +337,7 @@ impl MainWindow {
         self.now.show_screens(&config, latest.screens.as_ref());
         self.screens
             .show(&config, latest.screens.as_ref(), latest.sound.as_ref());
+        self.diagnostic
+            .show(&config, latest.sound.as_ref(), latest.screens.as_ref());
     }
 }

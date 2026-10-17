@@ -14,7 +14,7 @@ use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use deskcheck_core::audio::{AudioState, DeviceId, InputKind, StreamId, Target, Volume, tone};
+use deskcheck_core::audio::{AudioState, DeviceId, Fix, InputKind, StreamId, Target, Volume, tone};
 use deskcheck_core::display::DisplayState;
 use deskcheck_core::events::{Change, coalesce};
 use deskcheck_pulse::{Action, Meters, ServerKind};
@@ -66,6 +66,8 @@ pub enum Request {
     Refresh,
     /// Measure other sources.
     Meter(MeterScope),
+    /// Apply a fix of the diagnosis.
+    Fix(Fix),
     /// Move an app that plays to another output.
     MovePlayback {
         /// The stream of the app.
@@ -278,6 +280,7 @@ fn apply(request: &Request) -> Option<String> {
             stream: *stream,
             to: to.clone(),
         },
+        Request::Fix(fix) => Action::from_fix(fix)?,
         Request::Refresh
         | Request::Meter(_)
         | Request::TestOutput(_)

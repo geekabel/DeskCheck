@@ -18,6 +18,8 @@ use gtk::{gio, glib};
 mod audio_model;
 mod audio_page;
 mod backend;
+mod diag_model;
+mod diag_page;
 mod now_model;
 mod now_page;
 mod screens_model;
