@@ -4,15 +4,15 @@ Ce fichier suit toutes les tâches jusqu'à la version 0.1.0.
 On le met à jour à la fin de chaque tâche, dans la même branche que la tâche.
 Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact/SEKGtbp6ACVXhpff8rK89i) (privé, mis à jour en même temps).
 
-**Avancement : 10 / 37 tâches terminées**
+**Avancement : 11 / 37 tâches terminées**
 
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-11, DC-12, DC-13 |
-| 📋 Backlog | DC-14 à DC-37 |
+| 🔜 À faire (prochaines) | DC-12, DC-13, DC-14 |
+| 📋 Backlog | DC-15 à DC-37 |
 | 🖥️ À tester sur ton PC | aucune |
-| ✅ Terminé | DC-01 à DC-10 |
+| ✅ Terminé | DC-01 à DC-11 |
 
 ---
 
@@ -67,13 +67,6 @@ _Aucune tâche._
 
 ## 🔜 À faire (prochaines)
 
-### DC-11 · Moteur de diagnostic
-- **But** : des règles pures qui trouvent les problèmes courants.
-- **Critères**
-  - [ ] Règles : application qui écoute un retour, micro coupé, aucun micro, micro par défaut = retour, volume à 0.
-  - [ ] Chaque problème propose une correction.
-  - [ ] Tests unitaires pour chaque règle.
-
 ### DC-12 · Commande `deskcheck doctor`
 - **Critères**
   - [ ] Affiche les problèmes trouvés.
@@ -85,17 +78,17 @@ _Aucune tâche._
   - [ ] Volume et coupure du son.
   - [ ] Déplacer le flux d'une application vers un autre appareil, sans le couper.
 
+### DC-14 · Barres de niveau en direct 🧪
+- **Docs** : flux de mesure de crête PulseAudio (`PEAK_DETECT`).
+- **Critères**
+  - [ ] Niveau de chaque micro, mis à jour environ 20 fois par seconde.
+  - [ ] Faible charge processeur.
+
 ---
 
 ## 📋 Backlog
 
 ### Phase 5 · Agir sur le son
-
-#### DC-14 · Barres de niveau en direct 🧪
-- **Docs** : flux de mesure de crête PulseAudio (`PEAK_DETECT`).
-- **Critères**
-  - [ ] Niveau de chaque micro, mis à jour environ 20 fois par seconde.
-  - [ ] Faible charge processeur.
 
 #### DC-15 · Tester le son et le micro
 - **Critères**
@@ -427,3 +420,21 @@ _Aucune tâche._
   - Un fichier de réglages cassé n'est jamais écrasé : `rename` s'arrête, les rapports
     préviennent et continuent sans les noms.
   - Le fichier n'est pas réécrit quand rien ne change.
+
+### DC-11 · Moteur de diagnostic
+- **But** : des règles pures qui trouvent les problèmes courants.
+- **Docs lues** : aucune bibliothèque, Rust standard seulement (le modèle de DC-03).
+- **Critères**
+  - [x] Règles : application qui écoute un retour, micro par défaut = retour, aucun micro,
+    micro utilisé coupé ou à 0 %, sortie utilisée coupée ou à 0 %.
+  - [x] Chaque problème propose une correction : déplacer le flux, changer le micro par défaut,
+    remettre le son, remettre le volume à 100 %, ou brancher un micro (conseil).
+  - [x] 11 tests unitaires, au moins un par règle, et un exemple de documentation.
+  - [x] Le rapport `deskcheck audio` affiche tout ce que le diagnostic trouve, avec les noms donnés.
+- **Décisions**
+  - Le diagnostic est dans le cœur (`deskcheck_core::audio::diagnose`) : la CLI et l'interface
+    graphique utiliseront les mêmes règles.
+  - Meilleur micro proposé : celui par défaut, sinon un casque, puis un micro, puis une webcam.
+  - Seuls les appareils utilisés comptent (par défaut, ou utilisés par une application).
+  - Un appareil coupé et à 0 % est signalé une fois, comme coupé.
+  - « Brancher un micro » n'est pas une correction automatique (`Fix::is_automatic`).
