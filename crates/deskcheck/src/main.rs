@@ -5,6 +5,23 @@ use std::process::ExitCode;
 use clap::{Args, Parser, Subcommand};
 use deskcheck_config::{Config, Store};
 
+/// Prints like `print!`, but ignores errors: when the reader is gone, as in
+/// `deskcheck audio | head -3`, there is nobody left to tell.
+macro_rules! say {
+    ($($arg:tt)*) => {{
+        use std::io::Write as _;
+        let _ = write!(std::io::stdout(), $($arg)*);
+    }};
+}
+
+/// Prints a line like `println!`, but ignores errors (see `say!`).
+macro_rules! sayln {
+    ($($arg:tt)*) => {{
+        use std::io::Write as _;
+        let _ = writeln!(std::io::stdout(), $($arg)*);
+    }};
+}
+
 mod audio_report;
 mod display_report;
 mod doctor;
@@ -14,6 +31,7 @@ mod levels;
 mod rename;
 mod select;
 mod sound;
+mod sound_check;
 
 /// See and fix your sound devices and screens.
 #[derive(Debug, Parser)]
@@ -55,6 +73,19 @@ enum Command {
         /// Stop after this many seconds.
         #[arg(long)]
         seconds: Option<u64>,
+    },
+    /// Test a device: play a short sound on an output, or record a few
+    /// seconds from a microphone and play them back.
+    Test {
+        /// `output` or `input`.
+        #[arg(value_enum)]
+        kind: sound::Kind,
+        /// Which one: `default`, the technical name, or a part of its name.
+        #[arg(default_value = "default")]
+        which: String,
+        /// How long to record, from 1 to 10 seconds (input only).
+        #[arg(long, default_value_t = sound_check::DEFAULT_SECONDS, value_parser = sound_check::parse_seconds)]
+        seconds: u64,
     },
     /// Make an output or a microphone the default one.
     ///
@@ -261,6 +292,84 @@ fn run_levels(seconds: Option<u64>) -> Result<String, String> {
     Ok(String::new())
 }
 
+/// Runs `deskcheck test output`.
+fn test_output(
+    config: &Config,
+    state: &deskcheck_core::audio::AudioState,
+    which: &str,
+) -> Result<String, String> {
+    let output = select::find_output(config, state, which).map_err(|error| error.to_string())?;
+    let label = config.output_label(output);
+    if let Some(warning) = sound_check::off_warning(
+        sound::Kind::Output,
+        label,
+        output.muted,
+        output.volume,
+        which,
+    ) {
+        sayln!("{warning}");
+    }
+    sayln!("Playing a test sound on \"{label}\"...");
+    let chime = deskcheck_core::audio::tone::chime(deskcheck_pulse::TEST_RATE);
+    deskcheck_pulse::play(&output.id, &chime).map_err(|error| error.to_string())?;
+    Ok("Done. If you heard nothing, look at the volume with `deskcheck audio`.\n".to_owned())
+}
+
+/// Runs `deskcheck test input`: records, says what was heard, plays back.
+fn test_input(
+    config: &Config,
+    state: &deskcheck_core::audio::AudioState,
+    which: &str,
+    seconds: u64,
+) -> Result<String, String> {
+    use std::io::{IsTerminal, Write as _};
+
+    let input = select::find_input(config, state, which).map_err(|error| error.to_string())?;
+    let label = config.input_label(input);
+    if let Some(warning) =
+        sound_check::off_warning(sound::Kind::Input, &label, input.muted, input.volume, which)
+    {
+        sayln!("{warning}");
+    }
+    let unit = if seconds == 1 { "second" } else { "seconds" };
+    sayln!("Recording {seconds} {unit} from \"{label}\". Speak now.");
+    let terminal = std::io::stdout().is_terminal();
+    let samples =
+        deskcheck_pulse::record(&input.id, std::time::Duration::from_secs(seconds), |done| {
+            if terminal {
+                say!("\r  {}", sound_check::progress_bar(done));
+                let _ = std::io::stdout().flush();
+            }
+        })
+        .map_err(|error| error.to_string())?;
+    if terminal {
+        sayln!();
+    }
+    sayln!(
+        "{}",
+        sound_check::recording_verdict(deskcheck_core::audio::tone::loudest_db(&samples))
+    );
+    if deskcheck_core::audio::tone::is_silence(&samples) {
+        return Ok("Nothing to play back.\n".to_owned());
+    }
+    let output = state
+        .default_output_device()
+        .ok_or_else(|| "there is no default output to play it back".to_owned())?;
+    sayln!("Playing it back on \"{}\"...", config.output_label(output));
+    deskcheck_pulse::play(&output.id, &samples).map_err(|error| error.to_string())?;
+    Ok("Done.\n".to_owned())
+}
+
+/// Runs `deskcheck test`.
+fn run_test(kind: sound::Kind, which: &str, seconds: u64) -> Result<String, String> {
+    let config = settings();
+    let state = deskcheck_pulse::read_state().map_err(|error| error.to_string())?;
+    match kind {
+        sound::Kind::Output => test_output(&config, &state, which),
+        sound::Kind::Input => test_input(&config, &state, which, seconds),
+    }
+}
+
 /// Exit code when problems are found.
 const PROBLEMS_FOUND: u8 = 2;
 
@@ -317,7 +426,7 @@ fn run_rename(what: RenameWhat) -> Result<String, String> {
 fn show<S, E: std::fmt::Display>(state: Result<S, E>, render: impl Fn(&S) -> String) -> ExitCode {
     match state {
         Ok(state) => {
-            print!("{}", render(&state));
+            say!("{}", render(&state));
             ExitCode::SUCCESS
         }
         Err(error) => {
@@ -338,7 +447,7 @@ fn main() -> ExitCode {
         }),
         Command::Doctor { fix } => match run_doctor(fix) {
             Ok((report, problems_left)) => {
-                print!("{report}");
+                say!("{report}");
                 if problems_left {
                     ExitCode::from(PROBLEMS_FOUND)
                 } else {
@@ -351,6 +460,11 @@ fn main() -> ExitCode {
             }
         },
         Command::Levels { seconds } => show(run_levels(seconds), String::clone),
+        Command::Test {
+            kind,
+            which,
+            seconds,
+        } => show(run_test(kind, &which, seconds), String::clone),
         Command::Use { kind, which } => show(
             run_sound(|config, state| sound::use_device(kind, config, state, &which)),
             String::clone,
@@ -423,6 +537,22 @@ mod tests {
         assert!(matches!(cli.command, Command::Levels { seconds: None }));
         let cli = Cli::try_parse_from(["deskcheck", "levels", "--seconds", "5"]).unwrap();
         assert!(matches!(cli.command, Command::Levels { seconds: Some(5) }));
+    }
+
+    #[test]
+    fn test_takes_a_device_and_seconds() {
+        let cli = Cli::try_parse_from(["deskcheck", "test", "output"]).unwrap();
+        assert!(matches!(
+            cli.command,
+            Command::Test { kind: sound::Kind::Output, ref which, seconds: 3 } if which == "default"
+        ));
+        let cli =
+            Cli::try_parse_from(["deskcheck", "test", "input", "jabra", "--seconds", "5"]).unwrap();
+        assert!(matches!(
+            cli.command,
+            Command::Test { kind: sound::Kind::Input, ref which, seconds: 5 } if which == "jabra"
+        ));
+        assert!(Cli::try_parse_from(["deskcheck", "test", "input", "--seconds", "60"]).is_err());
     }
 
     #[test]
