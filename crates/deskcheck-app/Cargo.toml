@@ -1,0 +1,18 @@
+[package]
+name = "deskcheck-app"
+description = "DeskCheck: the window"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+adw = { version = "0.8", package = "libadwaita", features = ["v1_1"] }
+deskcheck-core.workspace = true
+gtk = { version = "0.10.3", package = "gtk4", features = ["v4_6"] }
+
+[lints]
+workspace = true
