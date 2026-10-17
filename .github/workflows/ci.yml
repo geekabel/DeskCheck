@@ -40,7 +40,8 @@ jobs:
         run: |
           echo "::notice::$(cargo clippy --version)"
           set -o pipefail
-          if ! cargo clippy --workspace --all-targets --locked \
+          # No colors here: escape codes would break the grep below.
+          if ! cargo clippy --color never --workspace --all-targets --locked \
               --message-format=short -- -D warnings 2>&1 | tee clippy.log; then
             grep -E '(error|warning)(\[|:)' clippy.log | head -n 20 \
               | while IFS= read -r line; do echo "::error::${line}"; done
