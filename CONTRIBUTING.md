@@ -24,8 +24,10 @@ through `pipewire-pulse`.
 ## Try it on a real machine
 
 ```sh
-cargo run -p deskcheck-pulse --example audio_dump   # what the sound server reports
-cargo test -p deskcheck-pulse -- --ignored          # tests that need a sound server
+cargo run -p deskcheck -- audio                    # who hears what, and problems
+cargo run -p deskcheck -- audio --verbose          # with every device
+cargo run -p deskcheck-pulse --example audio_dump  # what the sound server reports
+cargo test -p deskcheck-pulse -- --ignored         # tests that need a sound server
 ```
 
 ## Branches
