@@ -465,6 +465,9 @@ mod tests {
         one.screens.truncate(1);
         assert_eq!(screens_line(&one), "One screen");
         assert_eq!(screens_line(&DisplayState::default()), "No screen is on.");
-        assert!(screen_map(&Config::default(), &DisplayState::default(), 360, 100).is_empty());
+        assert_eq!(
+            screen_map(&Config::default(), &DisplayState::default(), 360, 100),
+            [] as [ScreenTile; 0]
+        );
     }
 }
