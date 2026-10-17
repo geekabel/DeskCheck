@@ -9,6 +9,7 @@
 
 pub mod audio;
 pub mod display;
+pub mod events;
 
 /// Human readable name of the application.
 pub const APP_NAME: &str = "DeskCheck";
