@@ -142,6 +142,15 @@ impl Screen {
     pub fn is_primary(&self) -> bool {
         self.placement.is_some_and(|placement| placement.primary)
     }
+
+    /// Name to show: the name GNOME gives, or else the product name.
+    #[must_use]
+    pub fn name(&self) -> &str {
+        self.display_name
+            .as_deref()
+            .filter(|name| !name.trim().is_empty())
+            .unwrap_or(&self.id.product)
+    }
 }
 
 /// Everything known about screens at one moment.
@@ -176,6 +185,19 @@ impl DisplayState {
         let mut screens: Vec<&Screen> = self.screens.iter().filter(|s| s.is_enabled()).collect();
         screens.sort_by_key(|screen| screen.placement.map(|p| (p.x, p.y)));
         screens
+    }
+
+    /// Screens that are on, with their number: 1 for the leftmost one.
+    ///
+    /// Every part of DeskCheck shows the same numbers, so a number on the
+    /// screen matches the number in the list.
+    #[must_use]
+    pub fn numbered(&self) -> Vec<(usize, &Screen)> {
+        self.enabled()
+            .into_iter()
+            .enumerate()
+            .map(|(index, screen)| (index + 1, screen))
+            .collect()
     }
 }
 
@@ -282,6 +304,27 @@ mod tests {
             .map(|s| s.connector.as_str())
             .collect();
         assert_eq!(connectors, ["eDP-1", "DP-1"]);
+    }
+
+    #[test]
+    fn name_falls_back_to_the_product() {
+        let mut screen = office_screen();
+        assert_eq!(screen.name(), "Dell 24\"");
+        screen.display_name = None;
+        assert_eq!(screen.name(), "DELL U2419H");
+        screen.display_name = Some("  ".to_owned());
+        assert_eq!(screen.name(), "DELL U2419H");
+    }
+
+    #[test]
+    fn numbers_start_at_one_from_the_left() {
+        let state = office();
+        let numbered: Vec<(usize, &str)> = state
+            .numbered()
+            .into_iter()
+            .map(|(number, screen)| (number, screen.connector.as_str()))
+            .collect();
+        assert_eq!(numbered, [(1, "eDP-1"), (2, "DP-1")]);
     }
 
     #[test]
