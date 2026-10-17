@@ -4,15 +4,15 @@ Ce fichier suit toutes les tâches jusqu'à la version 0.1.0.
 On le met à jour à la fin de chaque tâche, dans la même branche que la tâche.
 Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact/SEKGtbp6ACVXhpff8rK89i) (privé, mis à jour en même temps).
 
-**Avancement : 23 / 38 tâches terminées**
+**Avancement : 24 / 38 tâches terminées**
 
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-25, DC-26, DC-27 |
-| 📋 Backlog | DC-28 à DC-38 |
-| 🖥️ À tester sur ton PC | DC-24 |
-| ✅ Terminé | DC-01 à DC-23 |
+| 🔜 À faire (prochaines) | DC-26, DC-27, DC-28 |
+| 📋 Backlog | DC-29 à DC-38 |
+| 🖥️ À tester sur ton PC | DC-25 |
+| ✅ Terminé | DC-01 à DC-24 |
 
 ---
 
@@ -67,12 +67,6 @@ _Aucune tâche._
 
 ## 🔜 À faire (prochaines)
 
-### DC-25 · Appliquer une disposition d'écrans
-- **Docs** : `ApplyMonitorsConfig` (méthode temporaire, puis persistante).
-- **Critères**
-  - [ ] Écran principal, résolution, échelle, position.
-  - [ ] Retour arrière automatique si l'utilisateur ne confirme pas.
-
 ### DC-26 · Sur quel écran est la souris ? 🧪
 - **But** : sous Wayland, une application ne voit pas la position globale du pointeur.
   Chercher une solution (petite extension GNOME Shell, ou autre).
@@ -84,6 +78,13 @@ _Aucune tâche._
 - **Critères**
   - [ ] Un lieu = conditions (écran branché, Wi-Fi) + préférences son, micro, écrans.
   - [ ] Détection du lieu actuel, tests unitaires.
+
+### DC-28 · Appliquer un lieu avec Annuler
+- **Docs** : `gio::Notification`.
+- **Critères**
+  - [ ] Application automatique, notification avec bouton Annuler.
+  - [ ] Modes : appliquer, demander, ne rien faire.
+
 ---
 
 ## 📋 Backlog
@@ -95,12 +96,6 @@ _Aucune tâche._
 ### Phase 7 · Agir sur les écrans
 
 ### Phase 8 · Lieux
-
-#### DC-28 · Appliquer un lieu avec Annuler
-- **Docs** : `gio::Notification`.
-- **Critères**
-  - [ ] Application automatique, notification avec bouton Annuler.
-  - [ ] Modes : appliquer, demander, ne rien faire.
 
 #### DC-29 · Page « Lieux »
 - **Critères**
@@ -161,33 +156,33 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-### DC-24 · Identifier les écrans
-- **But** : voir sur chaque vrai écran son numéro, sa couleur et son nom, les mêmes que dans
-  DeskCheck.
-- **Docs lues** : `gtk4` 0.10 (`Window::fullscreen_on_monitor`, `EventControllerKey`,
-  `GestureClick` et son nombre de clics, `Overlay`, `Actionable`), `gdk4` 0.10
-  (`Display::monitors`, `Monitor::connector`, `Monitor::geometry`), `gio::SimpleAction` avec
-  un paramètre, maquette « Identifier ».
+### DC-25 · Appliquer une disposition d'écrans
+- **But** : changer les écrans depuis DeskCheck : disposition, écran principal, résolution,
+  échelle et place.
+- **Docs lues** : interface D-Bus `org.gnome.Mutter.DisplayConfig` de Mutter 42
+  (`GetCurrentState`, `ApplyMonitorsConfig` et ses méthodes verify, temporary, persistent),
+  code de Mutter 42 (`meta_verify_monitors_config`, `meta_rectangle_is_adjacent_to`,
+  confirmation après 20 s), `zbus` 5 (méthode de proxy, interface de test qui garde les
+  appels), `gtk4` 0.10 (`GestureDrag`, `Fixed::move_`, `DropDown::connect_selected_notify`,
+  `ToggleButton::set_group`).
 - **Critères**
-  - [x] Sur chaque écran, pendant 5 secondes : le grand numéro dans sa couleur, le nom,
-    « eDP-1 · 1920 × 1080 », « Primary », et « The numbers disappear in 5 s · Esc to close ».
-  - [x] Échap, un clic ou la fin du compte à rebours ferme tout.
-  - [x] « Identify » (Now), « Identify screens » (Screens), et double-clic sur un écran du
-    plan pour l'identifier seul.
-  - [x] Vu ici sur un écran virtuel avec un gestionnaire de fenêtres : plein écran, fenêtre
-    claire autour du numéro, Échap, double-clic.
+  - [x] Onglets Extend, Mirror, One screen dans la barre du haut.
+  - [x] Écran principal, résolution (« recommended » pour la meilleure), échelle.
+  - [x] Glisser un écran dans le plan : il se colle à l'écran le plus proche, sans en couvrir un.
+  - [x] Chaque changement est vérifié par DeskCheck avec les règles de Mutter, puis par GNOME
+    (méthode « verify »), puis appliqué (« persistent »).
+  - [x] Retour arrière automatique : GNOME montre sa fenêtre « garder ces réglages ? » et
+    revient à l'ancienne disposition après 20 s sans réponse.
+  - [x] Vu ici avec un faux GNOME qui garde les changements : glisser, principal, miroir, retour
+    en étendu.
 - **Décisions**
-  - Une fenêtre sans bord par écran, en plein écran sur lui, au fond transparent : le bureau
-    reste visible, comme la maquette.
-  - Le numéro, le nom et la ligne sont sur un panneau sombre : la maquette les montre sur un
-    bureau sombre, et un bureau clair les rendrait illisibles.
-  - L'écran de GTK et celui de GNOME sont reliés par le nom du branchement (`DP-1`), sinon par
-    la place sur le bureau, chaque écran une seule fois.
-  - Le plan de la page Screens ne se reconstruit plus à chaque clic : GTK peut ainsi voir le
-    double-clic.
-- **À tester** : `cargo run -p deskcheck-app`, « Identify screens » : le numéro 1 sur le
-  portable, le 2 sur l'ASUS, avec leurs couleurs. Échap ferme tout. Double-clic sur un écran
-  du plan : seulement lui.
+  - Le retour arrière est celui de GNOME (méthode « persistent ») : il marche même si DeskCheck
+    se ferme, et c'est la fenêtre que tu connais déjà.
+  - Sortie du miroir : chaque écran reprend sa meilleure résolution.
+  - Sur X11, GNOME impose la même échelle partout : DeskCheck change donc toutes les échelles.
+- **À tester** : `cargo run -p deskcheck-app`, page Screens : rends l'ASUS principal, puis
+  garde. Change une résolution et ne réponds pas : tout revient après 20 s. Glisse l'ASUS à
+  gauche du portable. Essaie Mirror puis Extend.
 
 ---
 
@@ -702,3 +697,29 @@ _Aucune tâche._
   - « Ignore » vaut pour les flux présents. Une nouvelle écoute d'un retour fait revenir le bandeau.
   - Le nom de l'onglet (« Teams ») n'est pas connu : Firefox ne le donne pas au serveur son.
     Le bandeau dit « In Firefox ».
+
+### DC-24 · Identifier les écrans
+- **But** : voir sur chaque vrai écran son numéro, sa couleur et son nom, les mêmes que dans
+  DeskCheck.
+- **Docs lues** : `gtk4` 0.10 (`Window::fullscreen_on_monitor`, `EventControllerKey`,
+  `GestureClick` et son nombre de clics, `Overlay`, `Actionable`), `gdk4` 0.10
+  (`Display::monitors`, `Monitor::connector`, `Monitor::geometry`), `gio::SimpleAction` avec
+  un paramètre, maquette « Identifier ».
+- **Critères**
+  - [x] Sur chaque écran, pendant 5 secondes : le grand numéro dans sa couleur, le nom,
+    « eDP-1 · 1920 × 1080 », « Primary », et « The numbers disappear in 5 s · Esc to close ».
+  - [x] Échap, un clic ou la fin du compte à rebours ferme tout.
+  - [x] « Identify » (Now), « Identify screens » (Screens), et double-clic sur un écran du
+    plan pour l'identifier seul.
+  - [x] Vu ici sur un écran virtuel avec un gestionnaire de fenêtres : plein écran, fenêtre
+    claire autour du numéro, Échap, double-clic.
+  - [x] Testé sur le PC de Godwin (17 oct. 2026) : 1 sur le portable, 2 sur l'ASUS, Échap, double-clic.
+- **Décisions**
+  - Une fenêtre sans bord par écran, en plein écran sur lui, au fond transparent : le bureau
+    reste visible, comme la maquette.
+  - Le numéro, le nom et la ligne sont sur un panneau sombre : la maquette les montre sur un
+    bureau sombre, et un bureau clair les rendrait illisibles.
+  - L'écran de GTK et celui de GNOME sont reliés par le nom du branchement (`DP-1`), sinon par
+    la place sur le bureau, chaque écran une seule fois.
+  - Le plan de la page Screens ne se reconstruit plus à chaque clic : GTK peut ainsi voir le
+    double-clic.
