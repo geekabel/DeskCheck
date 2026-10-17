@@ -4,15 +4,15 @@ Ce fichier suit toutes les tâches jusqu'à la version 0.1.0.
 On le met à jour à la fin de chaque tâche, dans la même branche que la tâche.
 Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact/SEKGtbp6ACVXhpff8rK89i) (privé, mis à jour en même temps).
 
-**Avancement : 18 / 38 tâches terminées**
+**Avancement : 20 / 38 tâches terminées**
 
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-21, DC-22, DC-23 |
-| 📋 Backlog | DC-24 à DC-38 |
-| 🖥️ À tester sur ton PC | DC-19, DC-20 |
-| ✅ Terminé | DC-01 à DC-18 |
+| 🔜 À faire (prochaines) | DC-22, DC-23, DC-24 |
+| 📋 Backlog | DC-25 à DC-38 |
+| 🖥️ À tester sur ton PC | DC-21 |
+| ✅ Terminé | DC-01 à DC-20 |
 
 ---
 
@@ -67,10 +67,6 @@ _Aucune tâche._
 
 ## 🔜 À faire (prochaines)
 
-### DC-21 · Page « Écrans »
-- **Critères**
-  - [ ] Carte des écrans avec numéro et couleur ; réglages de l'écran choisi.
-
 ### DC-22 · Page « Diagnostic »
 - **Critères**
   - [ ] Liste des vérifications avec état, correction en un clic.
@@ -79,6 +75,12 @@ _Aucune tâche._
 - **Critères**
   - [ ] Bandeau sur « Maintenant » quand une application écoute un retour.
   - [ ] Bouton « Basculer » qui corrige sans couper l'appel.
+
+### DC-24 · Identifier les écrans
+- **Docs** : `gtk::Window::fullscreen_on_monitor`, `gdk::Display::monitors`.
+- **Critères**
+  - [ ] Un grand numéro coloré sur chaque vrai écran pendant 5 secondes.
+  - [ ] Échap ferme tout.
 
 ---
 
@@ -89,12 +91,6 @@ _Aucune tâche._
 ### Phase 6 · Interface graphique
 
 ### Phase 7 · Agir sur les écrans
-
-#### DC-24 · Identifier les écrans
-- **Docs** : `gtk::Window::fullscreen_on_monitor`, `gdk::Display::monitors`.
-- **Critères**
-  - [ ] Un grand numéro coloré sur chaque vrai écran pendant 5 secondes.
-  - [ ] Échap ferme tout.
 
 #### DC-25 · Appliquer une disposition d'écrans
 - **Docs** : `ApplyMonitorsConfig` (méthode temporaire, puis persistante).
@@ -181,72 +177,34 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-### DC-19 · Page « Maintenant »
-- **But** : en un coup d'œil, par où sort le son, quel micro t'entend, quelles applications
-  utilisent le son, et tes écrans.
-- **Docs lues** : `gtk4` 0.10 (`Scale`, `LevelBar` en mode discret, `Fixed`, `Popover`,
-  `MenuButton`, `Grid`, `CssProvider`), `libadwaita` 0.8 (`Clamp`, `ToastOverlay`, `Toast`),
-  `glib` (`timeout_add_local_once`), feuille de style Adwaita (taille des blocs de `levelbar`),
-  `libpulse-binding` (`client` et `owner_module` des flux), maquette (artboard « Maintenant »).
+### DC-21 · Page « Écrans »
+- **But** : voir chaque écran à sa vraie place, avec son numéro et sa couleur, et régler
+  celui qu'on choisit.
+- **Docs lues** : `gtk4` 0.10 (`Fixed`, `GestureClick`, `EventControllerFocus`, `Entry`,
+  `DropDown` et `StringList`, `CheckButton`, `Overflow`), CSS de GTK 4 (`radial-gradient`,
+  `background-size`, `box-shadow` à plusieurs anneaux), `hwdata` (format de `pnp.ids`),
+  maquette « Écrans ».
 - **Critères**
-  - [x] Carte sortie : nom, nom technique, curseur de volume (jusqu'à 150 %), mesure en direct
-    de ce qui sort, « Test the sound », « Change » (liste des sorties).
-  - [x] Carte micro : nom, « Not muted » ou « Muted », barre de niveau en direct
-    (« Speak: the bar moves »), « Record 3 s and play back », « Change ».
-  - [x] Carte applications : une ligne par application, « Not a microphone » si elle écoute un retour.
-  - [x] Carte écrans : plan avec numéro et couleur de chaque écran, « Extended · Primary: 1 ».
-  - [x] Vu ici sur un écran virtuel avec un serveur son de test et un faux GNOME : mise en page,
-    barres qui bougent, liste « Change » qui bascule vraiment la sortie, message du test.
-  - [x] Reprise du design (17 oct. 2026), à la demande de Godwin : la page suit maintenant la
-    maquette. Couleurs de la maquette, en-tête et barre latérale gris, section choisie en bleu,
-    boutons blancs bordés avec icône, barres de niveau en petits blocs verts, étiquettes, écrans
-    posés côte à côte comme sur un bureau. Mode sombre vérifié aussi.
+  - [x] Plan des écrans à leur vraie place, sur un bureau à points : numéro, nom, ligne
+    technique, étiquettes « Primary », « Top bar here », « Built-in ».
+  - [x] Un clic choisit l'écran (anneau noir) et montre ses réglages.
+  - [x] Nom et couleur repère (les quatre de la maquette) enregistrés aussitôt.
+  - [x] « Sound of this screen » : les haut-parleurs de l'écran, avec « Use ».
+  - [x] « How DeskCheck recognizes it » : fabricant, modèle, n° de série, branchement.
+  - [x] Vu ici sur un écran virtuel : couleur et nom enregistrés et affichés, « Use » qui
+    change vraiment la sortie, mode sombre.
 - **Décisions**
-  - Bandeau d'alerte (DC-23), « Identify » (DC-24, bouton grisé), « Souris ici » (DC-26) et
-    ligne du lieu (DC-28) viendront avec leurs tâches.
-  - « Change » ouvre l'onglet Sorties ou Micros de la page Audio, comme dans la maquette
-    (avant la reprise, c'était une liste dans la carte).
-  - Les icônes sont celles de la maquette (dessinées en traits). `icons/build.sh` les
-    transforme en icônes symboliques pleines, que GTK sait colorer ; `build.rs` les met dans
-    l'application avec les styles (`resources/style.css`, `style-dark.css`).
-  - Le curseur de volume attend 120 ms après le dernier mouvement avant d'envoyer, et ne se
-    laisse pas déplacer par l'état pendant que tu le bouges.
-  - Couleurs des écrans : celle choisie dans les réglages, sinon le bleu et l'orange de la maquette.
-  - Correction trouvée en route : les flux créés par un module du serveur son (loopback,
-    echo cancel) n'ont pas de client et ne sont plus pris pour des applications.
-  - Pièges notés : `css_classes` remplace aussi les classes que GTK pose lui-même (les blocs
-    d'une `LevelBar` disparaissaient) ; Adwaita donne 26 px à chaque bloc de `LevelBar`.
-- **À tester** : `cargo run -p deskcheck-app`, avec une vidéo qui joue dans Firefox :
-  compare avec la maquette, bouge le volume, parle (la barre du micro bouge), « Test the
-  sound », « Record 3 s and play back ». Vérifie que tes deux écrans sont bien numérotés.
-
-### DC-20 · Page « Audio »
-- **But** : voir et régler chaque sortie, chaque micro et chaque application, avec les
-  retours rangés à part pour ne pas les prendre pour des micros.
-- **Docs lues** : `gtk4` 0.10 (`ToggleButton` en groupe, `CheckButton` en radio, `DropDown`,
-  `Popover`, `FlowBox`, `Entry`, `Stack`, `Overflow`), `libadwaita` 0.8 (feuilles de style
-  chargées depuis les ressources), `glib-build-tools` 0.21 et `gio::resources_register_include`,
-  GTK (icônes dans `icons/` sous le chemin des ressources), maquettes « Audio » et « Nommage ».
-- **Critères**
-  - [x] Onglets Outputs, Microphones, Apps dans la barre du haut, avec leur nombre.
-  - [x] Sorties et micros : radio pour choisir celui par défaut, barre en direct, étiquette
-    (« Hears your voice », « Faint, far away », « Silent », « Playing », « Quiet »).
-  - [x] Retours rangés à part : « Output monitors (n): these are not microphones ». Celui
-    qu'une application écoute est en orange, avec « Switch to <micro> ».
-  - [x] Applications : l'appareil de chaque flux, à changer dans une liste, sans couper.
-  - [x] Bouton « Test » et bouton Renommer (petit formulaire, noms proposés, « Use the system
-    name »). Le nom est enregistré dans le fichier de réglages.
-  - [x] Vu ici sur un écran virtuel avec un serveur son de test : radio qui change la sortie
-    par défaut, « Switch » qui déplace vraiment Firefox sur le micro, nom enregistré et affiché.
-- **Décisions**
-  - Les barres de tous les micros et retours ne tournent que pendant que la page Audio est
-    affichée (sinon, seulement le micro et la sortie par défaut).
-  - L'étiquette garde le niveau le plus fort un court moment, pour ne pas changer entre deux mots.
-  - « Name a new device », « Advanced options » et « Hidden devices » sont présents comme dans
-    la maquette, grisés : ils viendront plus tard (assistant DC-32).
-- **À tester** : `cargo run -p deskcheck-app`, page Audio : parle et regarde quel micro dit
-  « Hears your voice », « Test » sur une sortie et un micro, choisis une autre sortie avec la
-  radio, renomme un appareil. Au bureau avec Teams : « Switch to … » dans l'onglet Microphones.
+  - Onglets Extend, Mirror, One screen, case « Primary screen », résolution et échelle : ils
+    montrent l'état actuel, grisés. Les changer vient avec DC-25.
+  - « Identify screens » vient avec DC-24, « Votre souris est ici » avec DC-26.
+    « Bring back lost windows » est grisé (pas encore de tâche).
+  - Haut-parleurs d'un écran : la sortie HDMI dont le nom contient le modèle de l'écran, ou la
+    seule sortie HDMI quand un seul écran externe est allumé. Sinon, DeskCheck le dit.
+  - Le nom du fabricant vient de `/usr/share/hwdata/pnp.ids` s'il est là, sinon d'une petite liste.
+  - Les quatre couleurs de la maquette sont maintenant les couleurs par défaut des écrans.
+- **À tester** : `cargo run -p deskcheck-app`, page Screens : tes deux écrans à la bonne place,
+  clique chacun, change sa couleur et son nom (regarde aussi la page Now), « Use » si ton
+  écran a des haut-parleurs.
 
 ---
 
@@ -627,3 +585,66 @@ _Aucune tâche._
   - libadwaita 1.1 n'a pas `NavigationSplitView` (1.4) : `ListBox` + `Stack` côte à côte.
   - libadwaita 1.1 n'a pas `AboutWindow` (1.2) : `gtk::AboutDialog`.
   - Une seule fenêtre : relancer DeskCheck montre celle qui est déjà ouverte.
+
+### DC-19 · Page « Maintenant »
+- **But** : en un coup d'œil, par où sort le son, quel micro t'entend, quelles applications
+  utilisent le son, et tes écrans.
+- **Docs lues** : `gtk4` 0.10 (`Scale`, `LevelBar` en mode discret, `Fixed`, `Popover`,
+  `MenuButton`, `Grid`, `CssProvider`), `libadwaita` 0.8 (`Clamp`, `ToastOverlay`, `Toast`),
+  `glib` (`timeout_add_local_once`), feuille de style Adwaita (taille des blocs de `levelbar`),
+  `libpulse-binding` (`client` et `owner_module` des flux), maquette (artboard « Maintenant »).
+- **Critères**
+  - [x] Carte sortie : nom, nom technique, curseur de volume (jusqu'à 150 %), mesure en direct
+    de ce qui sort, « Test the sound », « Change » (liste des sorties).
+  - [x] Carte micro : nom, « Not muted » ou « Muted », barre de niveau en direct
+    (« Speak: the bar moves »), « Record 3 s and play back », « Change ».
+  - [x] Carte applications : une ligne par application, « Not a microphone » si elle écoute un retour.
+  - [x] Carte écrans : plan avec numéro et couleur de chaque écran, « Extended · Primary: 1 ».
+  - [x] Vu ici sur un écran virtuel avec un serveur son de test et un faux GNOME : mise en page,
+    barres qui bougent, liste « Change » qui bascule vraiment la sortie, message du test.
+  - [x] Reprise du design (17 oct. 2026), à la demande de Godwin : la page suit maintenant la
+    maquette. Couleurs de la maquette, en-tête et barre latérale gris, section choisie en bleu,
+    boutons blancs bordés avec icône, barres de niveau en petits blocs verts, étiquettes, écrans
+    posés côte à côte comme sur un bureau. Mode sombre vérifié aussi.
+  - [x] Testé sur le PC de Godwin (17 oct. 2026) : page fidèle à la maquette, volume, barres, tests du son.
+- **Décisions**
+  - Bandeau d'alerte (DC-23), « Identify » (DC-24, bouton grisé), « Souris ici » (DC-26) et
+    ligne du lieu (DC-28) viendront avec leurs tâches.
+  - « Change » ouvre l'onglet Sorties ou Micros de la page Audio, comme dans la maquette
+    (avant la reprise, c'était une liste dans la carte).
+  - Les icônes sont celles de la maquette (dessinées en traits). `icons/build.sh` les
+    transforme en icônes symboliques pleines, que GTK sait colorer ; `build.rs` les met dans
+    l'application avec les styles (`resources/style.css`, `style-dark.css`).
+  - Le curseur de volume attend 120 ms après le dernier mouvement avant d'envoyer, et ne se
+    laisse pas déplacer par l'état pendant que tu le bouges.
+  - Couleurs des écrans : celle choisie dans les réglages, sinon le bleu et l'orange de la maquette.
+  - Correction trouvée en route : les flux créés par un module du serveur son (loopback,
+    echo cancel) n'ont pas de client et ne sont plus pris pour des applications.
+  - Pièges notés : `css_classes` remplace aussi les classes que GTK pose lui-même (les blocs
+    d'une `LevelBar` disparaissaient) ; Adwaita donne 26 px à chaque bloc de `LevelBar`.
+
+### DC-20 · Page « Audio »
+- **But** : voir et régler chaque sortie, chaque micro et chaque application, avec les
+  retours rangés à part pour ne pas les prendre pour des micros.
+- **Docs lues** : `gtk4` 0.10 (`ToggleButton` en groupe, `CheckButton` en radio, `DropDown`,
+  `Popover`, `FlowBox`, `Entry`, `Stack`, `Overflow`), `libadwaita` 0.8 (feuilles de style
+  chargées depuis les ressources), `glib-build-tools` 0.21 et `gio::resources_register_include`,
+  GTK (icônes dans `icons/` sous le chemin des ressources), maquettes « Audio » et « Nommage ».
+- **Critères**
+  - [x] Onglets Outputs, Microphones, Apps dans la barre du haut, avec leur nombre.
+  - [x] Sorties et micros : radio pour choisir celui par défaut, barre en direct, étiquette
+    (« Hears your voice », « Faint, far away », « Silent », « Playing », « Quiet »).
+  - [x] Retours rangés à part : « Output monitors (n): these are not microphones ». Celui
+    qu'une application écoute est en orange, avec « Switch to <micro> ».
+  - [x] Applications : l'appareil de chaque flux, à changer dans une liste, sans couper.
+  - [x] Bouton « Test » et bouton Renommer (petit formulaire, noms proposés, « Use the system
+    name »). Le nom est enregistré dans le fichier de réglages.
+  - [x] Vu ici sur un écran virtuel avec un serveur son de test : radio qui change la sortie
+    par défaut, « Switch » qui déplace vraiment Firefox sur le micro, nom enregistré et affiché.
+  - [x] Testé sur le PC de Godwin (17 oct. 2026) : onglets, barres, tests, choix par défaut, renommage.
+- **Décisions**
+  - Les barres de tous les micros et retours ne tournent que pendant que la page Audio est
+    affichée (sinon, seulement le micro et la sortie par défaut).
+  - L'étiquette garde le niveau le plus fort un court moment, pour ne pas changer entre deux mots.
+  - « Name a new device », « Advanced options » et « Hidden devices » sont présents comme dans
+    la maquette, grisés : ils viendront plus tard (assistant DC-32).
