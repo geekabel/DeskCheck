@@ -201,34 +201,54 @@ fn microphones_in_use(state: &AudioState) -> Vec<&Input> {
         .collect()
 }
 
-/// Rule: a microphone in use is muted, or at volume 0.
+/// Findings for a device that is muted, at volume 0, or both. Both are
+/// reported, so one pass of fixes turns the sound on and sets the volume:
+/// GNOME mutes a device and sets it to 0 when its slider goes all the way
+/// down.
+fn off_findings(
+    target: &Target,
+    muted: bool,
+    volume: Volume,
+    muted_problem: Problem,
+    silent_problem: Problem,
+) -> Vec<Finding> {
+    let mut findings = Vec::new();
+    if muted {
+        findings.push(Finding::new(
+            muted_problem,
+            Some(Fix::Unmute(target.clone())),
+        ));
+    }
+    if volume.is_silent() {
+        findings.push(Finding::new(
+            silent_problem,
+            Some(Fix::SetVolume(target.clone(), Volume::NORMAL)),
+        ));
+    }
+    findings
+}
+
+/// Rule: a microphone in use is muted, at volume 0, or both.
 fn microphone_off(state: &AudioState) -> Vec<Finding> {
     microphones_in_use(state)
         .into_iter()
-        .filter_map(|mic| {
-            let target = Target::Input(mic.id.clone());
-            if mic.muted {
-                Some(Finding::new(
-                    Problem::MicrophoneMuted {
-                        input: mic.id.clone(),
-                    },
-                    Some(Fix::Unmute(target)),
-                ))
-            } else if mic.volume.is_silent() {
-                Some(Finding::new(
-                    Problem::MicrophoneSilent {
-                        input: mic.id.clone(),
-                    },
-                    Some(Fix::SetVolume(target, Volume::NORMAL)),
-                ))
-            } else {
-                None
-            }
+        .flat_map(|mic| {
+            off_findings(
+                &Target::Input(mic.id.clone()),
+                mic.muted,
+                mic.volume,
+                Problem::MicrophoneMuted {
+                    input: mic.id.clone(),
+                },
+                Problem::MicrophoneSilent {
+                    input: mic.id.clone(),
+                },
+            )
         })
         .collect()
 }
 
-/// Rule: an output in use is muted, or at volume 0.
+/// Rule: an output in use is muted, at volume 0, or both.
 fn output_off(state: &AudioState) -> Vec<Finding> {
     let mut ids = Vec::new();
     if let Some(id) = &state.default_output {
@@ -239,25 +259,18 @@ fn output_off(state: &AudioState) -> Vec<Finding> {
     }
     ids.into_iter()
         .filter_map(|id| state.output(id))
-        .filter_map(|output| {
-            let target = Target::Output(output.id.clone());
-            if output.muted {
-                Some(Finding::new(
-                    Problem::OutputMuted {
-                        output: output.id.clone(),
-                    },
-                    Some(Fix::Unmute(target)),
-                ))
-            } else if output.volume.is_silent() {
-                Some(Finding::new(
-                    Problem::OutputSilent {
-                        output: output.id.clone(),
-                    },
-                    Some(Fix::SetVolume(target, Volume::NORMAL)),
-                ))
-            } else {
-                None
-            }
+        .flat_map(|output| {
+            off_findings(
+                &Target::Output(output.id.clone()),
+                output.muted,
+                output.volume,
+                Problem::OutputMuted {
+                    output: output.id.clone(),
+                },
+                Problem::OutputSilent {
+                    output: output.id.clone(),
+                },
+            )
         })
         .collect()
 }
@@ -494,16 +507,45 @@ mod tests {
     }
 
     #[test]
-    fn a_muted_and_silent_device_is_reported_once_as_muted() {
+    fn a_muted_and_silent_device_gets_both_fixes() {
+        // Seen on Godwin's PC: GNOME mutes the speakers and sets them to 0
+        // when the slider goes all the way down. One pass must fix both.
         let mut state = home();
+        state.outputs[0].muted = true;
+        state.outputs[0].volume = Volume::from_percent(0);
+        let speakers = Target::Output(DeviceId::new(SPEAKERS));
+        assert_eq!(
+            diagnose(&state),
+            [
+                Finding::new(
+                    Problem::OutputMuted {
+                        output: DeviceId::new(SPEAKERS),
+                    },
+                    Some(Fix::Unmute(speakers.clone())),
+                ),
+                Finding::new(
+                    Problem::OutputSilent {
+                        output: DeviceId::new(SPEAKERS),
+                    },
+                    Some(Fix::SetVolume(speakers, Volume::NORMAL)),
+                ),
+            ]
+        );
+
+        state.outputs[0].muted = false;
+        state.outputs[0].volume = Volume::NORMAL;
         state.inputs[1].muted = true;
         state.inputs[1].volume = Volume::from_percent(0);
-        state.recordings.push(recording(42, LAPTOP_MIC));
         assert_eq!(
             problems(&state),
-            [Problem::MicrophoneMuted {
-                input: DeviceId::new(LAPTOP_MIC),
-            }]
+            [
+                Problem::MicrophoneMuted {
+                    input: DeviceId::new(LAPTOP_MIC),
+                },
+                Problem::MicrophoneSilent {
+                    input: DeviceId::new(LAPTOP_MIC),
+                },
+            ]
         );
     }
 
