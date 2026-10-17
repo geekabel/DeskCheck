@@ -4,15 +4,15 @@ Ce fichier suit toutes les tâches jusqu'à la version 0.1.0.
 On le met à jour à la fin de chaque tâche, dans la même branche que la tâche.
 Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact/SEKGtbp6ACVXhpff8rK89i) (privé, mis à jour en même temps).
 
-**Avancement : 12 / 37 tâches terminées**
+**Avancement : 13 / 37 tâches terminées**
 
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
 | 🔜 À faire (prochaines) | DC-14, DC-15, DC-16 |
 | 📋 Backlog | DC-17 à DC-37 |
-| 🖥️ À tester sur ton PC | DC-13 |
-| ✅ Terminé | DC-01 à DC-12 |
+| 🖥️ À tester sur ton PC | aucune |
+| ✅ Terminé | DC-01 à DC-13 |
 
 ---
 
@@ -209,31 +209,7 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-### DC-13 · Changer les appareils et les volumes
-- **But** : agir sur le son à la main, depuis le terminal.
-- **Docs lues** : `clap` 4.6 (`ValueEnum`, `value_parser` avec une fonction),
-  `libpulse-binding` (déjà lue pour DC-12).
-- **Critères**
-  - [x] Choisir la sortie et le micro par défaut : `deskcheck use output|input <QUOI>`.
-  - [x] Volume et coupure du son : `deskcheck volume output|input <QUOI> 80%`,
-    `deskcheck mute ...` et `deskcheck unmute ...`.
-  - [x] Déplacer le flux d'une application sans le couper :
-    `deskcheck move playback|recording <APPLI> <QUOI>`, tous les flux de l'application à la fois.
-  - [x] Testé ici de bout en bout sur un vrai serveur PulseAudio de test (deux sorties, un micro,
-    une application qui joue et enregistre).
-- **Décisions**
-  - Les actions sur le serveur son viennent de DC-12 (`deskcheck_pulse::apply`).
-  - Seuls les micros peuvent être choisis comme entrée : jamais un retour.
-  - Volume de 0 % à 150 %, comme GNOME avec l'amplification.
-  - `use` ne déplace pas les applications : PulseAudio 15 et plus les fait suivre la sortie par
-    défaut, sauf celles déplacées à la main avec `move` (vérifié sur le serveur de test).
-  - Les mesureurs de niveau ne sont jamais déplacés.
-  - Chaque commande dit quand il n'y a rien à faire (« already the default », « already muted »).
-- **À tester** (chez toi, avec Firefox qui joue une vidéo) :
-  `cargo run -p deskcheck -- volume output default 50`,
-  `cargo run -p deskcheck -- mute output default`, puis `unmute`,
-  `cargo run -p deskcheck -- move playback firefox <ton écran ASUS ou la sortie HDMI>`, puis
-  `cargo run -p deskcheck -- audio` pour voir le résultat.
+_Aucune tâche._
 
 ---
 
@@ -488,3 +464,25 @@ _Aucune tâche._
     Il s'affiche « (level meter) » et n'est jamais un problème.
   - Le curseur « System Sounds » de GNOME n'est pas un appareil : c'est le volume des sons
     d'alerte. Choix de Godwin : DeskCheck ne gère pas les sons d'alerte pour le moment.
+
+### DC-13 · Changer les appareils et les volumes
+- **But** : agir sur le son à la main, depuis le terminal.
+- **Docs lues** : `clap` 4.6 (`ValueEnum`, `value_parser` avec une fonction),
+  `libpulse-binding` (déjà lue pour DC-12).
+- **Critères**
+  - [x] Choisir la sortie et le micro par défaut : `deskcheck use output|input <QUOI>`.
+  - [x] Volume et coupure du son : `deskcheck volume output|input <QUOI> 80%`,
+    `deskcheck mute ...` et `deskcheck unmute ...`.
+  - [x] Déplacer le flux d'une application sans le couper :
+    `deskcheck move playback|recording <APPLI> <QUOI>`, tous les flux de l'application à la fois.
+  - [x] Testé ici de bout en bout sur un vrai serveur PulseAudio de test (deux sorties, un micro,
+    une application qui joue et enregistre).
+  - [x] Testé sur le PC de Godwin (17 oct. 2026) : volume, coupure et remise du son.
+- **Décisions**
+  - Les actions sur le serveur son viennent de DC-12 (`deskcheck_pulse::apply`).
+  - Seuls les micros peuvent être choisis comme entrée : jamais un retour.
+  - Volume de 0 % à 150 %, comme GNOME avec l'amplification.
+  - `use` ne déplace pas les applications : PulseAudio 15 et plus les fait suivre la sortie par
+    défaut, sauf celles déplacées à la main avec `move` (vérifié sur le serveur de test).
+  - Les mesureurs de niveau ne sont jamais déplacés.
+  - Chaque commande dit quand il n'y a rien à faire (« already the default », « already muted »).
