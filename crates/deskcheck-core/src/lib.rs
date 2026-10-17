@@ -2,6 +2,11 @@
 //!
 //! This crate holds the domain model and the rules (device names, diagnostics,
 //! places). It has no system dependency, so everything here is easy to test.
+//!
+//! - [`audio`]: outputs, inputs (microphones and monitors) and the streams
+//!   of the applications.
+
+pub mod audio;
 
 /// Human readable name of the application.
 pub const APP_NAME: &str = "DeskCheck";
