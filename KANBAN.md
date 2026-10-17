@@ -9,9 +9,9 @@ Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-04, DC-05, DC-06 |
-| 📋 Backlog | DC-07 à DC-37 |
-| 🖥️ À tester sur ton PC | aucune |
+| 🔜 À faire (prochaines) | DC-05, DC-06, DC-07 |
+| 📋 Backlog | DC-08 à DC-37 |
+| 🖥️ À tester sur ton PC | DC-04 |
 | ✅ Terminé | DC-01, DC-02, DC-03 |
 
 ---
@@ -67,15 +67,6 @@ _Aucune tâche._
 
 ## 🔜 À faire (prochaines)
 
-### DC-04 · Connexion PulseAudio 🧪
-- **But** : se connecter au serveur son et lire les sorties, micros, retours et flux.
-- **Docs** : `libpulse-binding` (context, mainloop threaded, introspect), doc PulseAudio.
-- **Critères**
-  - [ ] Connexion avec le mainloop « threaded ».
-  - [ ] Liste des sinks, sources, sink-inputs, source-outputs et valeurs par défaut.
-  - [ ] Conversion vers le modèle de domaine.
-  - [ ] Marche aussi avec PipeWire (`pipewire-pulse`).
-
 ### DC-05 · Classer les appareils son
 - **But** : reconnaître un « retour » (monitor), un casque, un HDMI, un USB, le micro interne.
 - **Docs** : propriétés PulseAudio (`device.form_factor`, `device.bus`, `monitor_of_sink`).
@@ -91,18 +82,18 @@ _Aucune tâche._
   - [ ] Affiche sortie et micro par défaut, et les applications avec leur appareil.
   - [ ] Signale une application qui écoute un retour.
 
----
-
-## 📋 Backlog
-
-### Phase 2 · Lire l'état des écrans
-
-#### DC-07 · Lecture des écrans via Mutter 🧪
+### DC-07 · Lecture des écrans via Mutter 🧪
 - **But** : lire les écrans avec `org.gnome.Mutter.DisplayConfig.GetCurrentState`.
 - **Docs** : `zbus` (proxy, blocking), XML de l'interface DisplayConfig dans le dépôt Mutter.
 - **Critères**
   - [ ] Connecteur, fabricant, modèle, série, modes, écran intégré, écran principal, disposition.
   - [ ] Message clair si la session n'est pas GNOME.
+
+---
+
+## 📋 Backlog
+
+### Phase 2 · Lire l'état des écrans
 
 #### DC-08 · Commande `deskcheck displays`
 - **Critères**
@@ -279,7 +270,35 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-_Aucune tâche._
+### DC-04 · Connexion PulseAudio 🧪
+- **But** : se connecter au serveur son et lire les sorties, micros, retours et flux.
+- **Docs lues** : `libpulse-binding` (mainloop standard et threaded, introspect, proplist,
+  volume, COMPATIBILITY.md, options `pa_vXX`), API C de PulseAudio (`pa_source_info`,
+  `pa_source_output_info`).
+- **Critères**
+  - [x] Connexion au serveur, sans lancer de serveur s'il n'y en a pas (`NOAUTOSPAWN`).
+  - [x] Liste des sinks, sources, sink-inputs, source-outputs et valeurs par défaut.
+  - [x] Conversion vers le modèle de domaine (9 tests sans serveur).
+  - [x] Testé ici contre un vrai serveur PulseAudio 16.1 : sorties, retours, micro coupé à 62 %,
+    lecture, et une application qui enregistre un retour.
+  - [ ] Testé sur le PC de Godwin (Ubuntu 22.04), au bureau et à la maison.
+  - [ ] Marche aussi avec PipeWire (`pipewire-pulse`), si la machine l'utilise.
+- **Comment tester** (sur Ubuntu 22.04) :
+  ```sh
+  sudo apt install build-essential pkg-config libpulse-dev
+  cargo run -p deskcheck-pulse --example audio_dump
+  cargo test -p deskcheck-pulse -- --ignored
+  ```
+  Le mieux : lancer `audio_dump` pendant un appel Teams, avec l'écran du bureau branché.
+- **Décisions**
+  - Mainloop **standard** au lieu de « threaded » : les exemples du mode threaded demandent du
+    code `unsafe` (interdit dans le workspace). Le mode standard suffit pour une lecture, sans fil
+    d'exécution. Les événements en direct (DC-16) tourneront dans un fil dédié.
+  - Options par défaut de `libpulse-binding` (`pa_v8`) : marche avec PulseAudio 8 et plus,
+    donc avec Ubuntu 22.04 (15.99) et `pipewire-pulse`.
+  - Un flux dont l'appareil a disparu pendant la lecture est ignoré.
+- **Remarque** : sans vrai micro, PulseAudio choisit un retour comme entrée par défaut.
+  Le diagnostic (DC-11) devra le signaler.
 
 ---
 
