@@ -1,0 +1,19 @@
+[package]
+name = "deskcheck-config"
+description = "DeskCheck: the configuration file"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+deskcheck-core.workspace = true
+directories = "6.0.0"
+serde = { version = "1.0.229", features = ["derive"] }
+toml = "1.1.8"
+
+[lints]
+workspace = true
