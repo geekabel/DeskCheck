@@ -10,7 +10,9 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
+clap = { version = "4.6.7", features = ["derive"] }
 deskcheck-core.workspace = true
+deskcheck-pulse.workspace = true
 
 [lints]
 workspace = true
