@@ -231,10 +231,22 @@ _Aucune tâche._
     couper ou remettre le son, volume (l'équilibre entre canaux est gardé).
   - [x] Testé ici sur un vrai serveur PulseAudio de test : application qui écoute un retour,
     retour par défaut, micro à 0 %, sortie coupée. Un seul `--fix` corrige les quatre.
+  - [x] Retour de Godwin (17 oct. 2026) : la barre de niveau de GNOME Settings écoute le retour
+    des haut-parleurs. Elle était prise pour un appel, et `--fix` ne pouvait pas la déplacer
+    (flux créé avec `DONT_MOVE`). Corrigé : les mesureurs de niveau sont reconnus et ignorés.
+  - [x] Vérifié ici avec un vrai flux de mesure (`PEAK_DETECT`) sur un serveur de test.
+- **Docs lues (correction)** : code de GNOME Settings 41 (`panels/sound/cc-level-bar.c`),
+  de pavucontrol (`createMonitorStreamForSource`) et de PulseAudio 15 (`record_stream_new`
+  dans `protocol-native.c`).
 - **Décisions**
   - Le micro vers lequel les corrections basculent est vérifié lui aussi (trouvé pendant le test :
     sinon son volume à 0 % n'apparaissait qu'après la première correction).
   - « Brancher un micro » s'affiche comme « À faire toi-même ».
+  - Un mesureur de niveau est reconnu par la méthode de rééchantillonnage `peaks` (PulseAudio),
+    par son application (GNOME Settings, pavucontrol, DeskCheck) ou par le nom « Peak detect ».
+    Il s'affiche « (level meter) » et n'est jamais un problème.
+  - Le curseur « System Sounds » de GNOME n'est pas un appareil : c'est le volume des sons
+    d'alerte. DeskCheck ne le lit pas encore (question posée à Godwin).
 - **À tester** : `cargo run -p deskcheck -- doctor`. Pour voir `--fix` agir : coupe le son
   de tes haut-parleurs (réglages de GNOME), lance `cargo run -p deskcheck -- doctor`, puis
   `cargo run -p deskcheck -- doctor --fix`.
