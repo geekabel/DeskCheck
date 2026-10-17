@@ -9,9 +9,9 @@ Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-05, DC-06, DC-07 |
-| 📋 Backlog | DC-08 à DC-37 |
-| 🖥️ À tester sur ton PC | aucune |
+| 🔜 À faire (prochaines) | DC-06, DC-07, DC-08 |
+| 📋 Backlog | DC-09 à DC-37 |
+| 🖥️ À tester sur ton PC | DC-05 |
 | ✅ Terminé | DC-01 à DC-04 |
 
 ---
@@ -67,14 +67,6 @@ _Aucune tâche._
 
 ## 🔜 À faire (prochaines)
 
-### DC-05 · Classer les appareils son
-- **But** : reconnaître un « retour » (monitor), un casque, un HDMI, un USB, le micro interne.
-- **Docs** : propriétés PulseAudio (`device.form_factor`, `device.bus`, `monitor_of_sink`).
-- **Critères**
-  - [ ] Un retour n'est jamais classé comme micro.
-  - [ ] Type d'appareil et icône déduits des propriétés.
-  - [ ] Tests avec des données enregistrées.
-
 ### DC-06 · Commande `deskcheck audio`
 - **But** : premier outil utile, en terminal : qui écoute quoi.
 - **Docs** : `clap` (derive).
@@ -89,15 +81,13 @@ _Aucune tâche._
   - [ ] Connecteur, fabricant, modèle, série, modes, écran intégré, écran principal, disposition.
   - [ ] Message clair si la session n'est pas GNOME.
 
+### DC-08 · Commande `deskcheck displays`
+- **Critères**
+  - [ ] Liste les écrans avec numéro, nom, résolution, échelle, principal.
+
 ---
 
 ## 📋 Backlog
-
-### Phase 2 · Lire l'état des écrans
-
-#### DC-08 · Commande `deskcheck displays`
-- **Critères**
-  - [ ] Liste les écrans avec numéro, nom, résolution, échelle, principal.
 
 ### Phase 3 · Noms et configuration
 
@@ -270,7 +260,30 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-_Aucune tâche._
+### DC-05 · Classer les appareils son
+- **But** : reconnaître un « retour » (monitor), un casque, un HDMI, un USB, le micro interne.
+- **Docs lues** : propriétés PulseAudio (`device.form_factor`, `device.bus`), noms des ports
+  (fichiers `alsa-mixer/paths` livrés avec PulseAudio), champ `type` des ports dans
+  `libpulse-binding` (demande `pa_v14`, donc pas utilisé), icônes du thème Adwaita.
+- **Critères**
+  - [x] Un retour n'est jamais classé comme micro (`InputKind::Monitor`), et il prend le type
+    de la sortie qu'il copie.
+  - [x] Type (`Form`), branchement (`Connection`) et icône déduits des propriétés (`classify`).
+  - [x] Tests sur 10 cas au format PulseAudio d'Ubuntu 22.04 (haut-parleurs et micro du portable,
+    casque jack, HDMI et son retour, casque USB, webcam USB, Bluetooth, appareil virtuel).
+  - [x] Testé ici contre un vrai serveur PulseAudio : « screen (HDMI) », « headset (USB) ».
+  - [ ] Vérifié sur les vrais appareils de Godwin (casque, webcam, écran du bureau et de la maison).
+- **Comment tester** :
+  ```sh
+  cargo run -p deskcheck-pulse --example audio_dump
+  ```
+  Chaque appareil affiche son type, son branchement et son icône. Si un appareil est mal
+  classé, envoyer la sortie de `pactl list sinks` et `pactl list sources` : elle deviendra
+  un cas de test enregistré.
+- **Décisions**
+  - Ordre des règles : HDMI ou DisplayPort d'abord, puis `device.form_factor`, puis le port actif.
+  - Les haut-parleurs et le micro intégrés prennent l'icône « computer », comme sur la maquette.
+  - Les icônes sont des noms freedesktop du thème Adwaita ; GTK ajoutera `-symbolic`.
 
 ---
 
