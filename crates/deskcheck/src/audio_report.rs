@@ -1,11 +1,13 @@
 //! Text report for `deskcheck audio`: who hears what.
 //!
-//! [`render`] is a pure function of the sound state, so the report is
-//! tested without a sound server.
+//! [`render`] is a pure function of the sound state and the settings, so
+//! the report is tested without a sound server. Devices show the name the
+//! user gave them; `--verbose` also shows the name from the system.
 
 use std::fmt::Write as _;
 
-use deskcheck_core::audio::{AudioState, Input, Output, Volume};
+use deskcheck_config::Config;
+use deskcheck_core::audio::{AudioState, DeviceId, Input, Output, Volume};
 
 /// Options of the report.
 #[derive(Debug, Clone, Copy, Default)]
@@ -27,18 +29,18 @@ fn device_line(
     format!("{description}  ({hardware}, {volume}{})", muted(is_muted))
 }
 
-fn output_line(output: &Output) -> String {
+fn output_line(config: &Config, output: &Output) -> String {
     device_line(
-        &output.description,
+        config.output_label(output),
         output.hardware,
         output.volume,
         output.muted,
     )
 }
 
-fn input_line(input: &Input) -> String {
+fn input_line(config: &Config, input: &Input) -> String {
     device_line(
-        &input.description,
+        &config.input_label(input),
         input.hardware,
         input.volume,
         input.muted,
@@ -87,21 +89,34 @@ fn write_rows(out: &mut String, title: &str, rows: &[(String, String)], arrow: &
     }
 }
 
-/// Name of a device for the stream lists: its description when known.
-fn output_name(state: &AudioState, id: &deskcheck_core::audio::DeviceId) -> String {
-    state
-        .output(id)
-        .map_or_else(|| id.to_string(), |output| output.description.clone())
+/// Name of a device for the stream lists, or its technical name when the
+/// device is not known.
+fn output_name(config: &Config, state: &AudioState, id: &DeviceId) -> String {
+    state.output(id).map_or_else(
+        || id.to_string(),
+        |output| config.output_label(output).to_owned(),
+    )
 }
 
-fn input_name(state: &AudioState, id: &deskcheck_core::audio::DeviceId) -> String {
-    state
-        .input(id)
-        .map_or_else(|| id.to_string(), |input| input.description.clone())
+fn input_name(config: &Config, state: &AudioState, id: &DeviceId) -> String {
+    state.input(id).map_or_else(
+        || id.to_string(),
+        |input| config.input_label(input).into_owned(),
+    )
+}
+
+/// Second line of a device in verbose mode: the technical name, and the
+/// name from the system when the user gave another one.
+fn technical(config: &Config, id: &DeviceId, description: &str) -> String {
+    if config.audio_name(id).is_some() {
+        format!("{description}, {id}")
+    } else {
+        id.to_string()
+    }
 }
 
 /// The problems this report can see, one line each, with a fix when there is one.
-fn problems(state: &AudioState) -> Vec<String> {
+fn problems(config: &Config, state: &AudioState) -> Vec<String> {
     let best_microphone = state
         .default_input_device()
         .filter(|input| !input.is_monitor())
@@ -112,13 +127,15 @@ fn problems(state: &AudioState) -> Vec<String> {
         let mut line = format!(
             "{} records \"{}\". This is a copy of an output, not a microphone: \
              in a call, nobody hears you.",
-            recording.app.name, monitor.description
+            recording.app.name,
+            config.input_label(monitor)
         );
         if let Some(mic) = best_microphone {
             let _ = write!(
                 line,
                 "\n    Fix: move {} to \"{}\".",
-                recording.app.name, mic.description
+                recording.app.name,
+                config.input_label(mic)
             );
         }
         problems.push(line);
@@ -126,14 +143,14 @@ fn problems(state: &AudioState) -> Vec<String> {
     if let Some(monitor) = state.default_input_monitor() {
         let mut line = format!(
             "The default input is \"{}\", a copy of an output, not a microphone.",
-            monitor.description
+            config.input_label(monitor)
         );
         match best_microphone {
             Some(mic) => {
                 let _ = write!(
                     line,
                     "\n    Fix: make \"{}\" the default input.",
-                    mic.description
+                    config.input_label(mic)
                 );
             }
             None => line.push_str("\n    No microphone is plugged in."),
@@ -144,15 +161,15 @@ fn problems(state: &AudioState) -> Vec<String> {
 }
 
 /// Builds the report shown by `deskcheck audio`.
-pub fn render(state: &AudioState, options: Options) -> String {
+pub fn render(state: &AudioState, config: &Config, options: Options) -> String {
     let mut out = String::new();
 
     let hear = state
         .default_output_device()
-        .map_or_else(|| "none".to_owned(), output_line);
+        .map_or_else(|| "none".to_owned(), |output| output_line(config, output));
     let heard = state
         .default_input_device()
-        .map_or_else(|| "none".to_owned(), input_line);
+        .map_or_else(|| "none".to_owned(), |input| input_line(config, input));
     let _ = writeln!(out, "You hear through    {hear}");
     let _ = writeln!(out, "They hear you via   {heard}");
 
@@ -160,13 +177,13 @@ pub fn render(state: &AudioState, options: Options) -> String {
         state
             .playbacks
             .iter()
-            .map(|p| (p.app.name.as_str(), output_name(state, &p.output))),
+            .map(|p| (p.app.name.as_str(), output_name(config, state, &p.output))),
     );
     let recording = group(
         state
             .recordings
             .iter()
-            .map(|r| (r.app.name.as_str(), input_name(state, &r.input))),
+            .map(|r| (r.app.name.as_str(), input_name(config, state, &r.input))),
     );
     write_rows(&mut out, "Applications playing", &playing, "->");
     write_rows(&mut out, "Applications recording", &recording, "<-");
@@ -174,7 +191,12 @@ pub fn render(state: &AudioState, options: Options) -> String {
     if options.verbose {
         let _ = writeln!(out, "\nAll outputs");
         for output in &state.outputs {
-            let _ = writeln!(out, "  {}\n    {}", output_line(output), output.id);
+            let _ = writeln!(
+                out,
+                "  {}\n    {}",
+                output_line(config, output),
+                technical(config, &output.id, &output.description)
+            );
         }
         let _ = writeln!(out, "\nAll inputs");
         for input in &state.inputs {
@@ -183,11 +205,16 @@ pub fn render(state: &AudioState, options: Options) -> String {
             } else {
                 "microphone"
             };
-            let _ = writeln!(out, "  {} [{kind}]\n    {}", input_line(input), input.id);
+            let _ = writeln!(
+                out,
+                "  {} [{kind}]\n    {}",
+                input_line(config, input),
+                technical(config, &input.id, &input.description)
+            );
         }
     }
 
-    let problems = problems(state);
+    let problems = problems(config, state);
     if problems.is_empty() {
         let _ = writeln!(out, "\nNo problem found.");
     } else {
@@ -203,7 +230,7 @@ pub fn render(state: &AudioState, options: Options) -> String {
 mod tests {
     use super::*;
     use deskcheck_core::audio::{
-        App, Connection, DeviceId, Form, Hardware, InputKind, Playback, Recording, StreamId,
+        App, Connection, Form, Hardware, InputKind, Playback, Recording, StreamId,
     };
 
     const SPEAKERS: &str = "alsa_output.pci-0000_00_1f.3.analog-stereo";
@@ -295,7 +322,10 @@ Applications recording
 
 No problem found.
 ";
-        assert_eq!(render(&home(), Options::default()), expected);
+        assert_eq!(
+            render(&home(), &Config::default(), Options::default()),
+            expected
+        );
     }
 
     #[test]
@@ -309,7 +339,7 @@ No problem found.
             volume: Volume::NORMAL,
             muted: false,
         });
-        let report = render(&state, Options::default());
+        let report = render(&state, &Config::default(), Options::default());
         assert!(report.contains(
             "  ! Firefox records \"Monitor of Built-in Audio Analog Stereo\". \
              This is a copy of an output, not a microphone: in a call, nobody hears you.\n    \
@@ -323,7 +353,7 @@ No problem found.
     fn a_monitor_as_default_input_is_reported() {
         let mut state = home();
         state.default_input = Some(DeviceId::new(MONITOR));
-        let report = render(&state, Options::default());
+        let report = render(&state, &Config::default(), Options::default());
         assert!(report.contains("They hear you via   Monitor of Built-in Audio Analog Stereo"));
         assert!(report.contains(
             "  ! The default input is \"Monitor of Built-in Audio Analog Stereo\", \
@@ -337,13 +367,13 @@ No problem found.
         let mut state = home();
         state.inputs.retain(Input::is_monitor);
         state.default_input = Some(DeviceId::new(MONITOR));
-        let report = render(&state, Options::default());
+        let report = render(&state, &Config::default(), Options::default());
         assert!(report.contains("    No microphone is plugged in."));
     }
 
     #[test]
     fn verbose_lists_every_device_with_its_technical_name() {
-        let report = render(&home(), Options { verbose: true });
+        let report = render(&home(), &Config::default(), Options { verbose: true });
         assert!(report.contains("All outputs\n  Built-in Audio Analog Stereo"));
         assert!(report.contains(&format!("    {SPEAKERS}\n")));
         assert!(report.contains("[monitor]"));
@@ -352,8 +382,58 @@ No problem found.
 
     #[test]
     fn empty_state() {
-        let report = render(&AudioState::default(), Options::default());
+        let report = render(
+            &AudioState::default(),
+            &Config::default(),
+            Options::default(),
+        );
         assert!(report.starts_with("You hear through    none\nThey hear you via   none\n"));
         assert!(report.ends_with("No problem found.\n"));
+    }
+
+    fn renamed() -> Config {
+        let mut config = Config::default();
+        config.set_audio_name(&DeviceId::new(SPEAKERS), Some("Laptop speakers".to_owned()));
+        config.set_audio_name(&DeviceId::new(MIC), Some("Laptop mic".to_owned()));
+        config
+    }
+
+    #[test]
+    fn given_names_are_shown_everywhere() {
+        let mut state = home();
+        state.recordings.push(Recording {
+            id: StreamId::new(42),
+            app: app("Firefox"),
+            media: None,
+            input: DeviceId::new(MONITOR),
+            volume: Volume::NORMAL,
+            muted: false,
+        });
+        let report = render(&state, &renamed(), Options::default());
+        assert!(report.starts_with(
+            "You hear through    Laptop speakers  (speakers (built-in), 142%)\n\
+             They hear you via   Laptop mic  (microphone (built-in), 100%)\n"
+        ));
+        assert!(report.contains("  Firefox (3 streams)        -> Laptop speakers\n"));
+        assert!(report.contains("  Firefox  <- Monitor of Laptop speakers\n"));
+        assert!(report.contains(
+            "  ! Firefox records \"Monitor of Laptop speakers\". \
+             This is a copy of an output, not a microphone: in a call, nobody hears you.\n    \
+             Fix: move Firefox to \"Laptop mic\"."
+        ));
+        assert!(!report.contains("Built-in Audio"));
+    }
+
+    #[test]
+    fn verbose_keeps_the_system_name_of_a_renamed_device() {
+        let report = render(&home(), &renamed(), Options { verbose: true });
+        assert!(report.contains(&format!(
+            "All outputs\n  Laptop speakers  (speakers (built-in), 142%)\n    \
+             Built-in Audio Analog Stereo, {SPEAKERS}\n"
+        )));
+        // The monitor has no name of its own: only its technical name.
+        assert!(report.contains(&format!(
+            "  Monitor of Laptop speakers  (speakers (built-in), 100%) [monitor]\n    {MONITOR}\n"
+        )));
     }
 }

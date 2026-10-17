@@ -292,6 +292,7 @@ name = "deskcheck"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "deskcheck-config",
  "deskcheck-core",
  "deskcheck-mutter",
  "deskcheck-pulse",

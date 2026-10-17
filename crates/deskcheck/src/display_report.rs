@@ -1,10 +1,12 @@
 //! Text report for `deskcheck displays`: which screen is which.
 //!
-//! [`render`] is a pure function of the screen state, so the report is
-//! tested without a GNOME session.
+//! [`render`] is a pure function of the screen state and the settings, so
+//! the report is tested without a GNOME session. Screens show the name the
+//! user gave them; `--verbose` also shows the name from GNOME.
 
 use std::fmt::Write as _;
 
+use deskcheck_config::Config;
 use deskcheck_core::display::{DisplayState, Screen};
 
 /// Options of the report.
@@ -23,7 +25,7 @@ struct Row {
     tags: String,
 }
 
-fn row(number: usize, screen: &Screen) -> Row {
+fn row(config: &Config, number: usize, screen: &Screen) -> Row {
     let mut tags = Vec::new();
     if screen.is_primary() {
         tags.push("primary");
@@ -33,7 +35,7 @@ fn row(number: usize, screen: &Screen) -> Row {
     }
     Row {
         number,
-        name: screen.name().to_owned(),
+        name: config.screen_label(screen).to_owned(),
         mode: screen
             .current_mode
             .map_or_else(|| "unknown mode".to_owned(), |mode| mode.to_string()),
@@ -45,9 +47,14 @@ fn row(number: usize, screen: &Screen) -> Row {
     }
 }
 
-/// Second line of a screen in verbose mode: identity, connector, position.
-fn details(screen: &Screen) -> String {
-    let mut line = format!("{} on {}", screen.id, screen.connector);
+/// Second line of a screen in verbose mode: the name from GNOME when the
+/// user gave another one, then identity, connector and position.
+fn details(config: &Config, screen: &Screen) -> String {
+    let mut line = String::new();
+    if config.screen_name(&screen.id).is_some() {
+        let _ = write!(line, "{}, ", screen.name());
+    }
+    let _ = write!(line, "{} on {}", screen.id, screen.connector);
     if let Some(placement) = screen.placement {
         let _ = write!(line, ", at ({}, {})", placement.x, placement.y);
     }
@@ -61,7 +68,7 @@ fn width(rows: &[Row], column: impl Fn(&Row) -> &str) -> usize {
         .unwrap_or(0)
 }
 
-fn write_screens_on(out: &mut String, state: &DisplayState, options: Options) {
+fn write_screens_on(out: &mut String, state: &DisplayState, config: &Config, options: Options) {
     let numbered = state.numbered();
     if numbered.is_empty() {
         let _ = writeln!(out, "No screen is on.");
@@ -69,7 +76,7 @@ fn write_screens_on(out: &mut String, state: &DisplayState, options: Options) {
     }
     let rows: Vec<Row> = numbered
         .iter()
-        .map(|&(number, screen)| row(number, screen))
+        .map(|&(number, screen)| row(config, number, screen))
         .collect();
     let name_width = width(&rows, |row| &row.name);
     let mode_width = width(&rows, |row| &row.mode);
@@ -83,12 +90,12 @@ fn write_screens_on(out: &mut String, state: &DisplayState, options: Options) {
         );
         let _ = writeln!(out, "{}", line.trim_end());
         if options.verbose {
-            let _ = writeln!(out, "      {}", details(screen));
+            let _ = writeln!(out, "      {}", details(config, screen));
         }
     }
 }
 
-fn write_screens_off(out: &mut String, state: &DisplayState, options: Options) {
+fn write_screens_off(out: &mut String, state: &DisplayState, config: &Config, options: Options) {
     let off: Vec<&Screen> = state.screens.iter().filter(|s| !s.is_enabled()).collect();
     if off.is_empty() {
         return;
@@ -96,19 +103,24 @@ fn write_screens_off(out: &mut String, state: &DisplayState, options: Options) {
     let _ = writeln!(out, "\nConnected but off");
     for screen in off {
         if options.verbose {
-            let _ = writeln!(out, "  {}", screen.name());
-            let _ = writeln!(out, "      {}", details(screen));
+            let _ = writeln!(out, "  {}", config.screen_label(screen));
+            let _ = writeln!(out, "      {}", details(config, screen));
         } else {
-            let _ = writeln!(out, "  {}  ({})", screen.name(), screen.connector);
+            let _ = writeln!(
+                out,
+                "  {}  ({})",
+                config.screen_label(screen),
+                screen.connector
+            );
         }
     }
 }
 
 /// Builds the whole report.
-pub fn render(state: &DisplayState, options: Options) -> String {
+pub fn render(state: &DisplayState, config: &Config, options: Options) -> String {
     let mut out = String::new();
-    write_screens_on(&mut out, state, options);
-    write_screens_off(&mut out, state, options);
+    write_screens_on(&mut out, state, config, options);
+    write_screens_off(&mut out, state, config, options);
     out
 }
 
@@ -211,7 +223,10 @@ Screens on, from left to right
    1  Built-in display          1920 x 1080 @ 60 Hz  100%  primary, built-in
    2  ASUSTek COMPUTER INC 27\"  2560 x 1440 @ 60 Hz  100%
 ";
-        assert_eq!(render(&home(), Options::default()), expected);
+        assert_eq!(
+            render(&home(), &Config::default(), Options::default()),
+            expected
+        );
     }
 
     #[test]
@@ -223,7 +238,10 @@ Screens on, from left to right
    2  ASUSTek COMPUTER INC 27\"  2560 x 1440 @ 60 Hz  100%
       XG27ACS (AUS, T2LMTF031523) on HDMI-1, at (1920, 0)
 ";
-        assert_eq!(render(&home(), Options { verbose: true }), expected);
+        assert_eq!(
+            render(&home(), &Config::default(), Options { verbose: true }),
+            expected
+        );
     }
 
     #[test]
@@ -236,12 +254,15 @@ Screens on, from left to right
 Connected but off
   Dell Inc. 24\"  (HDMI-1)
 ";
-        assert_eq!(render(&office(), Options::default()), expected);
+        assert_eq!(
+            render(&office(), &Config::default(), Options::default()),
+            expected
+        );
     }
 
     #[test]
     fn office_screens_verbose() {
-        let report = render(&office(), Options { verbose: true });
+        let report = render(&office(), &Config::default(), Options { verbose: true });
         assert!(report.contains("      DELL U2419H (DEL, ABC1234) on DP-1, at (1536, 0)\n"));
         assert!(report.ends_with(
             "Connected but off\n  Dell Inc. 24\"\n      DELL P2422H (DEL, XYZ987) on HDMI-1\n"
@@ -251,8 +272,32 @@ Connected but off
     #[test]
     fn no_screen() {
         assert_eq!(
-            render(&DisplayState::default(), Options::default()),
+            render(
+                &DisplayState::default(),
+                &Config::default(),
+                Options::default()
+            ),
             "No screen is on.\n"
+        );
+    }
+
+    #[test]
+    fn given_names_are_shown_and_gnome_names_kept_in_verbose() {
+        let mut config = Config::default();
+        config.set_screen_name(
+            &ScreenId::new("AUS", "XG27ACS", "T2LMTF031523"),
+            Some("Big screen".to_owned()),
+        );
+        let expected = "\
+Screens on, from left to right
+   1  Built-in display  1920 x 1080 @ 60 Hz  100%  primary, built-in
+      0x0764 (LGD) on eDP-1, at (0, 0)
+   2  Big screen        2560 x 1440 @ 60 Hz  100%
+      ASUSTek COMPUTER INC 27\", XG27ACS (AUS, T2LMTF031523) on HDMI-1, at (1920, 0)
+";
+        assert_eq!(
+            render(&home(), &config, Options { verbose: true }),
+            expected
         );
     }
 }
