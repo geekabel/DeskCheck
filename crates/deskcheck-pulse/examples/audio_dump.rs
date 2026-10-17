@@ -17,10 +17,12 @@ fn print(state: &AudioState) {
     for output in &state.outputs {
         let muted = if output.muted { ", muted" } else { "" };
         println!(
-            " {} {} [{}{muted}]\n     {}",
+            " {} {} [{}{muted}]\n     {}, icon {}\n     {}",
             mark(state.default_output.as_ref(), &output.id),
             output.description,
             output.volume,
+            output.hardware,
+            output.hardware.icon_name(),
             output.id
         );
     }
@@ -33,10 +35,12 @@ fn print(state: &AudioState) {
             InputKind::Monitor { of } => format!("MONITOR of {of}"),
         };
         println!(
-            " {} {} [{}{muted}] ({kind})\n     {}",
+            " {} {} [{}{muted}] ({kind})\n     {}, icon {}\n     {}",
             mark(state.default_input.as_ref(), &input.id),
             input.description,
             input.volume,
+            input.hardware,
+            input.hardware.icon_name(),
             input.id
         );
     }
