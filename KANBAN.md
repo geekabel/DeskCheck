@@ -9,9 +9,9 @@ Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-15, DC-16, DC-17 |
-| 📋 Backlog | DC-18 à DC-37 |
-| 🖥️ À tester sur ton PC | aucune |
+| 🔜 À faire (prochaines) | DC-16, DC-17, DC-18 |
+| 📋 Backlog | DC-19 à DC-37 |
+| 🖥️ À tester sur ton PC | DC-15 |
 | ✅ Terminé | DC-01 à DC-14 |
 
 ---
@@ -67,11 +67,6 @@ _Aucune tâche._
 
 ## 🔜 À faire (prochaines)
 
-### DC-15 · Tester le son et le micro
-- **Critères**
-  - [ ] Jouer un son court sur une sortie.
-  - [ ] Enregistrer 3 secondes sur un micro, puis les réécouter.
-
 ### DC-16 · Événements en direct
 - **Critères**
   - [ ] Abonnement aux changements PulseAudio (appareil branché, flux nouveau).
@@ -84,6 +79,11 @@ _Aucune tâche._
 - **Critères**
   - [ ] Fenêtre vide avec barre d'en-tête, construite dans la CI Ubuntu 22.04.
 
+### DC-18 · Structure de l'application
+- **Critères**
+  - [ ] `AdwApplication`, barre latérale à 5 sections, badge du lieu.
+  - [ ] Le travail système tourne hors du fil de l'interface, résultats envoyés à l'interface.
+
 ---
 
 ## 📋 Backlog
@@ -91,11 +91,6 @@ _Aucune tâche._
 ### Phase 5 · Agir sur le son
 
 ### Phase 6 · Interface graphique
-
-#### DC-18 · Structure de l'application
-- **Critères**
-  - [ ] `AdwApplication`, barre latérale à 5 sections, badge du lieu.
-  - [ ] Le travail système tourne hors du fil de l'interface, résultats envoyés à l'interface.
 
 #### DC-19 · Page « Maintenant »
 - **Critères**
@@ -203,7 +198,26 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-_Aucune tâche._
+### DC-15 · Tester le son et le micro
+- **But** : vérifier en quelques secondes qu'une sortie joue et qu'un micro entend.
+- **Docs lues** : `libpulse-binding` 2.30 (`connect_playback`, `write_copy`, `writable_size`,
+  `drain`, `BufferAttr` : `tlength` et `prebuf`), doc Rust (`f32::to_le_bytes`,
+  `std::io::Write` et l'erreur de tuyau fermé).
+- **Critères**
+  - [x] Jouer un son court sur une sortie : `deskcheck test output [QUOI]` (un carillon de 0,6 s).
+  - [x] Enregistrer 3 secondes sur un micro, puis les réécouter : `deskcheck test input [QUOI]`
+    (`--seconds N` jusqu'à 10). L'enregistrement reste en mémoire, jamais sur le disque.
+  - [x] Dit le niveau le plus fort entendu ; presque rien (sous -50 dB) : le dit et propose `levels`.
+  - [x] Prévient avant si l'appareil est coupé ou à 0 %.
+  - [x] Testé ici sur un serveur PulseAudio de test : le carillon arrive bien sur la sortie,
+    l'enregistrement est bien rejoué.
+- **Décisions**
+  - Latence de lecture de 100 ms : par défaut le serveur attend 2 s de son avant de jouer.
+  - Sur le serveur de test, la commande dure 2 s : la sortie de test (`module-null-sink`) a
+    2 s de latence. Une vraie carte son en a quelques dizaines de millisecondes.
+  - Correction au passage : `deskcheck audio | head` ne plante plus (tuyau fermé ignoré).
+- **À tester** : `cargo run -p deskcheck -- test output` (tu dois entendre deux notes), puis
+  `cargo run -p deskcheck -- test input` : parle pendant 3 secondes, tu dois te réentendre.
 
 ---
 
