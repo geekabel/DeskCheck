@@ -4,15 +4,15 @@ Ce fichier suit toutes les tâches jusqu'à la version 0.1.0.
 On le met à jour à la fin de chaque tâche, dans la même branche que la tâche.
 Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact/SEKGtbp6ACVXhpff8rK89i) (privé, mis à jour en même temps).
 
-**Avancement : 6 / 37 tâches terminées**
+**Avancement : 7 / 37 tâches terminées**
 
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
 | 🔜 À faire (prochaines) | DC-08, DC-09, DC-10 |
 | 📋 Backlog | DC-11 à DC-37 |
-| 🖥️ À tester sur ton PC | DC-07 |
-| ✅ Terminé | DC-01 à DC-06 |
+| 🖥️ À tester sur ton PC | aucune |
+| ✅ Terminé | DC-01 à DC-07 |
 
 ---
 
@@ -236,6 +236,7 @@ _Aucune tâche._
 - **Critères**
   - [ ] Parcours A à D validés au bureau et à la maison (voir le croquis UX).
   - [ ] Classement du casque, de la webcam et de l'écran du bureau (reste de DC-05).
+  - [ ] Lecture des écrans au bureau avec l'écran externe (reste de DC-07).
 
 #### DC-37 · Version 0.1.0
 - **Critères**
@@ -245,30 +246,7 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-### DC-07 · Lecture des écrans via Mutter 🧪
-- **But** : lire les écrans avec `org.gnome.Mutter.DisplayConfig.GetCurrentState`.
-- **Docs lues** : `zbus` 5.13 (API bloquante, macro `proxy`, macro `interface` et `out_args`,
-  connexions pair à pair, `method_timeout`, types d'erreur), `zvariant` (`OwnedValue`),
-  XML de l'interface DisplayConfig de Mutter (signature de `GetCurrentState`).
-- **Critères**
-  - [x] Connecteur, fabricant, modèle, série, mode actuel, écran intégré, nom affiché,
-    position, échelle, écran principal (nouvelle caisse `deskcheck-mutter`).
-  - [x] Message clair si la session n'est pas GNOME, testé ici sur un vrai bus de session.
-  - [x] Appel arrêté après 5 secondes si GNOME ne répond pas.
-  - [x] Tests sans GNOME : 12 tests unitaires et 3 tests de bout en bout avec un faux Mutter
-    (connexion D-Bus pair à pair, comme le test `iface_and_proxy_unix_p2p` de zbus).
-  - [ ] Testé sur le PC de Godwin (session GNOME, Ubuntu 22.04), au bureau et à la maison.
-- **Comment tester** :
-  ```sh
-  cargo run -p deskcheck-mutter --example display_dump
-  cargo test -p deskcheck-mutter -- --ignored
-  ```
-  Le mieux : au bureau avec l'écran externe branché, puis à la maison.
-- **Décisions**
-  - zbus 5.13 (et pas 6) : choisi par le résolveur de Cargo, car compatible avec Rust 1.85.
-  - API bloquante de zbus : une lecture ponctuelle n'a pas besoin d'async.
-  - Un écran qu'aucun « logical monitor » ne liste est branché mais éteint.
-  - Les écrans en miroir partagent la même position.
+_Aucune tâche._
 
 ---
 
@@ -385,3 +363,23 @@ _Aucune tâche._
   - Deux premières règles dans le cœur (`recordings_from_monitors`, `default_input_monitor`),
     reprises par le moteur de diagnostic (DC-11).
   - Code de sortie : 0 si le serveur son répond, 1 sinon.
+
+### DC-07 · Lecture des écrans via Mutter
+- **But** : lire les écrans avec `org.gnome.Mutter.DisplayConfig.GetCurrentState`.
+- **Docs lues** : `zbus` 5.13 (API bloquante, macro `proxy`, macro `interface` et `out_args`,
+  connexions pair à pair, `method_timeout`, types d'erreur), `zvariant` (`OwnedValue`),
+  XML de l'interface DisplayConfig de Mutter (signature de `GetCurrentState`).
+- **Critères**
+  - [x] Connecteur, fabricant, modèle, série, mode actuel, écran intégré, nom affiché,
+    position, échelle, écran principal (nouvelle caisse `deskcheck-mutter`).
+  - [x] Message clair si la session n'est pas GNOME, testé ici sur un vrai bus de session.
+  - [x] Appel arrêté après 5 secondes si GNOME ne répond pas.
+  - [x] Tests sans GNOME : 12 tests unitaires et 3 tests de bout en bout avec un faux Mutter
+    (connexion D-Bus pair à pair, comme le test `iface_and_proxy_unix_p2p` de zbus).
+  - [x] Testé sur le PC de Godwin à la maison (17 oct. 2026) : portable LGD sur eDP-1 (principal),
+    ASUS XG27ACS 27" sur HDMI-1 ; le test `--ignored` passe. Bureau : à faire pendant DC-36.
+- **Décisions**
+  - zbus 5.13 (et pas 6) : choisi par le résolveur de Cargo, car compatible avec Rust 1.85.
+  - API bloquante de zbus : une lecture ponctuelle n'a pas besoin d'async.
+  - Un écran qu'aucun « logical monitor » ne liste est branché mais éteint.
+  - Les écrans en miroir partagent la même position.
