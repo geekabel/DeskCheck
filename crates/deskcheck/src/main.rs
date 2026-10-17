@@ -7,6 +7,7 @@ use deskcheck_config::{Config, Store};
 
 mod audio_report;
 mod display_report;
+mod doctor;
 mod rename;
 
 /// See and fix your sound devices and screens.
@@ -33,6 +34,15 @@ enum Command {
         /// Also show each screen's identity, connector and position.
         #[arg(short, long)]
         verbose: bool,
+    },
+    /// Find the sound problems and say how to fix them.
+    ///
+    /// Exit code: 0 when there is no problem, 1 when the sound server
+    /// cannot be read, 2 when problems are found (or left after --fix).
+    Doctor {
+        /// Apply the fixes DeskCheck can do, then check again.
+        #[arg(long)]
+        fix: bool,
     },
     /// Give a name to a sound device or a screen, or remove it.
     ///
@@ -94,6 +104,30 @@ fn settings() -> Config {
     }
 }
 
+/// Exit code when problems are found.
+const PROBLEMS_FOUND: u8 = 2;
+
+/// Runs `deskcheck doctor`. Returns the report and whether problems are
+/// left.
+fn run_doctor(fix: bool) -> Result<(String, bool), String> {
+    let config = settings();
+    let state = deskcheck_pulse::read_state().map_err(|error| error.to_string())?;
+    let findings = deskcheck_core::audio::diagnose(&state);
+    if !fix || doctor::automatic_fixes(&findings).is_empty() {
+        let report = doctor::render_check(&config, &state, &findings);
+        return Ok((report, !findings.is_empty()));
+    }
+    let outcomes = doctor::fix_all(&findings, |fix| {
+        let action = deskcheck_pulse::Action::from_fix(fix)
+            .ok_or_else(|| "DeskCheck cannot do this fix itself.".to_owned())?;
+        deskcheck_pulse::apply(&action).map_err(|error| error.to_string())
+    });
+    let after = deskcheck_pulse::read_state().map_err(|error| error.to_string())?;
+    let left = deskcheck_core::audio::diagnose(&after);
+    let report = doctor::render_fixed(&config, &state, &findings, &outcomes, &left);
+    Ok((report, !left.is_empty()))
+}
+
 /// Renames, then saves the settings. The file is not touched when
 /// anything fails, and a broken file is never overwritten.
 fn run_rename(what: RenameWhat) -> Result<String, String> {
@@ -145,6 +179,20 @@ fn main() -> ExitCode {
         Command::Displays { verbose } => show(deskcheck_mutter::read_state(), |state| {
             display_report::render(state, &settings(), display_report::Options { verbose })
         }),
+        Command::Doctor { fix } => match run_doctor(fix) {
+            Ok((report, problems_left)) => {
+                print!("{report}");
+                if problems_left {
+                    ExitCode::from(PROBLEMS_FOUND)
+                } else {
+                    ExitCode::SUCCESS
+                }
+            }
+            Err(error) => {
+                eprintln!("deskcheck: {error}");
+                ExitCode::FAILURE
+            }
+        },
         Command::Rename { what } => show(run_rename(what), String::clone),
     }
 }
@@ -173,6 +221,14 @@ mod tests {
         assert!(matches!(cli.command, Command::Displays { verbose: true }));
         let cli = Cli::try_parse_from(["deskcheck", "displays"]).unwrap();
         assert!(matches!(cli.command, Command::Displays { verbose: false }));
+    }
+
+    #[test]
+    fn doctor_command_and_fix_flag() {
+        let cli = Cli::try_parse_from(["deskcheck", "doctor"]).unwrap();
+        assert!(matches!(cli.command, Command::Doctor { fix: false }));
+        let cli = Cli::try_parse_from(["deskcheck", "doctor", "--fix"]).unwrap();
+        assert!(matches!(cli.command, Command::Doctor { fix: true }));
     }
 
     #[test]

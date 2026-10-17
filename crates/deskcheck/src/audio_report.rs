@@ -136,7 +136,7 @@ fn target_name(config: &Config, state: &AudioState, target: &Target) -> String {
 }
 
 /// The problem, in one sentence.
-fn problem_text(config: &Config, state: &AudioState, problem: &Problem) -> String {
+pub(crate) fn problem_text(config: &Config, state: &AudioState, problem: &Problem) -> String {
     let name = |id: &DeviceId| device_name(config, state, id);
     match problem {
         Problem::RecordsMonitor { app, monitor, .. } => format!(
@@ -177,7 +177,7 @@ fn problem_text(config: &Config, state: &AudioState, problem: &Problem) -> Strin
 }
 
 /// The fix, as an instruction.
-fn fix_text(config: &Config, state: &AudioState, fix: &Fix) -> String {
+pub(crate) fn fix_text(config: &Config, state: &AudioState, fix: &Fix) -> String {
     match fix {
         Fix::MoveRecording { stream, to } => {
             let app = state
