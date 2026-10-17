@@ -8,6 +8,7 @@ edition = "2024"
 # Edition 2024 needs Rust 1.85. Keep in sync with the `msrv` job in CI.
 rust-version = "1.85"
 authors = ["Godwin <koffigodwin96@gmail.com>"]
+license = "MIT"
 repository = "https://github.com/geekabel/DeskCheck"
 publish = false
 
