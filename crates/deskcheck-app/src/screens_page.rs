@@ -3,10 +3,12 @@
 //! as in the design.
 //!
 //! The name and the color are saved at once in the settings file. The
-//! layout, the primary screen, the resolution and the scale are shown as
-//! they are: changing them comes in a later version (DC-25).
+//! layout (tabs of the header bar), the primary screen, the resolution,
+//! the scale and the place (drag a screen in the map) go to GNOME through
+//! the backend (DC-25). GNOME then asks to keep the change, and goes back
+//! after 20 seconds without an answer.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::fmt::Write as _;
 use std::rc::Rc;
 
@@ -17,7 +19,9 @@ use deskcheck_core::display::{DisplayState, Screen, ScreenId};
 
 use crate::backend::{Backend, Request};
 use crate::now_model::screen_color;
-use crate::screens_model::{self, Layout, MapTile, SWATCHES, TileSize};
+use deskcheck_mutter::setup::{Arrangement, Change, Setup};
+
+use crate::screens_model::{self, Layout, MapGeometry, MapTile, SWATCHES, TileSize};
 use crate::ui::{self, ButtonKind, TagKind};
 
 /// Room for the screens in the map, in pixels.
@@ -27,7 +31,10 @@ const MAP_ROOM: (i32, i32) = (800, 200);
 const MAP_GAP: i32 = 20;
 
 /// The line under the map.
-const HINT: &str = "Click a screen to see its settings · Double-click to identify it alone";
+const HINT: &str = "Drag a screen to place it · Double-click to identify it alone";
+
+/// A drag shorter than this, in pixels, is a click.
+const DRAG_THRESHOLD: f64 = 6.0;
 
 /// Where the list of makers of the system is (package `hwdata`).
 const PNP_IDS: &str = "/usr/share/hwdata/pnp.ids";
@@ -50,21 +57,37 @@ fn field(card: &gtk::Box, label: &str, control: &impl IsA<gtk::Widget>, first: b
     card.append(&line);
 }
 
-/// A list that shows one value, greyed: changing it comes in a later
-/// version (DC-25).
-fn value_list(values: &gtk::StringList) -> gtk::DropDown {
-    gtk::DropDown::builder()
-        .model(values)
+/// A list to choose a value, with its texts.
+fn choice_list() -> (gtk::DropDown, gtk::StringList) {
+    let values = gtk::StringList::new(&[]);
+    let list = gtk::DropDown::builder()
+        .model(&values)
         .hexpand(true)
-        .sensitive(false)
         .css_classes(["dc-input"])
-        .tooltip_text("Changing it comes in a later version")
-        .build()
+        .build();
+    (list, values)
 }
 
-/// Shows a value in a list made by [`value_list`].
-fn show_value(values: &gtk::StringList, value: &str) {
-    values.splice(0, values.n_items(), &[value]);
+/// Fills a list made by [`choice_list`] and selects the value in use.
+fn fill_list<T>(
+    list: &gtk::DropDown,
+    values: &gtk::StringList,
+    choices: &[screens_model::Choice<T>],
+) {
+    let labels: Vec<&str> = choices.iter().map(|c| c.label.as_str()).collect();
+    values.splice(0, values.n_items(), &labels);
+    let at = choices.iter().position(|c| c.current).unwrap_or(0);
+    list.set_selected(u32::try_from(at).unwrap_or(0));
+    list.set_sensitive(choices.len() > 1);
+}
+
+/// The arrangement GNOME applies for a tab of the header bar.
+fn arrangement(layout: Layout) -> Arrangement {
+    match layout {
+        Layout::Extended => Arrangement::Extend,
+        Layout::Mirrored => Arrangement::Mirror,
+        Layout::Single => Arrangement::Single,
+    }
 }
 
 /// The value of a line of "How DeskCheck recognizes it".
@@ -86,8 +109,10 @@ struct Settings {
     name: gtk::Entry,
     swatches: Vec<(Color, gtk::Button)>,
     primary: gtk::CheckButton,
-    resolution: gtk::StringList,
-    scale: gtk::StringList,
+    resolution: gtk::DropDown,
+    resolutions: gtk::StringList,
+    scale: gtk::DropDown,
+    scales: gtk::StringList,
     speaker_name: gtk::Label,
     speaker_system: gtk::Label,
     speaker_use: gtk::Button,
@@ -112,6 +137,13 @@ struct Current {
     config: Config,
     screens: Option<DisplayState>,
     sound: Option<AudioState>,
+    setup: Option<Setup>,
+    /// The connector of the shown screen, and the values of its lists.
+    connector: Option<String>,
+    resolution_values: Vec<String>,
+    scale_values: Vec<f64>,
+    /// How the map is drawn, to turn a drop into a place on the desktop.
+    geometry: Option<MapGeometry>,
 }
 
 /// The Screens page.
@@ -131,6 +163,8 @@ pub struct ScreensPage {
     backend: Backend,
     pnp_ids: Option<String>,
     current: RefCell<Current>,
+    /// `true` while the page itself sets its controls.
+    updating: Cell<bool>,
 }
 
 impl ScreensPage {
@@ -145,14 +179,13 @@ impl ScreensPage {
             .spacing(2)
             .css_classes(["dc-seg"])
             .valign(gtk::Align::Center)
-            .tooltip_text("Changing the layout comes in a later version")
             .build();
         let mut layout_buttons: Vec<(Layout, gtk::ToggleButton)> = Vec::new();
         for layout in Layout::ALL {
-            let button = gtk::ToggleButton::builder()
-                .label(layout.tab())
-                .can_target(false)
-                .build();
+            let button = gtk::ToggleButton::builder().label(layout.tab()).build();
+            if let Some((_, first)) = layout_buttons.first() {
+                button.set_group(Some(first));
+            }
             tabs.append(&button);
             layout_buttons.push((layout, button));
         }
@@ -257,14 +290,13 @@ impl ScreensPage {
             .collect();
         field(&left, "Marker color", &swatch_row, false);
         let primary = gtk::CheckButton::builder()
-            .sensitive(false)
-            .tooltip_text("Changing the primary screen comes in a later version")
+            .tooltip_text("The primary screen has the top bar")
             .build();
         field(&left, "Primary screen", &primary, false);
-        let resolution = gtk::StringList::new(&[]);
-        field(&left, "Resolution", &value_list(&resolution), false);
-        let scale = gtk::StringList::new(&[]);
-        field(&left, "Scale", &value_list(&scale), false);
+        let (resolution, resolutions) = choice_list();
+        field(&left, "Resolution", &resolution, false);
+        let (scale, scales) = choice_list();
+        field(&left, "Scale", &scale, false);
 
         let right = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
@@ -359,7 +391,9 @@ impl ScreensPage {
                 swatches,
                 primary,
                 resolution,
+                resolutions,
                 scale,
+                scales,
                 speaker_name,
                 speaker_system,
                 speaker_use,
@@ -377,6 +411,7 @@ impl ScreensPage {
             backend,
             pnp_ids: std::fs::read_to_string(PNP_IDS).ok(),
             current: RefCell::default(),
+            updating: Cell::new(false),
         });
         page.connect();
         page
@@ -397,6 +432,66 @@ impl ScreensPage {
             let color = *color;
             swatch.connect_clicked(move |_| page.save_color(color));
         }
+        for (layout, button) in &self.layout_buttons {
+            let page = Rc::clone(self);
+            let layout = *layout;
+            button.connect_toggled(move |button| {
+                if button.is_active() && !page.updating.get() {
+                    page.ask(Change::Arrange(arrangement(layout)));
+                }
+            });
+        }
+        let page = Rc::clone(self);
+        self.settings.primary.connect_toggled(move |check| {
+            if page.updating.get() || !check.is_active() {
+                return;
+            }
+            if let Some(connector) = page.current.borrow().connector.clone() {
+                page.ask(Change::Primary(connector));
+            }
+        });
+        let page = Rc::clone(self);
+        self.settings
+            .resolution
+            .connect_selected_notify(move |list| {
+                if page.updating.get() {
+                    return;
+                }
+                let change = {
+                    let current = page.current.borrow();
+                    let mode = usize::try_from(list.selected())
+                        .ok()
+                        .and_then(|at| current.resolution_values.get(at).cloned());
+                    current
+                        .connector
+                        .clone()
+                        .zip(mode)
+                        .map(|(connector, mode)| Change::Mode { connector, mode })
+                };
+                if let Some(change) = change {
+                    page.ask(change);
+                }
+            });
+        let page = Rc::clone(self);
+        self.settings.scale.connect_selected_notify(move |list| {
+            if page.updating.get() {
+                return;
+            }
+            let change = {
+                let current = page.current.borrow();
+                let scale = usize::try_from(list.selected())
+                    .ok()
+                    .and_then(|at| current.scale_values.get(at).copied());
+                current
+                    .connector
+                    .clone()
+                    .zip(scale)
+                    .map(|(connector, scale)| Change::Scale { connector, scale })
+            };
+            if let Some(change) = change {
+                page.ask(change);
+            }
+        });
         let page = Rc::clone(self);
         self.settings.speaker_use.connect_clicked(move |_| {
             if let Some(output) = page.current.borrow().speakers.clone() {
@@ -404,6 +499,31 @@ impl ScreensPage {
                     .request(Request::SetDefault(Target::Output(output)));
             }
         });
+    }
+
+    /// Asks GNOME for a change of the screens.
+    fn ask(&self, change: Change) {
+        self.backend.request(Request::Screens(change));
+    }
+
+    /// Shows the last state again: after a drag, the screens go back to
+    /// their place until GNOME says where they are.
+    fn show_again(self: &Rc<Self>) {
+        let (config, screens, sound, setup) = {
+            let current = self.current.borrow();
+            (
+                current.config.clone(),
+                current.screens.clone(),
+                current.sound.clone(),
+                current.setup.clone(),
+            )
+        };
+        self.show(
+            &config,
+            screens.map(Ok).as_ref(),
+            sound.map(Ok).as_ref(),
+            setup.as_ref(),
+        );
     }
 
     /// Saves the name typed, when it changed. A blank name gives the
@@ -458,12 +578,14 @@ impl ScreensPage {
         config: &Config,
         screens: Option<&Result<DisplayState, String>>,
         sound: Option<&Result<AudioState, String>>,
+        setup: Option<&Setup>,
     ) {
         {
             let mut current = self.current.borrow_mut();
             current.config = config.clone();
             current.screens = screens.and_then(|s| s.as_ref().ok()).cloned();
             current.sound = sound.and_then(|s| s.as_ref().ok()).cloned();
+            current.setup = setup.cloned();
         }
         while let Some(child) = self.map.first_child() {
             self.map.remove(&child);
@@ -480,9 +602,15 @@ impl ScreensPage {
             }
         };
         let current_layout = screens_model::layout(state);
+        self.updating.set(true);
         for (layout, button) in &self.layout_buttons {
-            button.set_active(Some(*layout) == current_layout);
+            if Some(*layout) == current_layout {
+                button.set_active(true);
+            }
         }
+        self.updating.set(false);
+        // Only GNOME can change the screens, and only when it said how.
+        self.tabs.set_sensitive(setup.is_some());
         let chosen = self.current.borrow().chosen.clone();
         let Some((_, screen)) = screens_model::selected(state, chosen.as_ref()) else {
             self.empty("No screen is on.");
@@ -492,6 +620,8 @@ impl ScreensPage {
         self.details.set_visible(true);
 
         let tiles = screens_model::layout_map(config, state, MAP_ROOM.0, MAP_ROOM.1, MAP_GAP);
+        self.current.borrow_mut().geometry =
+            screens_model::map_geometry(state, MAP_ROOM.0, MAP_ROOM.1, MAP_GAP);
         let mut css = String::new();
         let mut widgets = Vec::new();
         for tile in &tiles {
@@ -637,7 +767,72 @@ impl ScreensPage {
             page.show_chosen();
         });
         widget.add_controller(click);
+        self.add_drag(&widget, tile);
         widget
+    }
+
+    /// Lets a screen be dragged in the map. On the drop, GNOME is asked to
+    /// put it there; it touches the nearest screen without covering one.
+    fn add_drag(self: &Rc<Self>, widget: &gtk::Box, tile: &MapTile) {
+        let drag = gtk::GestureDrag::new();
+        let start = (f64::from(tile.x), f64::from(tile.y));
+        let connector = self
+            .current
+            .borrow()
+            .screens
+            .as_ref()
+            .and_then(|state| state.screen(&tile.id))
+            .map(|screen| screen.connector.clone());
+        let page = Rc::clone(self);
+        let moving = widget.clone();
+        drag.connect_drag_update(move |_, dx, dy| {
+            if dx.hypot(dy) >= DRAG_THRESHOLD {
+                page.map.move_(&moving, start.0 + dx, start.1 + dy);
+            }
+        });
+        let page = Rc::clone(self);
+        drag.connect_drag_end(move |_, dx, dy| {
+            if dx.hypot(dy) < DRAG_THRESHOLD {
+                return;
+            }
+            let geometry = page.current.borrow().geometry;
+            if let (Some(geometry), Some(connector)) = (geometry, connector.clone()) {
+                let (x, y) = geometry.to_desktop(start.0 + dx, start.1 + dy);
+                page.ask(Change::Move { connector, x, y });
+            }
+            // Back to its place until GNOME says where it is: not now, the
+            // screen being dragged is still handling this signal.
+            let page = Rc::clone(&page);
+            gtk::glib::idle_add_local_once(move || page.show_again());
+        });
+        widget.add_controller(drag);
+    }
+
+    /// Fills the primary box, the resolutions and the scales of a screen.
+    fn show_display_settings(&self, state: &DisplayState, screen: &Screen) {
+        let settings = &self.settings;
+        let setup = self.current.borrow().setup.clone();
+        let monitor = setup.as_ref().and_then(|s| s.monitor(&screen.connector));
+        let resolutions = monitor
+            .map(screens_model::resolution_choices)
+            .unwrap_or_default();
+        let scale = screen.placement.map_or(1.0, |p| p.scale);
+        let scales = monitor
+            .map(|m| screens_model::scale_choices(m, scale))
+            .unwrap_or_default();
+        self.updating.set(true);
+        settings.primary.set_active(screen.is_primary());
+        // The primary screen stays primary until another one is chosen.
+        settings
+            .primary
+            .set_sensitive(setup.is_some() && !screen.is_primary() && state.enabled().len() > 1);
+        fill_list(&settings.resolution, &settings.resolutions, &resolutions);
+        fill_list(&settings.scale, &settings.scales, &scales);
+        self.updating.set(false);
+        let mut current = self.current.borrow_mut();
+        current.connector = Some(screen.connector.clone());
+        current.resolution_values = resolutions.into_iter().map(|c| c.value).collect();
+        current.scale_values = scales.into_iter().map(|c| c.value).collect();
     }
 
     /// Fills the two cards with the shown screen.
@@ -656,19 +851,7 @@ impl ScreensPage {
             settings.name.set_text(label);
         }
         self.current.borrow_mut().shown = Some((screen.id.clone(), screen.name().to_owned()));
-        settings.primary.set_active(screen.is_primary());
-        show_value(
-            &settings.resolution,
-            &screen
-                .current_mode
-                .map_or_else(|| "Off".to_owned(), screens_model::mode_label),
-        );
-        show_value(
-            &settings.scale,
-            &screen
-                .placement
-                .map_or_else(String::new, |p| screens_model::scale_label(p.scale)),
-        );
+        self.show_display_settings(state, screen);
 
         let sound = self.current.borrow().sound.clone();
         let speakers = sound.as_ref().and_then(|sound| {

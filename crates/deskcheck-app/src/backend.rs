@@ -17,6 +17,7 @@ use std::time::{Duration, Instant};
 use deskcheck_core::audio::{AudioState, DeviceId, Fix, InputKind, StreamId, Target, Volume, tone};
 use deskcheck_core::display::DisplayState;
 use deskcheck_core::events::{Change, coalesce};
+use deskcheck_mutter::setup::{Change as ScreenChange, Setup};
 use deskcheck_pulse::{Action, Meters, ServerKind};
 
 /// How long to gather a burst of changes before reading again.
@@ -37,6 +38,8 @@ pub enum Update {
     Sound(Result<AudioState, String>),
     /// The screens, read again.
     Screens(Result<DisplayState, String>),
+    /// What is needed to change the screens: every mode, every scale.
+    Setup(Option<Setup>),
     /// A new peak of a level meter, from 0.0 to 1.0.
     Peak {
         /// The source measured: a microphone, or the monitor of an output.
@@ -68,6 +71,8 @@ pub enum Request {
     Meter(MeterScope),
     /// Apply a fix of the diagnosis.
     Fix(Fix),
+    /// Change the screens: layout, primary, mode, scale, place.
+    Screens(ScreenChange),
     /// Move an app that plays to another output.
     MovePlayback {
         /// The stream of the app.
@@ -120,8 +125,21 @@ fn read_sound() -> Result<AudioState, String> {
     deskcheck_pulse::read_state().map_err(|error| error.to_string())
 }
 
-fn read_screens() -> Update {
-    Update::Screens(deskcheck_mutter::read_state().map_err(|error| error.to_string()))
+/// Reads the screens, and what is needed to change them.
+fn send_screens(send: &impl Fn(Update) -> bool) -> bool {
+    send(Update::Screens(
+        deskcheck_mutter::read_state().map_err(|error| error.to_string()),
+    )) && send(Update::Setup(deskcheck_mutter::read_setup().ok()))
+}
+
+/// Changes the screens. GNOME then asks the user to keep the change.
+fn change_screens(change: &ScreenChange) -> String {
+    match deskcheck_mutter::apply(change) {
+        Ok(()) => "Keep the change in the dialog of GNOME: without an answer, the screens go \
+                   back in 20 s."
+            .to_owned(),
+        Err(error) => error_text(&error),
+    }
 }
 
 /// Starts the backend thread. It stops when the interface is gone.
@@ -225,7 +243,7 @@ impl MeterSet {
     }
 }
 
-fn error_text(error: &deskcheck_pulse::Error) -> String {
+fn error_text(error: &impl std::fmt::Display) -> String {
     let mut text = error.to_string();
     if let Some(first) = text.get(..1) {
         let upper = first.to_uppercase();
@@ -282,6 +300,7 @@ fn apply(request: &Request) -> Option<String> {
         },
         Request::Fix(fix) => Action::from_fix(fix)?,
         Request::Refresh
+        | Request::Screens(_)
         | Request::Meter(_)
         | Request::TestOutput(_)
         | Request::TestInput { .. } => return None,
@@ -313,7 +332,7 @@ fn run(
     let server = deskcheck_pulse::server_kind().map_err(|error| error.to_string());
     if !(send(Update::SoundServer(server))
         && send_sound(&mut meters, &mut last)
-        && send(read_screens()))
+        && send_screens(&send))
     {
         return;
     }
@@ -348,6 +367,13 @@ fn run(
             Ok(Input::Request(request @ (Request::TestOutput(_) | Request::TestInput { .. }))) => {
                 run_test(request, updates.clone());
             }
+            Ok(Input::Request(Request::Screens(change))) => {
+                // GNOME sends MonitorsChanged after the change: the screens
+                // are read again then.
+                if !send(Update::Message(change_screens(&change))) {
+                    return;
+                }
+            }
             Ok(Input::Request(request)) => {
                 // The watcher sees the change and the state is read again.
                 if let Some(error) = apply(&request) {
@@ -369,7 +395,7 @@ fn run(
             {
                 return;
             }
-            if (refresh || changes.contains(&Change::Screens)) && !send(read_screens()) {
+            if (refresh || changes.contains(&Change::Screens)) && !send_screens(&send) {
                 return;
             }
             refresh = false;

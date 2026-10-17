@@ -4,6 +4,7 @@
 use deskcheck_config::{Color, Config};
 use deskcheck_core::audio::{AudioState, Connection, Form, Output};
 use deskcheck_core::display::{DisplayState, Mode, Screen, ScreenId};
+use deskcheck_mutter::setup::MonitorSetup;
 
 use crate::now_model::screen_color;
 
@@ -184,17 +185,12 @@ fn px(value: f64) -> i32 {
     value.round() as i32
 }
 
-/// Places the screens that are on in a map of `width` × `height` pixels,
-/// keeping their real layout and proportions, centered, with `gap` pixels
-/// taken off each side of each screen so two neighbours do not touch.
-pub fn layout_map(
-    config: &Config,
-    state: &DisplayState,
-    width: i32,
-    height: i32,
-    gap: i32,
-) -> Vec<MapTile> {
-    let boxes: Vec<(usize, &Screen, f64, f64, f64, f64)> = state
+/// A screen on the desktop: number, screen, place and size in logical
+/// pixels.
+type DesktopBox<'a> = (usize, &'a Screen, f64, f64, f64, f64);
+
+fn desktop_boxes(state: &DisplayState) -> Vec<DesktopBox<'_>> {
+    state
         .numbered()
         .into_iter()
         .filter_map(|(number, screen)| {
@@ -214,10 +210,42 @@ pub fn layout_map(
                 f64::from(mode.height) / scale,
             ))
         })
-        .collect();
-    let Some(left) = boxes.iter().map(|b| b.2).reduce(f64::min) else {
-        return Vec::new();
-    };
+        .collect()
+}
+
+/// How the desktop is drawn in the map: where its corner goes and how
+/// much it shrinks.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MapGeometry {
+    left: f64,
+    top: f64,
+    factor: f64,
+    offset_x: f64,
+    offset_y: f64,
+    half_gap: f64,
+}
+
+impl MapGeometry {
+    /// The place on the desktop of the corner of a screen drawn at
+    /// `(x, y)` in the map.
+    pub fn to_desktop(self, x: f64, y: f64) -> (i32, i32) {
+        (
+            px(self.left + (x - self.half_gap - self.offset_x) / self.factor),
+            px(self.top + (y - self.half_gap - self.offset_y) / self.factor),
+        )
+    }
+}
+
+/// The geometry of the map of `width` × `height` pixels, or `None`
+/// without a screen on.
+pub fn map_geometry(
+    state: &DisplayState,
+    width: i32,
+    height: i32,
+    gap: i32,
+) -> Option<MapGeometry> {
+    let boxes = desktop_boxes(state);
+    let left = boxes.iter().map(|b| b.2).reduce(f64::min)?;
     let top = boxes.iter().map(|b| b.3).fold(f64::INFINITY, f64::min);
     let right = boxes
         .iter()
@@ -229,13 +257,33 @@ pub fn layout_map(
         .fold(f64::NEG_INFINITY, f64::max);
     let (room_w, room_h) = (f64::from(width), f64::from(height));
     let factor = (room_w / (right - left)).min(room_h / (bottom - top));
-    let offset_x = (room_w - (right - left) * factor) / 2.0;
-    let offset_y = (room_h - (bottom - top) * factor) / 2.0;
-    let half_gap = f64::from(gap) / 2.0;
-    boxes
+    Some(MapGeometry {
+        left,
+        top,
+        factor,
+        offset_x: (room_w - (right - left) * factor) / 2.0,
+        offset_y: (room_h - (bottom - top) * factor) / 2.0,
+        half_gap: f64::from(gap) / 2.0,
+    })
+}
+
+/// Places the screens that are on in a map of `width` × `height` pixels,
+/// keeping their real layout and proportions, centered, with `gap` pixels
+/// taken off each side of each screen so two neighbours do not touch.
+pub fn layout_map(
+    config: &Config,
+    state: &DisplayState,
+    width: i32,
+    height: i32,
+    gap: i32,
+) -> Vec<MapTile> {
+    let Some(g) = map_geometry(state, width, height, gap) else {
+        return Vec::new();
+    };
+    desktop_boxes(state)
         .into_iter()
         .map(|(number, screen, x, y, w, h)| {
-            let height = px(h * factor - 2.0 * half_gap);
+            let height = px(h * g.factor - 2.0 * g.half_gap);
             MapTile {
                 id: screen.id.clone(),
                 number,
@@ -244,12 +292,79 @@ pub fn layout_map(
                 color: screen_color(config, &screen.id, number).to_string(),
                 primary: screen.is_primary(),
                 builtin: screen.builtin,
-                x: px(offset_x + (x - left) * factor + half_gap),
-                y: px(offset_y + (y - top) * factor + half_gap),
-                width: px(w * factor - 2.0 * half_gap),
+                x: px(g.offset_x + (x - g.left) * g.factor + g.half_gap),
+                y: px(g.offset_y + (y - g.top) * g.factor + g.half_gap),
+                width: px(w * g.factor - 2.0 * g.half_gap),
                 height,
                 size: TileSize::of(height),
             }
+        })
+        .collect()
+}
+
+/// A line of a list of the settings: its text, its value, and whether it
+/// is the one in use.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Choice<T> {
+    /// The text shown.
+    pub label: String,
+    /// What is sent when it is chosen.
+    pub value: T,
+    /// `true` for the one in use.
+    pub current: bool,
+}
+
+/// The resolutions a screen offers, biggest first, once each: the mode in
+/// use for its size, else the preferred one, else the fastest.
+pub fn resolution_choices(monitor: &MonitorSetup) -> Vec<Choice<String>> {
+    let mut sizes: Vec<(i32, i32)> = Vec::new();
+    for mode in &monitor.modes {
+        if !sizes.contains(&(mode.width, mode.height)) {
+            sizes.push((mode.width, mode.height));
+        }
+    }
+    sizes.sort_by_key(|(w, h)| std::cmp::Reverse(i64::from(*w) * i64::from(*h)));
+    sizes
+        .into_iter()
+        .filter_map(|size| {
+            let same: Vec<_> = monitor
+                .modes
+                .iter()
+                .filter(|m| (m.width, m.height) == size)
+                .collect();
+            let current = same
+                .iter()
+                .find(|m| monitor.current.as_deref() == Some(m.id.as_str()));
+            let mode = current
+                .or_else(|| same.iter().find(|m| m.preferred))
+                .or_else(|| {
+                    same.iter()
+                        .max_by(|a, b| a.refresh_rate.total_cmp(&b.refresh_rate))
+                })?;
+            let mut label = format!("{} × {}", size.0, size.1);
+            if same.iter().any(|m| m.preferred) {
+                label.push_str(" (recommended)");
+            }
+            Some(Choice {
+                label,
+                value: mode.id.clone(),
+                current: current.is_some(),
+            })
+        })
+        .collect()
+}
+
+/// The scales the mode in use accepts, the one in use marked.
+pub fn scale_choices(monitor: &MonitorSetup, scale: f64) -> Vec<Choice<f64>> {
+    let Some(mode) = monitor.default_mode() else {
+        return Vec::new();
+    };
+    mode.scales
+        .iter()
+        .map(|s| Choice {
+            label: scale_label(*s),
+            value: *s,
+            current: (s - scale).abs() < 1e-4,
         })
         .collect()
 }
@@ -548,6 +663,59 @@ mod tests {
         assert_eq!(match_monitors(&state, &twice), [None, Some(2)]);
         assert_eq!(identify_line(&state.screens[0]), "eDP-1 · 1920 × 1080");
         assert_eq!(countdown(5), "The numbers disappear in 5 s · Esc to close");
+    }
+
+    #[test]
+    fn a_point_of_the_map_goes_back_to_the_desktop() {
+        let state = office();
+        let tiles = layout_map(&Config::default(), &state, 800, 200, 20);
+        let g = map_geometry(&state, 800, 200, 20).unwrap();
+        // The corner of each tile is the corner of its screen.
+        assert_eq!(
+            g.to_desktop(f64::from(tiles[0].x), f64::from(tiles[0].y)),
+            (0, 0)
+        );
+        let (x, y) = g.to_desktop(f64::from(tiles[1].x), f64::from(tiles[1].y));
+        assert!((x - 1536).abs() <= 3 && y.abs() <= 3, "{x} {y}");
+    }
+
+    #[test]
+    fn the_lists_of_the_settings() {
+        use deskcheck_mutter::setup::ModeOption;
+        let mode = |id: &str, w, h, refresh, preferred| ModeOption {
+            id: id.to_owned(),
+            width: w,
+            height: h,
+            refresh_rate: refresh,
+            preferred_scale: 1.0,
+            scales: vec![1.0, 1.25, 2.0],
+            preferred,
+        };
+        let monitor = MonitorSetup {
+            connector: "DP-2".to_owned(),
+            modes: vec![
+                mode("a", 2560, 1440, 144.0, true),
+                mode("b", 2560, 1440, 60.0, false),
+                mode("c", 1920, 1080, 60.0, false),
+            ],
+            current: Some("b".to_owned()),
+        };
+        let resolutions = resolution_choices(&monitor);
+        assert_eq!(resolutions.len(), 2);
+        assert_eq!(resolutions[0].label, "2560 × 1440 (recommended)");
+        // The mode in use stays the one for its size.
+        assert_eq!(
+            (resolutions[0].value.as_str(), resolutions[0].current),
+            ("b", true)
+        );
+        assert_eq!(
+            (resolutions[1].value.as_str(), resolutions[1].current),
+            ("c", false)
+        );
+        let scales = scale_choices(&monitor, 1.25);
+        let labels: Vec<&str> = scales.iter().map(|c| c.label.as_str()).collect();
+        assert_eq!(labels, ["100 %", "125 %", "200 %"]);
+        assert!(scales[1].current);
     }
 
     #[test]

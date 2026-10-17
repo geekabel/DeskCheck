@@ -13,6 +13,7 @@ use deskcheck_config::{Config, Store};
 use deskcheck_core::APP_NAME;
 use deskcheck_core::audio::AudioState;
 use deskcheck_core::display::DisplayState;
+use deskcheck_mutter::setup::Setup;
 use deskcheck_pulse::ServerKind;
 
 use crate::audio_model::AudioTab;
@@ -35,6 +36,7 @@ struct Latest {
     server: Option<Result<ServerKind, String>>,
     sound: Option<Result<AudioState, String>>,
     screens: Option<Result<DisplayState, String>>,
+    setup: Option<Setup>,
 }
 
 /// The window and the widgets that change.
@@ -303,6 +305,7 @@ impl MainWindow {
                 Update::SoundServer(server) => latest.server = Some(server),
                 Update::Sound(sound) => latest.sound = Some(sound),
                 Update::Screens(screens) => latest.screens = Some(screens),
+                Update::Setup(setup) => latest.setup = setup,
                 // Peaks come 25 times a second: only the meter moves.
                 Update::Peak { source, peak } => {
                     self.now.peak(&source, peak);
@@ -355,8 +358,12 @@ impl MainWindow {
         self.now.show_sound(&config, latest.sound.as_ref());
         self.audio.show_sound(&config, latest.sound.as_ref());
         self.now.show_screens(&config, latest.screens.as_ref());
-        self.screens
-            .show(&config, latest.screens.as_ref(), latest.sound.as_ref());
+        self.screens.show(
+            &config,
+            latest.screens.as_ref(),
+            latest.sound.as_ref(),
+            latest.setup.as_ref(),
+        );
         self.diagnostic
             .show(&config, latest.sound.as_ref(), latest.screens.as_ref());
     }
