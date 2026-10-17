@@ -9,9 +9,9 @@ Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-10, DC-11, DC-12 |
-| 📋 Backlog | DC-13 à DC-37 |
-| 🖥️ À tester sur ton PC | aucune |
+| 🔜 À faire (prochaines) | DC-11, DC-12, DC-13 |
+| 📋 Backlog | DC-14 à DC-37 |
+| 🖥️ À tester sur ton PC | DC-10 |
 | ✅ Terminé | DC-01 à DC-09 |
 
 ---
@@ -67,11 +67,6 @@ _Aucune tâche._
 
 ## 🔜 À faire (prochaines)
 
-### DC-10 · Renommer un appareil
-- **Critères**
-  - [ ] Commandes CLI pour nommer un appareil son ou un écran.
-  - [ ] Le nom donné s'affiche partout, le nom technique reste disponible.
-
 ### DC-11 · Moteur de diagnostic
 - **But** : des règles pures qui trouvent les problèmes courants.
 - **Critères**
@@ -84,17 +79,17 @@ _Aucune tâche._
   - [ ] Affiche les problèmes trouvés.
   - [ ] Option `--fix` pour appliquer la correction proposée.
 
+### DC-13 · Changer les appareils et les volumes
+- **Critères**
+  - [ ] Choisir la sortie et le micro par défaut.
+  - [ ] Volume et coupure du son.
+  - [ ] Déplacer le flux d'une application vers un autre appareil, sans le couper.
+
 ---
 
 ## 📋 Backlog
 
 ### Phase 5 · Agir sur le son
-
-#### DC-13 · Changer les appareils et les volumes
-- **Critères**
-  - [ ] Choisir la sortie et le micro par défaut.
-  - [ ] Volume et coupure du son.
-  - [ ] Déplacer le flux d'une application vers un autre appareil, sans le couper.
 
 #### DC-14 · Barres de niveau en direct 🧪
 - **Docs** : flux de mesure de crête PulseAudio (`PEAK_DETECT`).
@@ -232,7 +227,29 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-_Aucune tâche._
+### DC-10 · Renommer un appareil
+- **But** : donner un nom parlant à un appareil son ou à un écran.
+- **Docs lues** : `clap` 4.6 derive (sous-commandes imbriquées, `Args` et `flatten`,
+  `group(required, multiple = false)`, `override_usage`).
+- **Critères**
+  - [x] Commandes `deskcheck rename output|input|screen <QUOI> <NOM>`, et `--reset` pour enlever le nom.
+  - [x] `<QUOI>` : `default`, numéro d'écran, connecteur (HDMI-1), nom technique,
+    ou un morceau de nom qui ne désigne qu'un seul appareil. Sinon, la liste des choix.
+  - [x] Le nom donné s'affiche partout (`audio`, `displays`, problèmes et corrections).
+    Un retour suit le nom de sa sortie : « Monitor of Laptop speakers ».
+  - [x] `--verbose` garde le nom du système et le nom technique.
+  - [x] Testé ici de bout en bout : vrai serveur PulseAudio de test, et faux GNOME sur un bus D-Bus de test.
+- **Décisions**
+  - Seuls les micros se renomment : un retour suit toujours sa sortie.
+  - Un nombre seul désigne toujours un numéro d'écran.
+  - Un fichier de réglages cassé n'est jamais écrasé : `rename` s'arrête, les rapports
+    préviennent et continuent sans les noms.
+  - Le fichier n'est pas réécrit quand rien ne change.
+- **À tester** :
+  `cargo run -p deskcheck -- rename output default "Laptop speakers"`,
+  `cargo run -p deskcheck -- rename screen 2 "Big screen"`,
+  puis `cargo run -p deskcheck -- audio -v` et `cargo run -p deskcheck -- displays -v`.
+  Pour enlever les noms : la même commande avec `--reset` à la place du nom.
 
 ---
 
