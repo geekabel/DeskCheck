@@ -10,6 +10,7 @@ mod display_report;
 mod doctor;
 #[cfg(test)]
 mod fixtures;
+mod levels;
 mod rename;
 mod select;
 mod sound;
@@ -47,6 +48,13 @@ enum Command {
         /// Apply the fixes DeskCheck can do, then check again.
         #[arg(long)]
         fix: bool,
+    },
+    /// Show a live level bar for each microphone: speak, and the bar of
+    /// the one that hears you moves. Press Ctrl+C to stop.
+    Levels {
+        /// Stop after this many seconds.
+        #[arg(long)]
+        seconds: Option<u64>,
     },
     /// Make an output or a microphone the default one.
     ///
@@ -172,6 +180,87 @@ fn run_sound(
     Ok(format!("{}\n", plan.done))
 }
 
+/// Runs `deskcheck levels`.
+fn run_levels(seconds: Option<u64>) -> Result<String, String> {
+    use std::io::{IsTerminal, Write as _};
+    use std::time::{Duration, Instant};
+
+    let config = settings();
+    let state = deskcheck_pulse::read_state().map_err(|error| error.to_string())?;
+    let mics: Vec<_> = state.microphones().collect();
+    if mics.is_empty() {
+        return Err("no microphone is plugged in".to_owned());
+    }
+    let ids: Vec<_> = mics.iter().map(|mic| mic.id.clone()).collect();
+    let mut rows: Vec<levels::Row> = mics
+        .iter()
+        .map(|mic| {
+            levels::Row::new(
+                config.input_label(mic).into_owned(),
+                state.default_input.as_ref() == Some(&mic.id),
+            )
+        })
+        .collect();
+    let meters = deskcheck_pulse::Meters::start(&ids).map_err(|error| error.to_string())?;
+
+    let terminal = std::io::stdout().is_terminal();
+    let frame_time = Duration::from_secs(1) / deskcheck_pulse::UPDATES_PER_SECOND;
+    let deadline = seconds.map(|seconds| Instant::now() + Duration::from_secs(seconds));
+    let mut stdout = std::io::stdout().lock();
+    let _ = writeln!(
+        stdout,
+        "Speak: the bar of the microphone that hears you moves."
+    );
+    if deadline.is_none() {
+        let _ = writeln!(stdout, "Press Ctrl+C to stop.");
+    }
+    let _ = writeln!(stdout);
+
+    let mut drawn = 0;
+    let mut last_print = Instant::now();
+    while deadline.is_none_or(|deadline| Instant::now() < deadline) {
+        // The loudest peak of each microphone during this frame.
+        let mut peaks: Vec<Option<f32>> = vec![None; rows.len()];
+        let frame_end = Instant::now() + frame_time;
+        while let Some(wait) = frame_end.checked_duration_since(Instant::now()) {
+            match meters.events().recv_timeout(wait) {
+                Ok(deskcheck_pulse::Event::Peak { input, peak }) => {
+                    if let Some(at) = ids.iter().position(|id| *id == input) {
+                        peaks[at] = Some(peaks[at].map_or(peak, |p: f32| p.max(peak)));
+                    }
+                }
+                Ok(deskcheck_pulse::Event::Lost(input)) => {
+                    if let Some(at) = ids.iter().position(|id| *id == input) {
+                        rows[at].lost = true;
+                    }
+                }
+                Ok(deskcheck_pulse::Event::Failed(error)) => return Err(error.to_string()),
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => break,
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                    return Err("the level meters stopped".to_owned());
+                }
+            }
+        }
+        for (row, peak) in rows.iter_mut().zip(peaks) {
+            match peak {
+                Some(peak) => row.bar.update(peak),
+                None => row.bar.fall(),
+            };
+        }
+        let frame = levels::render_frame(&rows);
+        if terminal {
+            let _ = write!(stdout, "{}", levels::redraw(drawn, &frame));
+            drawn = rows.len();
+        } else if last_print.elapsed() >= Duration::from_secs(1) {
+            // Not a terminal: one frame per second, without moving the cursor.
+            let _ = writeln!(stdout, "{frame}");
+            last_print = Instant::now();
+        }
+        let _ = stdout.flush();
+    }
+    Ok(String::new())
+}
+
 /// Exit code when problems are found.
 const PROBLEMS_FOUND: u8 = 2;
 
@@ -261,6 +350,7 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        Command::Levels { seconds } => show(run_levels(seconds), String::clone),
         Command::Use { kind, which } => show(
             run_sound(|config, state| sound::use_device(kind, config, state, &which)),
             String::clone,
@@ -325,6 +415,14 @@ mod tests {
         assert!(matches!(cli.command, Command::Doctor { fix: false }));
         let cli = Cli::try_parse_from(["deskcheck", "doctor", "--fix"]).unwrap();
         assert!(matches!(cli.command, Command::Doctor { fix: true }));
+    }
+
+    #[test]
+    fn levels_runs_until_stopped_or_for_some_seconds() {
+        let cli = Cli::try_parse_from(["deskcheck", "levels"]).unwrap();
+        assert!(matches!(cli.command, Command::Levels { seconds: None }));
+        let cli = Cli::try_parse_from(["deskcheck", "levels", "--seconds", "5"]).unwrap();
+        assert!(matches!(cli.command, Command::Levels { seconds: Some(5) }));
     }
 
     #[test]
