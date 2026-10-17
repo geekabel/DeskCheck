@@ -38,7 +38,7 @@ mod tests {
         let elements: Vec<&str> = APP_ID.split('.').collect();
         assert!(elements.len() >= 2);
         for element in elements {
-            assert!(!element.is_empty());
+            assert_ne!(element, "");
             assert!(!element.starts_with(|c: char| c.is_ascii_digit()));
             assert!(
                 element
