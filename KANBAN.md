@@ -9,9 +9,9 @@ Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-13, DC-14, DC-15 |
-| 📋 Backlog | DC-16 à DC-37 |
-| 🖥️ À tester sur ton PC | aucune |
+| 🔜 À faire (prochaines) | DC-14, DC-15, DC-16 |
+| 📋 Backlog | DC-17 à DC-37 |
+| 🖥️ À tester sur ton PC | DC-13 |
 | ✅ Terminé | DC-01 à DC-12 |
 
 ---
@@ -67,14 +67,6 @@ _Aucune tâche._
 
 ## 🔜 À faire (prochaines)
 
-### DC-13 · Changer les appareils et les volumes
-- **Note** : les actions sur le serveur son existent déjà depuis DC-12
-  (`deskcheck_pulse::apply`). Il reste les commandes pour les utiliser à la main.
-- **Critères**
-  - [ ] Choisir la sortie et le micro par défaut.
-  - [ ] Volume et coupure du son.
-  - [ ] Déplacer le flux d'une application vers un autre appareil, sans le couper.
-
 ### DC-14 · Barres de niveau en direct 🧪
 - **Docs** : flux de mesure de crête PulseAudio (`PEAK_DETECT`).
 - **Critères**
@@ -86,17 +78,17 @@ _Aucune tâche._
   - [ ] Jouer un son court sur une sortie.
   - [ ] Enregistrer 3 secondes sur un micro, puis les réécouter.
 
+### DC-16 · Événements en direct
+- **Critères**
+  - [ ] Abonnement aux changements PulseAudio (appareil branché, flux nouveau).
+  - [ ] Abonnement au signal `MonitorsChanged` de Mutter.
+  - [ ] Un seul canal d'événements pour l'interface.
+
 ---
 
 ## 📋 Backlog
 
 ### Phase 5 · Agir sur le son
-
-#### DC-16 · Événements en direct
-- **Critères**
-  - [ ] Abonnement aux changements PulseAudio (appareil branché, flux nouveau).
-  - [ ] Abonnement au signal `MonitorsChanged` de Mutter.
-  - [ ] Un seul canal d'événements pour l'interface.
 
 ### Phase 6 · Interface graphique
 
@@ -217,7 +209,31 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-_Aucune tâche._
+### DC-13 · Changer les appareils et les volumes
+- **But** : agir sur le son à la main, depuis le terminal.
+- **Docs lues** : `clap` 4.6 (`ValueEnum`, `value_parser` avec une fonction),
+  `libpulse-binding` (déjà lue pour DC-12).
+- **Critères**
+  - [x] Choisir la sortie et le micro par défaut : `deskcheck use output|input <QUOI>`.
+  - [x] Volume et coupure du son : `deskcheck volume output|input <QUOI> 80%`,
+    `deskcheck mute ...` et `deskcheck unmute ...`.
+  - [x] Déplacer le flux d'une application sans le couper :
+    `deskcheck move playback|recording <APPLI> <QUOI>`, tous les flux de l'application à la fois.
+  - [x] Testé ici de bout en bout sur un vrai serveur PulseAudio de test (deux sorties, un micro,
+    une application qui joue et enregistre).
+- **Décisions**
+  - Les actions sur le serveur son viennent de DC-12 (`deskcheck_pulse::apply`).
+  - Seuls les micros peuvent être choisis comme entrée : jamais un retour.
+  - Volume de 0 % à 150 %, comme GNOME avec l'amplification.
+  - `use` ne déplace pas les applications : PulseAudio 15 et plus les fait suivre la sortie par
+    défaut, sauf celles déplacées à la main avec `move` (vérifié sur le serveur de test).
+  - Les mesureurs de niveau ne sont jamais déplacés.
+  - Chaque commande dit quand il n'y a rien à faire (« already the default », « already muted »).
+- **À tester** (chez toi, avec Firefox qui joue une vidéo) :
+  `cargo run -p deskcheck -- volume output default 50`,
+  `cargo run -p deskcheck -- mute output default`, puis `unmute`,
+  `cargo run -p deskcheck -- move playback firefox <ton écran ASUS ou la sortie HDMI>`, puis
+  `cargo run -p deskcheck -- audio` pour voir le résultat.
 
 ---
 
