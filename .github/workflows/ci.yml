@@ -34,7 +34,18 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all --check
       - name: Clippy
-        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+        # Each clippy message also becomes an annotation, so failures are
+        # visible on the commit and through the GitHub API.
+        shell: bash
+        run: |
+          echo "::notice::$(cargo clippy --version)"
+          set -o pipefail
+          if ! cargo clippy --workspace --all-targets --locked \
+              --message-format=short -- -D warnings 2>&1 | tee clippy.log; then
+            grep -E '(error|warning)(\[|:)' clippy.log | head -n 20 \
+              | while IFS= read -r line; do echo "::error::${line}"; done
+            exit 1
+          fi
       - name: Tests
         run: cargo test --workspace --locked
 
