@@ -11,7 +11,7 @@
 //! GNOME shows it only for an app with a `.desktop` file named after its
 //! id (see `data/`).
 //!
-//! Each arrival is written in the GLib log, domain `deskcheck`: run the
+//! Each arrival is written in the log of `GLib`, domain `deskcheck`: run the
 //! app with `G_MESSAGES_DEBUG=deskcheck` to see why a place was, or was
 //! not, recognized.
 
