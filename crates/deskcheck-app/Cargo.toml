@@ -15,6 +15,7 @@ async-channel = "2.5.0"
 deskcheck-config.workspace = true
 deskcheck-core.workspace = true
 deskcheck-mutter.workspace = true
+deskcheck-network.workspace = true
 deskcheck-pulse.workspace = true
 gtk = { version = "0.10.3", package = "gtk4", features = ["v4_6"] }
 

@@ -12,6 +12,7 @@ crates/deskcheck-config  settings file: names, colors and places, saved safely
 crates/deskcheck-app     the window (GTK 4.6 and libadwaita 1.1)
 crates/deskcheck         the `deskcheck` binary
 gnome-shell-extension    tells DeskCheck where the mouse is, on Wayland only
+data                     .desktop file and D-Bus service, for the notifications
 KANBAN.md                the plan and the status of every task
 ```
 
@@ -54,6 +55,18 @@ one D-Bus call (`GetPosition`) and does nothing else:
 gnome-shell-extension/install.sh
 # log out and back in, then:
 gnome-extensions enable deskcheck-pointer@geekabel.github.io
+```
+
+## Notifications
+
+When DeskCheck recognizes a place, it says so in a GNOME notification with
+an Undo button. GNOME shows the notifications of an app only when its
+`.desktop` file is installed, named after the app id. For a build from this
+repository:
+
+```sh
+data/install-dev.sh            # builds in release, installs for your user
+data/install-dev.sh --remove   # takes them away
 ```
 
 ## Try it on a real machine

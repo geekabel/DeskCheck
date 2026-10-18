@@ -4,9 +4,6 @@
 use deskcheck_core::display::DisplayState;
 use deskcheck_pulse::ServerKind;
 
-/// The badge of the place, until places are detected (DC-27).
-pub const NO_PLACE: &str = "No place yet";
-
 /// The line about the sound server, at the bottom of the sidebar.
 pub fn sound_footer(server: Option<&Result<ServerKind, String>>) -> String {
     match server {

@@ -23,6 +23,8 @@ mod diag_page;
 mod identify;
 mod now_model;
 mod now_page;
+mod place_watch;
+mod places_model;
 mod screens_model;
 mod screens_page;
 mod sections;
@@ -75,6 +77,23 @@ fn add_actions(app: &adw::Application, window: &window::MainWindow, backend: &ba
             window.identify(only);
         }
     });
+    // The buttons of the line and of the notification of a place (DC-28).
+    let place_undo = gio::SimpleAction::new("place-undo", None);
+    place_undo.connect_activate({
+        let window = window.clone();
+        move |_, _| window.place_undo()
+    });
+    let place_apply = gio::SimpleAction::new("place-apply", None);
+    place_apply.connect_activate({
+        let window = window.clone();
+        move |_, _| window.place_apply()
+    });
+    app.connect_shutdown({
+        let window = window.clone();
+        move |_| window.withdraw_place()
+    });
+    app.add_action(&place_undo);
+    app.add_action(&place_apply);
     app.add_action(&identify);
     app.add_action(&quit);
     app.add_action(&refresh);

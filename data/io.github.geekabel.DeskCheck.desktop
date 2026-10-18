@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=DeskCheck
+Comment=See and fix your sound devices and screens
+Exec=deskcheck-app
+Icon=io.github.geekabel.DeskCheck
+Terminal=false
+Categories=Settings;HardwareSettings;
+Keywords=sound;audio;microphone;headset;screen;display;monitor;
+StartupNotify=true
+DBusActivatable=true
+X-GNOME-UsesNotifications=true

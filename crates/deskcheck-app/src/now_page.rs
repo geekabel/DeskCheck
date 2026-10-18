@@ -19,6 +19,7 @@ use gtk::glib;
 use crate::audio_model::{AudioTab, VOICE_DB};
 use crate::backend::{Backend, Mouse, Request, metered_sources};
 use crate::now_model::{self, AppTag};
+use crate::places_model::PlaceLine;
 use crate::ui;
 
 /// Highest volume of the slider, as GNOME with over-amplification.
@@ -211,6 +212,10 @@ pub struct NowPage {
     current: Rc<RefCell<Current>>,
     /// `true` while the page itself moves the slider.
     setting_volume: Rc<Cell<bool>>,
+    /// The line of the place recognized, at the bottom (DC-28).
+    place_row: gtk::Box,
+    place_text: gtk::Label,
+    place_button: gtk::Button,
 }
 
 impl NowPage {
@@ -334,6 +339,25 @@ impl NowPage {
         grid.attach(&screens_card, 1, 1, 1, 1);
         content.append(&grid);
 
+        // The place recognized, at the bottom of the page.
+        let spacer = gtk::Box::builder().vexpand(true).build();
+        content.append(&spacer);
+        let place_row = gtk::Box::builder()
+            .orientation(gtk::Orientation::Horizontal)
+            .spacing(10)
+            .css_classes(["dc-place-line"])
+            .visible(false)
+            .build();
+        let place_icon = ui::icon("dc-place-symbolic", 14);
+        place_icon.add_css_class("dc-dim-icon");
+        let place_text = ui::label("", &["dc-small"]);
+        place_text.set_hexpand(true);
+        let place_button = ui::button("Undo", None, ui::ButtonKind::Flat);
+        place_row.append(&place_icon);
+        place_row.append(&place_text);
+        place_row.append(&place_button);
+        content.append(&place_row);
+
         let root = gtk::ScrolledWindow::builder()
             .hscrollbar_policy(gtk::PolicyType::Never)
             .child(&content)
@@ -372,6 +396,9 @@ impl NowPage {
             mouse: RefCell::default(),
             current: Rc::default(),
             setting_volume: Rc::default(),
+            place_row,
+            place_text,
+            place_button,
         });
         page.connect();
         page.show_sound(&Config::default(), None);
@@ -642,6 +669,31 @@ impl NowPage {
         #[allow(deprecated, reason = "load_from_string needs GTK 4.12")]
         self.screen_css.load_from_data(&css);
         self.screens_line.set_label(&now_model::screens_line(state));
+    }
+
+    /// Shows the place recognized, and what DeskCheck did (DC-28).
+    pub fn show_place(&self, line: Option<&PlaceLine>) {
+        let Some(line) = line else {
+            self.place_row.set_visible(false);
+            return;
+        };
+        self.place_text.set_label(&line.text());
+        match line.button() {
+            Some(button) => {
+                if let Some(label) = self
+                    .place_button
+                    .child()
+                    .and_then(|content| content.last_child())
+                    .and_downcast::<gtk::Label>()
+                {
+                    label.set_label(button.label);
+                }
+                self.place_button.set_action_name(Some(button.action));
+                self.place_button.set_visible(true);
+            }
+            None => self.place_button.set_visible(false),
+        }
+        self.place_row.set_visible(true);
     }
 
     /// Shows on the map which screen the mouse is on.

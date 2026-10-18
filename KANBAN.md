@@ -9,9 +9,9 @@ Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-28, DC-29 |
+| 🔜 À faire (prochaines) | DC-29 |
 | 📋 Backlog | DC-30 à DC-38 |
-| 🖥️ À tester sur ton PC | DC-27 |
+| 🖥️ À tester sur ton PC | DC-27, DC-28 |
 | ✅ Terminé | DC-01 à DC-26 |
 
 ---
@@ -66,12 +66,6 @@ _Aucune tâche._
 ---
 
 ## 🔜 À faire (prochaines)
-
-### DC-28 · Appliquer un lieu avec Annuler
-- **Docs** : `gio::Notification`.
-- **Critères**
-  - [ ] Application automatique, notification avec bouton Annuler.
-  - [ ] Modes : appliquer, demander, ne rien faire.
 
 ### DC-29 · Page « Lieux »
 - **Critères**
@@ -143,6 +137,40 @@ _Aucune tâche._
 ---
 
 ## 🖥️ À tester sur ton PC
+
+### DC-28 · Appliquer un lieu avec Annuler 🧪
+- **But** : quand DeskCheck reconnaît un lieu, mettre ses choix en place, et pouvoir revenir en
+  arrière.
+- **Docs lues** : `gio::Notification` et `Application::send_notification` (fichier `.desktop`
+  au nom de l'id de l'app, `DBusActivatable`, boutons sur des actions `app.`), interface
+  D-Bus `org.gnome.Mutter.DisplayConfig` (méthode « temporary »), maquette « Maintenant »
+  (ligne du lieu en bas), maquette « Lieux ».
+- **Critères**
+  - [x] À l'arrivée : sortie son et micro par défaut (le premier branché des listes), puis
+    disposition des écrans gardée. Seul ce qui diffère est changé.
+  - [x] Notification « Place recognized: Office » qui dit ce qui a changé, bouton Undo.
+  - [x] Modes : appliquer (et prévenir), demander avant (bouton Apply), ne rien faire.
+  - [x] Badge « Place: Office » en haut, ligne en bas de Now comme la maquette :
+    « Place recognized: Office, because ... Place settings applied at 8:31. [Undo] ».
+  - [x] Undo remet la sortie, le micro et la disposition d'avant.
+  - [x] Nom du Wi-Fi relu toutes les 5 s.
+  - [x] Vu ici avec un faux GNOME et un faux serveur de notifications : appliquer, Undo par la
+    notification, demander puis Apply dans la page.
+  - [x] `data/` : fichier `.desktop`, service D-Bus et `install-dev.sh`.
+- **Décisions**
+  - Les écrans d'un lieu sont appliqués avec la méthode « temporary » de GNOME : pas de fenêtre
+    « garder ces réglages ? », puisque DeskCheck offre son propre Undo. GNOME garde ses
+    dispositions enregistrées telles quelles.
+  - Une disposition dont un écran manque n'est pas appliquée (le son l'est quand même).
+  - DeskCheck agit une fois par arrivée, aussi au démarrage. Après Undo, il ne réapplique pas
+    tant que tu restes au même lieu.
+  - PulseAudio 15 déplace les applications qui suivent la sortie par défaut ; celles que tu as
+    mises ailleurs à la main restent où elles sont.
+- **À tester** : `data/install-dev.sh`, puis lance DeskCheck depuis les Activités. La page
+  Lieux (DC-29) permettra de créer un lieu ; d'ici là, un lieu peut s'écrire dans
+  `~/.config/deskcheck/config.toml` (exemple dans `crates/deskcheck-config/src/file.rs`).
+  Vérifier : la notification et son Undo, la ligne en bas de Now, et qu'aucune fenêtre de
+  GNOME ne demande de garder les écrans.
 
 ### DC-27 · Modèle des lieux et détection 🧪
 - **But** : décrire un lieu (bureau, maison...) et reconnaître celui où est l'ordinateur.

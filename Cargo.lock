@@ -340,6 +340,7 @@ dependencies = [
  "deskcheck-config",
  "deskcheck-core",
  "deskcheck-mutter",
+ "deskcheck-network",
  "deskcheck-pulse",
  "glib-build-tools",
  "gtk4",

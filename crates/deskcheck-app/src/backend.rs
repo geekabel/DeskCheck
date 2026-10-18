@@ -9,6 +9,10 @@
 //! Short changes (volume, default device) run in the backend thread. Sound
 //! tests last seconds, so each runs in a thread of its own and reports with
 //! [`Update::Message`]. Nothing here blocks the interface.
+//!
+//! It also reads the name of the Wi-Fi every few seconds (DC-27), and
+//! applies the choices of a place, keeping what was in use so the user
+//! can undo it (DC-28).
 
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::thread;
@@ -18,6 +22,7 @@ use deskcheck_core::audio::{AudioState, DeviceId, Fix, InputKind, StreamId, Targ
 use deskcheck_core::display::DisplayState;
 use deskcheck_core::display::ScreenId;
 use deskcheck_core::events::{Change, coalesce};
+use deskcheck_core::places::{Place, SavedLayout, Snapshot, SoundChoice};
 use deskcheck_mutter::pointer::{PointerError, PointerReader, Session};
 use deskcheck_mutter::setup::{Change as ScreenChange, LayoutMode, Setup};
 use deskcheck_pulse::{Action, Meters, ServerKind};
@@ -51,8 +56,27 @@ pub enum Update {
         /// The loudest sample since the last peak.
         peak: f32,
     },
+    /// The name of the Wi-Fi in use, when it changes.
+    Wifi(Option<String>),
+    /// The choices of a place were applied.
+    PlaceApplied(PlaceResult),
     /// A sentence for the user, about a request that ended.
     Message(String),
+}
+
+/// What applying a place did.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PlaceResult {
+    /// The name of the place.
+    pub name: String,
+    /// The default devices set.
+    pub sound: SoundChoice,
+    /// `true` when the screens were laid out again.
+    pub layout_changed: bool,
+    /// What was in use before, to undo it.
+    pub undo: Snapshot,
+    /// What failed, in sentences.
+    pub problems: Vec<String>,
 }
 
 /// Which sources the level meters measure.
@@ -97,6 +121,11 @@ pub enum Request {
     SetVolume(Target, Volume),
     /// Play the test chime on an output.
     TestOutput(DeviceId),
+    /// Apply the choices of a place: default output and microphone, and
+    /// the layout of the screens.
+    ApplyPlace(Box<Place>),
+    /// Put back what was in use before a place was applied.
+    Undo(Box<Snapshot>),
     /// Record a few seconds from a microphone, then play them on an output.
     TestInput {
         /// The microphone.
@@ -232,6 +261,111 @@ impl MouseWatch {
         self.sent = Some(mouse.clone());
         send(Update::Mouse(mouse))
     }
+}
+
+/// How often the name of the Wi-Fi is read.
+const WIFI_TICK: Duration = Duration::from_secs(5);
+
+/// Reads the Wi-Fi now and then, and tells the interface when it changes.
+#[derive(Default)]
+struct WifiWatch {
+    reader: deskcheck_network::WifiReader,
+    last_read: Option<Instant>,
+    /// `true` once a name, or no name, was sent.
+    told: bool,
+    sent: Option<String>,
+}
+
+impl WifiWatch {
+    /// Sends the name of the Wi-Fi, when it changed. Without
+    /// `NetworkManager`, there is no Wi-Fi. Returns `false` when the
+    /// interface is gone.
+    fn send(&mut self, send: &impl Fn(Update) -> bool) -> bool {
+        let now = Instant::now();
+        if self.last_read.is_some_and(|at| now - at < WIFI_TICK) {
+            return true;
+        }
+        self.last_read = Some(now);
+        let name = self.reader.read().ok().flatten();
+        if self.told && self.sent == name {
+            return true;
+        }
+        self.told = true;
+        self.sent.clone_from(&name);
+        send(Update::Wifi(name))
+    }
+}
+
+/// Applies the choices of a place, with the sound and the screens read
+/// last. Only what differs is changed, and kept for Undo.
+fn apply_place(
+    place: &Place,
+    sound: Option<&AudioState>,
+    screens: Option<&DisplayState>,
+) -> PlaceResult {
+    let mut result = PlaceResult {
+        name: place.name.clone(),
+        sound: SoundChoice::default(),
+        layout_changed: false,
+        undo: Snapshot::default(),
+        problems: Vec::new(),
+    };
+    if let Some(state) = sound {
+        let choice = place.sound_choice(state);
+        if let Some(output) = &choice.output {
+            match deskcheck_pulse::apply(&Action::SetDefaultOutput(output.clone())) {
+                Ok(()) => {
+                    result.undo.output.clone_from(&state.default_output);
+                    result.sound.output = Some(output.clone());
+                }
+                Err(error) => result.problems.push(error_text(&error)),
+            }
+        }
+        if let Some(input) = &choice.input {
+            match deskcheck_pulse::apply(&Action::SetDefaultInput(input.clone())) {
+                Ok(()) => {
+                    result.undo.input.clone_from(&state.default_input);
+                    result.sound.input = Some(input.clone());
+                }
+                Err(error) => result.problems.push(error_text(&error)),
+            }
+        }
+    }
+    if let (Some(layout), Some(state)) = (&place.layout, screens) {
+        // A layout whose screens are not all plugged in is left aside.
+        if layout.fits(state) && !layout.is_in_use(state) {
+            match deskcheck_mutter::apply_layout(layout) {
+                Ok(()) => {
+                    result.undo.layout = Some(SavedLayout::from_state(state));
+                    result.layout_changed = true;
+                }
+                Err(error) => result.problems.push(error_text(&error)),
+            }
+        }
+    }
+    result
+}
+
+/// Puts back what was in use before a place. Returns what failed, if
+/// anything: the Now page already says it is undone.
+fn undo_place(snapshot: &Snapshot) -> Option<String> {
+    let mut problems = Vec::new();
+    if let Some(output) = &snapshot.output {
+        if let Err(error) = deskcheck_pulse::apply(&Action::SetDefaultOutput(output.clone())) {
+            problems.push(error_text(&error));
+        }
+    }
+    if let Some(input) = &snapshot.input {
+        if let Err(error) = deskcheck_pulse::apply(&Action::SetDefaultInput(input.clone())) {
+            problems.push(error_text(&error));
+        }
+    }
+    if let Some(layout) = &snapshot.layout {
+        if let Err(error) = deskcheck_mutter::apply_layout(layout) {
+            problems.push(error_text(&error));
+        }
+    }
+    (!problems.is_empty()).then(|| problems.join(" "))
 }
 
 /// Changes the screens. GNOME then asks the user to keep the change.
@@ -403,6 +537,8 @@ fn apply(request: &Request) -> Option<String> {
         Request::Fix(fix) => Action::from_fix(fix)?,
         Request::Refresh
         | Request::Screens(_)
+        | Request::ApplyPlace(_)
+        | Request::Undo(_)
         | Request::Meter(_)
         | Request::TestOutput(_)
         | Request::TestInput { .. } => return None,
@@ -432,10 +568,12 @@ fn run(
     };
 
     let mut mouse = MouseWatch::new();
+    let mut wifi = WifiWatch::default();
     let server = deskcheck_pulse::server_kind().map_err(|error| error.to_string());
     if !(send(Update::SoundServer(server))
         && send_sound(&mut meters, &mut last)
-        && send_screens(&send, &mut mouse))
+        && send_screens(&send, &mut mouse)
+        && wifi.send(&send))
     {
         return;
     }
@@ -477,6 +615,20 @@ fn run(
                     return;
                 }
             }
+            Ok(Input::Request(Request::ApplyPlace(place))) => {
+                // The watchers see the changes and the state is read again.
+                let result = apply_place(&place, last.as_ref(), mouse.screens.as_ref());
+                if !send(Update::PlaceApplied(result)) {
+                    return;
+                }
+            }
+            Ok(Input::Request(Request::Undo(snapshot))) => {
+                if let Some(problems) = undo_place(&snapshot) {
+                    if !send(Update::Message(problems)) {
+                        return;
+                    }
+                }
+            }
             Ok(Input::Request(request)) => {
                 // The watcher sees the change and the state is read again.
                 if let Some(error) = apply(&request) {
@@ -488,7 +640,7 @@ fn run(
             Err(RecvTimeoutError::Timeout) => {}
             Err(RecvTimeoutError::Disconnected) => return,
         }
-        if !meters.send_peaks(&send) || !mouse.send(&send) {
+        if !meters.send_peaks(&send) || !mouse.send(&send) || !wifi.send(&send) {
             return;
         }
         if deadline.is_some_and(|deadline| Instant::now() >= deadline) {

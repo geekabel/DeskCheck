@@ -22,6 +22,8 @@ use crate::backend::{Backend, MeterScope, Mouse, Request, Update};
 use crate::diag_page::{DiagPage, Go};
 use crate::identify::Identifier;
 use crate::now_page::{NowLink, NowPage};
+use crate::place_watch::PlaceWatch;
+use crate::places_model;
 use crate::screens_page::ScreensPage;
 use crate::sections::Section;
 use crate::status;
@@ -38,6 +40,10 @@ struct Latest {
     screens: Option<Result<DisplayState, String>>,
     setup: Option<Setup>,
     mouse: Option<Mouse>,
+    /// `true` once the Wi-Fi was read.
+    wifi_read: bool,
+    /// The name of the Wi-Fi.
+    wifi: Option<String>,
 }
 
 /// The window and the widgets that change.
@@ -60,6 +66,9 @@ pub struct MainWindow {
     screens_footer: gtk::Label,
     latest: Rc<RefCell<Latest>>,
     identifier: Rc<Identifier>,
+    place_badge: gtk::Box,
+    place_label: gtk::Label,
+    places: Rc<PlaceWatch>,
 }
 
 /// A row of the sidebar: icon and title.
@@ -86,18 +95,18 @@ fn brand() -> gtk::Box {
     brand
 }
 
-/// The badge of the place, in the header bar.
-fn place_badge() -> gtk::Box {
+/// The badge of the place, in the header bar, and its text.
+fn place_badge() -> (gtk::Box, gtk::Label) {
     let badge = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
         .spacing(5)
         .valign(gtk::Align::Center)
         .css_classes(["dc-tag", "accent"])
-        .tooltip_text("Places come in a later version")
         .build();
     badge.append(&ui::icon("dc-place-symbolic", 14));
-    badge.append(&gtk::Label::new(Some(status::NO_PLACE)));
-    badge
+    let label = gtk::Label::new(Some(&places_model::badge_text(None, false)));
+    badge.append(&label);
+    (badge, label)
 }
 
 /// The menu of the window.
@@ -171,12 +180,14 @@ impl MainWindow {
         let header = adw::HeaderBar::builder().title_widget(&title_stack).build();
         header.pack_start(&brand());
         header.pack_end(&menu_button());
-        header.pack_end(&place_badge());
+        let (place_badge, place_label) = place_badge();
+        header.pack_end(&place_badge);
 
         let stack = gtk::Stack::builder()
             .hexpand(true)
             .transition_type(gtk::StackTransitionType::Crossfade)
             .build();
+        let places = Rc::new(PlaceWatch::new(app, backend.clone()));
         let now = NowPage::new(backend.clone());
         let audio = AudioPage::new(backend.clone());
         title_stack.add_named(&audio.tabs, Some(Section::Audio.id()));
@@ -232,6 +243,9 @@ impl MainWindow {
             screens_footer,
             latest: Rc::default(),
             identifier: Rc::default(),
+            place_badge,
+            place_label,
+            places,
         };
         {
             let this = this.clone();
@@ -307,6 +321,22 @@ impl MainWindow {
                 Update::Sound(sound) => latest.sound = Some(sound),
                 Update::Screens(screens) => latest.screens = Some(screens),
                 Update::Setup(setup) => latest.setup = setup,
+                Update::Wifi(wifi) => {
+                    latest.wifi_read = true;
+                    latest.wifi = wifi;
+                }
+                Update::PlaceApplied(result) => {
+                    let config = load_config();
+                    let sound = latest.sound.as_ref().and_then(|s| s.as_ref().ok());
+                    if let Some(problems) = self.places.applied(result, &config, sound) {
+                        let toast = adw::Toast::new(&problems);
+                        toast.set_timeout(6);
+                        self.toasts.add_toast(toast);
+                    }
+                    drop(latest);
+                    self.show_place(&config);
+                    return;
+                }
                 // The mouse moved to another screen: only the tags change.
                 Update::Mouse(mouse) => {
                     self.now.show_mouse(&mouse);
@@ -352,6 +382,39 @@ impl MainWindow {
         self.identifier.show(&app, &config, screens, only, mouse);
     }
 
+    /// Applies the place DeskCheck asked about (the "Apply" button).
+    pub fn place_apply(&self) {
+        self.places.apply_asked();
+        self.show_place(&load_config());
+    }
+
+    /// Puts back the settings from before the place (the "Undo" button).
+    pub fn place_undo(&self) {
+        self.places.undo();
+        self.show_place(&load_config());
+    }
+
+    /// Takes the notification of the place away, when DeskCheck quits.
+    pub fn withdraw_place(&self) {
+        self.places.withdraw();
+    }
+
+    /// Shows the place recognized in the badge and on the Now page.
+    fn show_place(&self, config: &Config) {
+        let current = self.places.current();
+        self.place_label.set_label(&places_model::badge_text(
+            current.as_deref(),
+            !config.places().is_empty(),
+        ));
+        let line = self.places.line();
+        self.place_badge.set_tooltip_text(
+            line.as_ref()
+                .map(|line| format!("Because {}", line.because))
+                .as_deref(),
+        );
+        self.now.show_place(line.as_ref());
+    }
+
     /// Shows the latest state.
     fn render(&self) {
         let latest = self.latest.borrow();
@@ -378,5 +441,18 @@ impl MainWindow {
         );
         self.diagnostic
             .show(&config, latest.sound.as_ref(), latest.screens.as_ref());
+        if latest.wifi_read {
+            self.places
+                .update(&config, latest.screens.as_ref(), latest.wifi.as_deref());
+        }
+        self.show_place(&config);
     }
+}
+
+/// The settings, read again: names given with `deskcheck rename` show at
+/// once. A broken file only loses the names.
+fn load_config() -> Config {
+    Store::new()
+        .and_then(|store| store.load())
+        .unwrap_or_else(|_| Config::default())
 }
