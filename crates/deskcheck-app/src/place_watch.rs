@@ -10,8 +10,12 @@
 //! `app.place-undo` and `app.place-apply`, as the GIO documentation asks.
 //! GNOME shows it only for an app with a `.desktop` file named after its
 //! id (see `data/`).
+//!
+//! Each arrival is written in the GLib log, domain `deskcheck`: run the
+//! app with `G_MESSAGES_DEBUG=deskcheck` to see why a place was, or was
+//! not, recognized.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 
 use adw::prelude::*;
 use deskcheck_config::Config;
@@ -26,6 +30,9 @@ use crate::places_model::{self, APPLY_ACTION, LineState, PlaceLine, UNDO_ACTION}
 /// The id of the notification: a new one replaces the old one.
 const NOTIFICATION: &str = "place";
 
+/// The log domain of DeskCheck.
+const LOG: &str = "deskcheck";
+
 /// The place recognized, and what DeskCheck did about it.
 pub struct PlaceWatch {
     app: adw::Application,
@@ -36,6 +43,9 @@ pub struct PlaceWatch {
     undo: RefCell<Option<Snapshot>>,
     /// The place to apply when the user says so.
     asked: RefCell<Option<Place>>,
+    /// `true` until the first place seen after DeskCheck starts is
+    /// applied: then a place already in use is not worth a notification.
+    starting: Cell<bool>,
 }
 
 /// The time of day, like "8:31".
@@ -55,6 +65,7 @@ impl PlaceWatch {
             line: RefCell::default(),
             undo: RefCell::default(),
             asked: RefCell::default(),
+            starting: Cell::new(true),
         }
     }
 
@@ -94,11 +105,15 @@ impl PlaceWatch {
         let found = places::detect(config.places(), &observed)
             .and_then(|found| Some((config.places().get(found.index)?, found.because)));
         let name = found.as_ref().map(|(place, _)| place.name.as_str());
+        let before = self.current();
         if self.arrivals.borrow_mut().see(name) {
             if let Some((place, because)) = found {
-                self.arrive(place, places_model::because(config, &because));
+                let because = places_model::because(config, &because);
+                glib::g_debug!(LOG, "place: arrived at {}, because {because}", place.name);
+                self.arrive(place, because);
             }
         } else if name.is_none() && self.line.borrow().is_some() {
+            glib::g_debug!(LOG, "place: left {}", before.unwrap_or_default());
             // Left the place: its Undo no longer makes sense.
             self.forget();
         }
@@ -111,8 +126,18 @@ impl PlaceWatch {
         self.app.withdraw_notification(NOTIFICATION);
     }
 
+    /// Sends the notification of the place, replacing the one before.
+    fn notify(&self, notification: &gio::Notification) {
+        glib::g_debug!(LOG, "place: notification sent");
+        self.app.send_notification(Some(NOTIFICATION), notification);
+    }
+
     fn arrive(&self, place: &Place, because: String) {
         self.forget();
+        if place.on_arrival != OnArrival::Apply {
+            // Only an applied place waits for its result to say so.
+            self.starting.set(false);
+        }
         let state = match place.on_arrival {
             OnArrival::Apply => {
                 self.backend
@@ -124,8 +149,7 @@ impl PlaceWatch {
                     gio::Notification::new(&format!("Place recognized: {}", place.name));
                 notification.set_body(Some(&format!("Because {because}. Apply its settings?")));
                 notification.add_button("Apply", APPLY_ACTION);
-                self.app
-                    .send_notification(Some(NOTIFICATION), &notification);
+                self.notify(&notification);
                 self.asked.replace(Some(place.clone()));
                 LineState::Asking
             }
@@ -146,21 +170,40 @@ impl PlaceWatch {
         sound: Option<&AudioState>,
     ) -> Option<String> {
         let problems = (!result.problems.is_empty()).then(|| result.problems.join(" "));
+        glib::g_debug!(
+            LOG,
+            "place: {} applied, changes kept for Undo: {:?}, problems: {:?}",
+            result.name,
+            result.undo,
+            result.problems
+        );
+        let starting = self.starting.replace(false);
         let mut line = self.line.borrow_mut();
         // The place may have changed meanwhile.
         let Some(line) = line.as_mut().filter(|line| line.name == result.name) else {
             return problems;
         };
+        let title = format!("Place recognized: {}", result.name);
+        let notification = gio::Notification::new(&title);
         if result.undo.is_empty() {
             line.state = if problems.is_none() {
                 LineState::InUse
             } else {
                 LineState::Shown
             };
+            // Each arrival is told, even when nothing had to change; but
+            // not when DeskCheck just started and all is in place already.
+            if !starting || problems.is_some() {
+                notification.set_body(Some(
+                    problems
+                        .as_deref()
+                        .unwrap_or("Its settings are already in use."),
+                ));
+                self.notify(&notification);
+            }
             return problems;
         }
         line.state = LineState::Applied { at: now_text() };
-        let notification = gio::Notification::new(&format!("Place recognized: {}", result.name));
         notification.set_body(Some(&places_model::applied_body(
             config,
             sound,
@@ -168,8 +211,7 @@ impl PlaceWatch {
             result.layout_changed,
         )));
         notification.add_button("Undo", UNDO_ACTION);
-        self.app
-            .send_notification(Some(NOTIFICATION), &notification);
+        self.notify(&notification);
         self.undo.replace(Some(result.undo));
         problems
     }

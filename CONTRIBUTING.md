@@ -65,8 +65,23 @@ an Undo button. GNOME shows the notifications of an app only when its
 repository:
 
 ```sh
-data/install-dev.sh            # builds in release, installs for your user
-data/install-dev.sh --remove   # takes them away
+data/install-dev.sh     # builds in release, installs for your user
+data/uninstall-dev.sh   # takes them away (your settings are kept)
+```
+
+To see why a place is recognized or not, and when a notification is sent:
+
+```sh
+G_MESSAGES_DEBUG=deskcheck target/release/deskcheck-app
+```
+
+To check that GNOME shows the notifications of DeskCheck at all:
+
+```sh
+gdbus call --session --dest org.gtk.Notifications \
+  --object-path /org/gtk/Notifications \
+  --method org.gtk.Notifications.AddNotification \
+  io.github.geekabel.DeskCheck test "{'title': <'DeskCheck test'>, 'body': <'It works'>}"
 ```
 
 ## Try it on a real machine

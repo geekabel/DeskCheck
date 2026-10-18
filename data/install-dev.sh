@@ -5,7 +5,7 @@
 # list DeskCheck in Settings > Notifications.
 #
 #   ./data/install-dev.sh            build (release) and install
-#   ./data/install-dev.sh --remove   remove them
+#   ./data/uninstall-dev.sh          remove them (or install-dev.sh --remove)
 set -eu
 
 ID=io.github.geekabel.DeskCheck
@@ -14,9 +14,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(dirname "$HERE")"
 
 if [ "${1:-}" = "--remove" ]; then
-    rm -f "$DATA/applications/$ID.desktop" "$DATA/dbus-1/services/$ID.service"
-    echo "Removed $ID.desktop and $ID.service."
-    exit 0
+    exec "$HERE/uninstall-dev.sh"
 fi
 
 cargo build --release -p deskcheck-app --manifest-path "$ROOT/Cargo.toml"
@@ -29,4 +27,6 @@ sed "s#@BINDIR@#$BINDIR#" "$HERE/$ID.service.in" > "$DATA/dbus-1/services/$ID.se
 if command -v desktop-file-validate >/dev/null 2>&1; then
     desktop-file-validate "$DATA/applications/$ID.desktop"
 fi
-echo "Installed $ID.desktop and $ID.service. Start DeskCheck from the Activities."
+echo "Installed $DATA/applications/$ID.desktop"
+echo "Installed $DATA/dbus-1/services/$ID.service"
+echo "Start DeskCheck from the Activities. To remove: data/uninstall-dev.sh"

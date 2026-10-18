@@ -179,7 +179,12 @@ _Aucune tâche._
   - [x] Nom du Wi-Fi relu toutes les 5 s.
   - [x] Vu ici avec un faux GNOME et un faux serveur de notifications : appliquer, Undo par la
     notification, demander puis Apply dans la page.
-  - [x] `data/` : fichier `.desktop`, service D-Bus et `install-dev.sh`.
+  - [x] `data/` : fichier `.desktop`, service D-Bus, `install-dev.sh` et `uninstall-dev.sh`.
+  - [x] Correction après ton test (18 oct. 2026) : rien ne se passait en rebranchant l'écran,
+    car le lieu était déjà en place et DeskCheck ne prévenait que s'il changeait quelque chose.
+    Maintenant chaque arrivée a sa notification (« Its settings are already in use. »), sauf
+    au démarrage de DeskCheck quand tout est déjà en place.
+  - [x] Journal : `G_MESSAGES_DEBUG=deskcheck` montre chaque arrivée, départ et notification.
 - **Décisions**
   - Les écrans d'un lieu sont appliqués avec la méthode « temporary » de GNOME : pas de fenêtre
     « garder ces réglages ? », puisque DeskCheck offre son propre Undo. GNOME garde ses
@@ -189,8 +194,9 @@ _Aucune tâche._
     tant que tu restes au même lieu.
   - PulseAudio 15 déplace les applications qui suivent la sortie par défaut ; celles que tu as
     mises ailleurs à la main restent où elles sont.
-- **À tester** : `data/install-dev.sh`, puis lance DeskCheck depuis les Activités et crée
-  un lieu dans la page Places (DC-29). Vérifier : la notification et son Undo, la ligne en bas de Now, et qu'aucune fenêtre de
+- **À tester** : `data/uninstall-dev.sh` puis `data/install-dev.sh` (pour avoir la nouvelle
+  version), lance DeskCheck depuis les Activités et crée un lieu dans la page Places (DC-29).
+  Débranche puis rebranche l'écran. Vérifier : la notification et son Undo, la ligne en bas de Now, et qu'aucune fenêtre de
   GNOME ne demande de garder les écrans.
 
 ### DC-27 · Modèle des lieux et détection 🧪
