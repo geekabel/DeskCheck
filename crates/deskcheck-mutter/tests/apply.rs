@@ -185,3 +185,38 @@ fn a_refusal_of_gnome_is_told() {
             .starts_with("the screens cannot be changed")
     );
 }
+
+#[test]
+fn the_layout_of_a_place_is_applied_without_the_dialog() {
+    use deskcheck_core::display::ScreenId;
+    use deskcheck_core::places::{SavedLayout, SavedScreen};
+    let (_server, client, calls) = connect(false);
+    let screen = |id: ScreenId, x: i32, primary: bool| SavedScreen {
+        id,
+        x,
+        y: 0,
+        scale: 1.0,
+        primary,
+        width: 1920,
+        height: 1080,
+        refresh_rate: 60.0,
+    };
+    // The Dell on the left, primary, the laptop on its right.
+    let saved = SavedLayout {
+        screens: vec![
+            screen(ScreenId::new("DEL", "U2419H", "A1"), 0, true),
+            screen(ScreenId::new("BOE", "x", ""), 1920, false),
+        ],
+    };
+    deskcheck_mutter::apply_layout_with(&client, &saved).unwrap();
+    let calls = calls.lock().unwrap();
+    // "verify" (0), then "temporary" (1): GNOME asks nothing.
+    let methods: Vec<(u32, u32)> = calls.iter().map(|(s, m, _)| (*s, *m)).collect();
+    assert_eq!(methods, [(42, 0), (42, 1)]);
+    let layout: Vec<(i32, bool, &str)> = calls[1]
+        .2
+        .iter()
+        .map(|(x, _, _, _, primary, monitors)| (*x, *primary, monitors[0].0.as_str()))
+        .collect();
+    assert_eq!(layout, [(0, true, "DP-1"), (1920, false, "eDP-1")]);
+}

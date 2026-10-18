@@ -15,6 +15,9 @@
 
 use std::fmt;
 
+use deskcheck_core::display::DisplayState;
+use deskcheck_core::places::{SavedLayout, same_screen};
+
 use crate::dbus::{Properties, WireMonitor, WireState};
 
 /// How GNOME sizes a logical monitor.
@@ -342,6 +345,93 @@ impl Plan {
             })
             .collect();
         Self { logical }
+    }
+
+    /// The layout of a place (DC-28): each saved screen at its place,
+    /// with the mode closest to the saved one. Screens saved at the same
+    /// place show the same picture. Screens plugged in but not in the
+    /// layout are turned off. `state` tells which connector each screen is
+    /// on now.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PlanError::UnknownScreen`] when a screen of the layout is
+    /// not plugged in, or the errors of [`Plan::check`].
+    pub fn from_saved(
+        setup: &Setup,
+        state: &DisplayState,
+        saved: &SavedLayout,
+    ) -> Result<Self, PlanError> {
+        let mut logical: Vec<LogicalPlan> = Vec::new();
+        let mut used: Vec<&str> = Vec::new();
+        for screen in &saved.screens {
+            // The same serial first, then any screen of the same model.
+            let found = state
+                .screens
+                .iter()
+                .filter(|s| !used.contains(&s.connector.as_str()) && same_screen(&s.id, &screen.id))
+                .max_by_key(|s| s.id == screen.id)
+                .ok_or_else(|| PlanError::UnknownScreen(screen.id.to_string()))?;
+            let connector = found.connector.as_str();
+            used.push(connector);
+            let monitor = setup
+                .monitor(connector)
+                .ok_or_else(|| PlanError::UnknownScreen(connector.to_owned()))?;
+            let mode = monitor
+                .modes
+                .iter()
+                .filter(|m| {
+                    u32::try_from(m.width).ok() == Some(screen.width)
+                        && u32::try_from(m.height).ok() == Some(screen.height)
+                })
+                .min_by(|a, b| {
+                    let gap = |m: &ModeOption| (m.refresh_rate - screen.refresh_rate).abs();
+                    gap(a).total_cmp(&gap(b))
+                })
+                .or_else(|| monitor.default_mode())
+                .ok_or_else(|| {
+                    PlanError::UnknownMode(format!("{}x{}", screen.width, screen.height))
+                })?;
+            let scale = if mode.scales.iter().any(|s| same_scale(*s, screen.scale)) {
+                screen.scale
+            } else {
+                mode.preferred_scale
+            };
+            let transform = setup
+                .logical
+                .iter()
+                .find(|l| l.connectors.iter().any(|c| c == connector))
+                .map_or(0, |l| l.transform);
+            let pair = (connector.to_owned(), mode.id.clone());
+            if let Some(group) = logical
+                .iter_mut()
+                .find(|l| l.x == screen.x && l.y == screen.y)
+            {
+                group.monitors.push(pair);
+                group.primary |= screen.primary;
+            } else {
+                logical.push(LogicalPlan {
+                    x: screen.x,
+                    y: screen.y,
+                    scale,
+                    transform,
+                    primary: screen.primary,
+                    monitors: vec![pair],
+                });
+            }
+        }
+        let mut plan = Self { logical };
+        if !plan.logical.iter().any(|l| l.primary) {
+            if let Some(first) = plan.logical.first_mut() {
+                first.primary = true;
+            }
+        }
+        if let Some(primary) = plan.logical.iter().position(|l| l.primary) {
+            plan.follow_global_scale(setup, primary);
+        }
+        plan.normalize();
+        plan.check(setup)?;
+        Ok(plan)
     }
 
     /// The size of a logical monitor on the desktop.
@@ -1013,5 +1103,106 @@ mod tests {
             Plan::current(&home()).change(&home(), &Change::Primary("HDMI-9".to_owned())),
             Err(PlanError::UnknownScreen("HDMI-9".to_owned()))
         );
+    }
+
+    /// The screens of [`home`], as `GetCurrentState` describes them.
+    fn home_state() -> DisplayState {
+        use deskcheck_core::display::{Mode, Placement, Screen, ScreenId};
+        let screen = |id: ScreenId, connector: &str, builtin: bool, x: i32, primary: bool| Screen {
+            id,
+            connector: connector.to_owned(),
+            display_name: None,
+            builtin,
+            current_mode: Some(Mode {
+                width: 1920,
+                height: 1080,
+                refresh_rate: 60.0,
+            }),
+            placement: Some(Placement {
+                x,
+                y: 0,
+                scale: 1.0,
+                primary,
+            }),
+        };
+        DisplayState {
+            screens: vec![
+                screen(ScreenId::new("BOE", "0x0a1c", ""), "eDP-1", true, 0, true),
+                screen(
+                    ScreenId::new("AUS", "XG27ACS", "T2L"),
+                    "DP-2",
+                    false,
+                    1920,
+                    false,
+                ),
+            ],
+        }
+    }
+
+    #[test]
+    fn a_saved_layout_becomes_a_plan() {
+        use deskcheck_core::display::ScreenId;
+        use deskcheck_core::places::SavedScreen;
+        let setup = home();
+        let state = home_state();
+        // The ASUS on the left at 2560x1440, primary; the laptop on its right.
+        let saved = SavedLayout {
+            screens: vec![
+                SavedScreen {
+                    id: ScreenId::new("AUS", "XG27ACS", "T2L"),
+                    x: 0,
+                    y: 0,
+                    scale: 1.0,
+                    primary: true,
+                    width: 2560,
+                    height: 1440,
+                    refresh_rate: 143.9,
+                },
+                SavedScreen {
+                    id: ScreenId::new("BOE", "0x0a1c", ""),
+                    x: 2560,
+                    y: 0,
+                    scale: 1.25,
+                    primary: false,
+                    width: 1920,
+                    height: 1080,
+                    refresh_rate: 60.0,
+                },
+            ],
+        };
+        let plan = Plan::from_saved(&setup, &state, &saved).unwrap();
+        assert_eq!(places(&plan), [(0, 0, true), (2560, 0, false)]);
+        assert_eq!(
+            plan.logical[0].monitors[0],
+            ("DP-2".to_owned(), "2560x1440@144".to_owned())
+        );
+        assert!(same_scale(plan.logical[1].scale, 1.25));
+
+        // A screen that is not plugged in: the layout is not applied.
+        let mut missing = saved.clone();
+        missing.screens[0].id = ScreenId::new("DEL", "U2419H", "A1");
+        assert!(matches!(
+            Plan::from_saved(&setup, &state, &missing),
+            Err(PlanError::UnknownScreen(_))
+        ));
+
+        // Only the laptop: the ASUS is turned off.
+        let alone = SavedLayout {
+            screens: vec![saved.screens[1].clone()],
+        };
+        let plan = Plan::from_saved(&setup, &state, &alone).unwrap();
+        assert_eq!(places(&plan), [(0, 0, true)]);
+    }
+
+    #[test]
+    fn a_saved_mirror_shares_one_logical_monitor() {
+        let setup = home();
+        let state = home_state();
+        let mut saved = SavedLayout::from_state(&state);
+        saved.screens[1].x = 0;
+        let plan = Plan::from_saved(&setup, &state, &saved).unwrap();
+        assert_eq!(plan.logical.len(), 1);
+        assert_eq!(plan.logical[0].monitors.len(), 2);
+        assert!(plan.logical[0].primary);
     }
 }

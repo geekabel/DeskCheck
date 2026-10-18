@@ -136,28 +136,17 @@ pub fn read_setup() -> Result<setup::Setup, Error> {
 
 /// `ApplyMonitorsConfig` methods.
 const VERIFY: u32 = 0;
+const TEMPORARY: u32 = 1;
 const PERSISTENT: u32 = 2;
 
-/// Applies a change of the screens on an existing connection.
-///
-/// The layout is read again, changed, checked by DeskCheck with the rules
-/// of GNOME, then checked by GNOME itself (method "verify"), and only then
-/// applied for good (method "persistent"). GNOME then shows its own
-/// dialog to keep the change, and goes back to the old layout after 20
-/// seconds without an answer.
-///
-/// # Errors
-///
-/// Returns [`Error::Refused`] when the change breaks a rule or GNOME
-/// refuses it, or the errors of [`read_state_with`].
-pub fn apply_with(
+/// Sends a plan to GNOME: checked first (method "verify"), then applied
+/// with `method`.
+fn send_plan(
     connection: &zbus::blocking::Connection,
-    change: &setup::Change,
+    setup: &setup::Setup,
+    plan: &setup::Plan,
+    method: u32,
 ) -> Result<(), Error> {
-    let setup = read_setup_with(connection)?;
-    let plan = setup::Plan::current(&setup)
-        .change(&setup, change)
-        .map_err(|error| Error::Refused(error.to_string()))?;
     let logical: Vec<dbus::WireLogicalConfig> = plan
         .logical
         .iter()
@@ -191,7 +180,62 @@ pub fn apply_with(
         other => call_error(&other),
     };
     dbus::apply_config(connection, setup.serial, VERIFY, &logical, &properties).map_err(refused)?;
-    dbus::apply_config(connection, setup.serial, PERSISTENT, &logical, &properties).map_err(refused)
+    dbus::apply_config(connection, setup.serial, method, &logical, &properties).map_err(refused)
+}
+
+/// Applies a change of the screens on an existing connection.
+///
+/// The layout is read again, changed, checked by DeskCheck with the rules
+/// of GNOME, then checked by GNOME itself (method "verify"), and only then
+/// applied for good (method "persistent"). GNOME then shows its own
+/// dialog to keep the change, and goes back to the old layout after 20
+/// seconds without an answer.
+///
+/// # Errors
+///
+/// Returns [`Error::Refused`] when the change breaks a rule or GNOME
+/// refuses it, or the errors of [`read_state_with`].
+pub fn apply_with(
+    connection: &zbus::blocking::Connection,
+    change: &setup::Change,
+) -> Result<(), Error> {
+    let setup = read_setup_with(connection)?;
+    let plan = setup::Plan::current(&setup)
+        .change(&setup, change)
+        .map_err(|error| Error::Refused(error.to_string()))?;
+    send_plan(connection, &setup, &plan, PERSISTENT)
+}
+
+/// Applies the layout of a place on an existing connection (DC-28).
+///
+/// Checked like [`apply_with`], then applied with the method "temporary":
+/// GNOME shows no dialog, since DeskCheck offers its own Undo, and keeps
+/// its own saved layouts as they are.
+///
+/// # Errors
+///
+/// Returns [`Error::Refused`] when a screen of the layout is not plugged
+/// in, when the layout breaks a rule or GNOME refuses it, or the errors of
+/// [`read_state_with`].
+pub fn apply_layout_with(
+    connection: &zbus::blocking::Connection,
+    saved: &deskcheck_core::places::SavedLayout,
+) -> Result<(), Error> {
+    let setup = read_setup_with(connection)?;
+    let state = read_state_with(connection)?;
+    let plan = setup::Plan::from_saved(&setup, &state, saved)
+        .map_err(|error| Error::Refused(error.to_string()))?;
+    send_plan(connection, &setup, &plan, TEMPORARY)
+}
+
+/// Applies the layout of a place on the session bus (see
+/// [`apply_layout_with`]).
+///
+/// # Errors
+///
+/// The same as [`apply_layout_with`].
+pub fn apply_layout(saved: &deskcheck_core::places::SavedLayout) -> Result<(), Error> {
+    apply_layout_with(&session()?, saved)
 }
 
 /// Applies a change of the screens on the session bus (see [`apply_with`]).

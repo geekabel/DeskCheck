@@ -8,10 +8,15 @@
 //! recognized by its Wi-Fi, which wins over "no external screen".
 //!
 //! Everything here is pure: what is plugged in comes in an [`Observed`].
+//!
+//! On arrival (DC-28), [`Place::sound_choice`] and [`SavedLayout::is_in_use`]
+//! tell what would change, a [`Snapshot`] keeps what was in use for Undo,
+//! and [`Arrivals`] tells when the place changes, so DeskCheck acts once
+//! per arrival and not at each update.
 
 use std::fmt;
 
-use crate::audio::DeviceId;
+use crate::audio::{AudioState, DeviceId};
 use crate::display::{DisplayState, ScreenId};
 
 /// A clue that tells DeskCheck where the computer is.
@@ -264,6 +269,130 @@ pub fn detect(places: &[Place], observed: &Observed) -> Option<Detection> {
         .min_by_key(|detection| (detection.because.rank(), detection.index))
 }
 
+/// The default output and microphone a place asks for, when they are not
+/// the ones in use already.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct SoundChoice {
+    /// The output to make the default one.
+    pub output: Option<DeviceId>,
+    /// The microphone to make the default one.
+    pub input: Option<DeviceId>,
+}
+
+impl SoundChoice {
+    /// `true` when nothing has to change.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.output.is_none() && self.input.is_none()
+    }
+}
+
+impl Place {
+    /// What the place changes in the sound now: the first output and the
+    /// first microphone of its lists that are plugged in, unless they are
+    /// the defaults already.
+    #[must_use]
+    pub fn sound_choice(&self, state: &AudioState) -> SoundChoice {
+        let outputs: Vec<DeviceId> = state.outputs.iter().map(|o| o.id.clone()).collect();
+        let microphones: Vec<DeviceId> = state
+            .inputs
+            .iter()
+            .filter(|input| !input.is_monitor())
+            .map(|input| input.id.clone())
+            .collect();
+        SoundChoice {
+            output: self
+                .pick_output(&outputs)
+                .filter(|id| state.default_output.as_ref() != Some(*id))
+                .cloned(),
+            input: self
+                .pick_input(&microphones)
+                .filter(|id| state.default_input.as_ref() != Some(*id))
+                .cloned(),
+        }
+    }
+}
+
+impl SavedLayout {
+    /// `true` when the screens are already laid out this way: the same
+    /// screens on, at the same places, with the same mode, scale and
+    /// primary screen.
+    #[must_use]
+    pub fn is_in_use(&self, state: &DisplayState) -> bool {
+        let now = Self::from_state(state);
+        now.screens.len() == self.screens.len()
+            && self.screens.iter().all(|saved| {
+                now.screens.iter().any(|seen| {
+                    same_screen(&seen.id, &saved.id)
+                        && seen.x == saved.x
+                        && seen.y == saved.y
+                        && seen.primary == saved.primary
+                        && seen.width == saved.width
+                        && seen.height == saved.height
+                        && (seen.scale - saved.scale).abs() < 1e-4
+                        && (seen.refresh_rate - saved.refresh_rate).abs() < 0.5
+                })
+            })
+    }
+
+    /// `true` when every screen of the layout is plugged in, so it can be
+    /// applied.
+    #[must_use]
+    pub fn fits(&self, state: &DisplayState) -> bool {
+        !self.screens.is_empty()
+            && self.screens.iter().all(|saved| {
+                state
+                    .screens
+                    .iter()
+                    .any(|screen| same_screen(&screen.id, &saved.id))
+            })
+    }
+}
+
+/// What was in use before a place was applied, to put it back.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Snapshot {
+    /// The default output before, if the place changed it.
+    pub output: Option<DeviceId>,
+    /// The default microphone before, if the place changed it.
+    pub input: Option<DeviceId>,
+    /// The layout of the screens before, if the place changed it.
+    pub layout: Option<SavedLayout>,
+}
+
+impl Snapshot {
+    /// `true` when the place changed nothing.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.output.is_none() && self.input.is_none() && self.layout.is_none()
+    }
+}
+
+/// Tells when the recognized place changes.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Arrivals {
+    last: Option<String>,
+    started: bool,
+}
+
+impl Arrivals {
+    /// Takes the place recognized now, by name. Returns `true` on arrival:
+    /// a place is recognized and it was not the one before. The first
+    /// place seen after DeskCheck starts is an arrival too.
+    pub fn see(&mut self, place: Option<&str>) -> bool {
+        let arrived = place.is_some() && (!self.started || self.last.as_deref() != place);
+        self.started = true;
+        self.last = place.map(str::to_owned);
+        arrived
+    }
+
+    /// The place recognized last.
+    #[must_use]
+    pub fn current(&self) -> Option<&str> {
+        self.last.as_deref()
+    }
+}
+
 /// A condition in words, with the name the user gave a screen.
 pub struct Described<'a, F: Fn(&ScreenId) -> String> {
     condition: &'a Condition,
@@ -463,5 +592,97 @@ mod tests {
         );
         assert_eq!(OnArrival::from_key("ask"), Some(OnArrival::Ask));
         assert_eq!(OnArrival::Nothing.key(), "nothing");
+    }
+
+    fn sound() -> AudioState {
+        use crate::audio::{Hardware, Input, InputKind, Output, Volume};
+        let output = |id: &str| Output {
+            id: DeviceId::new(id),
+            description: id.to_owned(),
+            hardware: Hardware::default(),
+            volume: Volume::NORMAL,
+            muted: false,
+        };
+        let input = |id: &str, kind: InputKind| Input {
+            id: DeviceId::new(id),
+            description: id.to_owned(),
+            hardware: Hardware::default(),
+            kind,
+            volume: Volume::NORMAL,
+            muted: false,
+        };
+        AudioState {
+            outputs: vec![output("laptop"), output("usb")],
+            inputs: vec![
+                input(
+                    "usb.monitor",
+                    InputKind::Monitor {
+                        of: DeviceId::new("usb"),
+                    },
+                ),
+                input("laptop-mic", InputKind::Capture),
+                input("usb-mic", InputKind::Capture),
+            ],
+            default_output: Some(DeviceId::new("laptop")),
+            default_input: Some(DeviceId::new("usb-mic")),
+            ..AudioState::default()
+        }
+    }
+
+    #[test]
+    fn only_what_differs_is_changed() {
+        let place = Place {
+            outputs: vec![DeviceId::new("usb"), DeviceId::new("laptop")],
+            inputs: vec![
+                DeviceId::new("usb.monitor"),
+                DeviceId::new("usb-mic"),
+                DeviceId::new("laptop-mic"),
+            ],
+            ..Place::default()
+        };
+        let choice = place.sound_choice(&sound());
+        // The output changes; the microphone is the right one already, and
+        // a monitor is never taken as a microphone.
+        assert_eq!(choice.output, Some(DeviceId::new("usb")));
+        assert_eq!(choice.input, None);
+        assert!(!choice.is_empty());
+        assert!(Place::default().sound_choice(&sound()).is_empty());
+    }
+
+    #[test]
+    fn a_layout_in_use_is_not_applied_again() {
+        let state = DisplayState {
+            screens: vec![
+                screen(laptop(), true, 0, false),
+                screen(dell(), false, 1920, true),
+            ],
+        };
+        let saved = SavedLayout::from_state(&state);
+        assert!(saved.is_in_use(&state));
+        assert!(saved.fits(&state));
+        let mut moved = state.clone();
+        moved.screens[1].placement.as_mut().unwrap().primary = false;
+        moved.screens[0].placement.as_mut().unwrap().primary = true;
+        assert!(!saved.is_in_use(&moved));
+        // Without the Dell, the layout cannot be applied.
+        let alone = DisplayState {
+            screens: vec![screen(laptop(), true, 0, true)],
+        };
+        assert!(!saved.fits(&alone));
+        assert!(!SavedLayout::default().fits(&alone));
+    }
+
+    #[test]
+    fn a_place_is_acted_on_once_per_arrival() {
+        let mut arrivals = Arrivals::default();
+        assert!(!arrivals.see(None));
+        assert!(arrivals.see(Some("Office")));
+        assert!(!arrivals.see(Some("Office")));
+        assert!(arrivals.see(Some("Home")));
+        assert!(!arrivals.see(None));
+        assert_eq!(arrivals.current(), None);
+        assert!(arrivals.see(Some("Home")));
+        assert_eq!(arrivals.current(), Some("Home"));
+        assert!(Snapshot::default().is_empty());
     }
 }

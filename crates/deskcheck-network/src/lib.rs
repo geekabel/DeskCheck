@@ -181,6 +181,17 @@ pub fn wifi_name_with(connection: &Connection) -> Result<Option<String>, Error> 
     Ok(None)
 }
 
+/// Opens a connection to the system bus, where `NetworkManager` is.
+///
+/// # Errors
+///
+/// Returns [`Error::NoSystemBus`] without a system bus.
+pub fn system_bus() -> Result<Connection, Error> {
+    zbus::blocking::connection::Builder::system()
+        .and_then(|builder| builder.method_timeout(CALL_TIMEOUT).build())
+        .map_err(|error| Error::NoSystemBus(error.to_string()))
+}
+
 /// The name of the Wi-Fi in use, from `NetworkManager` on the system bus.
 ///
 /// # Errors
@@ -188,10 +199,39 @@ pub fn wifi_name_with(connection: &Connection) -> Result<Option<String>, Error> 
 /// Returns [`Error::NoSystemBus`] without a system bus, or the errors of
 /// [`wifi_name_with`].
 pub fn wifi_name() -> Result<Option<String>, Error> {
-    let connection = zbus::blocking::connection::Builder::system()
-        .and_then(|builder| builder.method_timeout(CALL_TIMEOUT).build())
-        .map_err(|error| Error::NoSystemBus(error.to_string()))?;
-    wifi_name_with(&connection)
+    wifi_name_with(&system_bus()?)
+}
+
+/// Reads the Wi-Fi again and again on one connection, opened when first
+/// needed and opened again after a failure.
+#[derive(Default)]
+pub struct WifiReader {
+    connection: Option<Connection>,
+}
+
+impl WifiReader {
+    /// A reader, not connected yet.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// The name of the Wi-Fi in use, as [`wifi_name`].
+    ///
+    /// # Errors
+    ///
+    /// The same as [`wifi_name`].
+    pub fn read(&mut self) -> Result<Option<String>, Error> {
+        if self.connection.is_none() {
+            self.connection = Some(system_bus()?);
+        }
+        let connection = self.connection.as_ref().ok_or(Error::NoNetworkManager)?;
+        let name = wifi_name_with(connection);
+        if name.is_err() {
+            self.connection = None;
+        }
+        name
+    }
 }
 
 /// Name of the D-Bus service read by this crate.
