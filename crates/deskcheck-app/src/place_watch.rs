@@ -9,8 +9,9 @@
 //! notification asks first, or nothing is done. The line at the bottom of
 //! the Now page says the same.
 //!
-//! The notification is a `gio::Notification`: its buttons run the actions
-//! `app.place-undo` and `app.place-apply`, as the GIO documentation asks.
+//! The notification is sent by [`crate::notify`]: its buttons run the
+//! actions `app.place-undo` and `app.place-apply`, as the GIO
+//! documentation asks.
 //! GNOME shows it only for an app with a `.desktop` file named after its
 //! id (see `data/`).
 //!
@@ -22,16 +23,16 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::Duration;
 
-use adw::prelude::*;
 use deskcheck_config::Config;
 use deskcheck_core::audio::AudioState;
 use deskcheck_core::display::DisplayState;
 use deskcheck_core::places::{
     self, Arrivals, Observed, OnArrival, Place, Settle, Settling, Snapshot,
 };
-use gtk::{gio, glib};
+use gtk::glib;
 
 use crate::backend::{Backend, PlaceResult, Request};
+use crate::notify::{self, Note};
 use crate::places_model::{self, APPLY_ACTION, LineState, PlaceLine, UNDO_ACTION};
 
 /// The id of the notification: a new one replaces the old one.
@@ -200,14 +201,14 @@ impl PlaceWatch {
 
     /// Sends the notification of the place, replacing the one before,
     /// after [`NOTIFY_DELAY`].
-    fn notify(&self, notification: gio::Notification) {
+    fn notify(&self, note: Note) {
         self.cancel_pending();
         let app = self.app.clone();
         let pending = Rc::clone(&self.pending);
         let source = glib::timeout_add_local_once(NOTIFY_DELAY, move || {
             pending.replace(None);
             glib::g_debug!(LOG, "place: notification sent");
-            app.send_notification(Some(NOTIFICATION), &notification);
+            notify::send(&app, NOTIFICATION, &note);
         });
         self.pending.replace(Some(source));
     }
@@ -223,7 +224,7 @@ impl PlaceWatch {
     fn withdraw_now(&self) {
         self.cancel_pending();
         glib::g_debug!(LOG, "place: notification withdrawn");
-        self.app.withdraw_notification(NOTIFICATION);
+        notify::withdraw(&self.app, NOTIFICATION);
     }
 
     fn arrive(&self, place: &Place, because: String) {
@@ -239,11 +240,13 @@ impl PlaceWatch {
                 LineState::Applying
             }
             OnArrival::Ask => {
-                let notification =
-                    gio::Notification::new(&format!("Place recognized: {}", place.name));
-                notification.set_body(Some(&format!("Because {because}. Apply its settings?")));
-                notification.add_button("Apply", APPLY_ACTION);
-                self.notify(notification);
+                self.notify(
+                    Note::new(
+                        format!("Place recognized: {}", place.name),
+                        format!("Because {because}. Apply its settings?"),
+                    )
+                    .button("Apply", APPLY_ACTION),
+                );
                 self.asked.replace(Some(place.clone()));
                 LineState::Asking
             }
@@ -278,7 +281,6 @@ impl PlaceWatch {
             return problems;
         };
         let title = format!("Place recognized: {}", result.name);
-        let notification = gio::Notification::new(&title);
         if result.undo.is_empty() {
             line.state = if problems.is_none() {
                 LineState::InUse
@@ -288,24 +290,16 @@ impl PlaceWatch {
             // Each arrival is told, even when nothing had to change; but
             // not when DeskCheck just started and all is in place already.
             if !starting || problems.is_some() {
-                notification.set_body(Some(
-                    problems
-                        .as_deref()
-                        .unwrap_or("Its settings are already in use."),
-                ));
-                self.notify(notification);
+                let body = problems
+                    .as_deref()
+                    .unwrap_or("Its settings are already in use.");
+                self.notify(Note::new(title, body));
             }
             return problems;
         }
         line.state = LineState::Applied { at: now_text() };
-        notification.set_body(Some(&places_model::applied_body(
-            config,
-            sound,
-            &result.sound,
-            result.layout_changed,
-        )));
-        notification.add_button("Undo", UNDO_ACTION);
-        self.notify(notification);
+        let body = places_model::applied_body(config, sound, &result.sound, result.layout_changed);
+        self.notify(Note::new(title, body).button("Undo", UNDO_ACTION));
         self.undo.replace(Some(result.undo));
         problems
     }
@@ -342,11 +336,14 @@ impl PlaceWatch {
     /// Sends a test notification at once, the same way as the ones of the
     /// places: to tell a problem of GNOME from a problem of DeskCheck.
     pub fn test_notification(&self) {
-        let notification = gio::Notification::new("DeskCheck test");
-        notification.set_body(Some(
-            "If you see this, DeskCheck can show its notifications.",
-        ));
         glib::g_debug!(LOG, "test notification sent");
-        self.app.send_notification(Some("test"), &notification);
+        notify::send(
+            &self.app,
+            "test",
+            &Note::new(
+                "DeskCheck test",
+                "If you see this, DeskCheck can show its notifications.",
+            ),
+        );
     }
 }

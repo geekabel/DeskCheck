@@ -193,6 +193,11 @@ _Aucune tâche._
     qu'il voit reste pareil avant d'agir (2 s pour une arrivée, 10 s avant de quitter un lieu).
     Un écran que GNOME remet en place en plusieurs étapes, ou un Wi-Fi qui saute un instant,
     ne retire plus la notification.
+  - [x] Quatrième correction (18 oct. 2026) : ta notification de test passait avec `gdbus`
+    mais pas depuis DeskCheck. DeskCheck envoie maintenant ses notifications lui-même à GNOME
+    (`org.gtk.Notifications`, le même appel que `gdbus`), au lieu de laisser GLib choisir son
+    chemin : avec `GTK_USE_PORTAL=1` (posé par les terminaux de certaines applis snap), GLib
+    passe par le portail, qui peut les perdre. Le journal dit si GNOME les accepte.
 - **Décisions**
   - Les écrans d'un lieu sont appliqués avec la méthode « temporary » de GNOME : pas de fenêtre
     « garder ces réglages ? », puisque DeskCheck offre son propre Undo. GNOME garde ses

@@ -21,6 +21,7 @@ mod backend;
 mod diag_model;
 mod diag_page;
 mod identify;
+mod notify;
 mod now_model;
 mod now_page;
 mod place_watch;
@@ -116,6 +117,7 @@ fn activate(app: &adw::Application) {
         window.present();
         return;
     }
+    notify::log_environment();
     let (updates, received) = async_channel::unbounded();
     let backend = backend::start(updates);
     let window = window::MainWindow::new(app, backend.clone());
