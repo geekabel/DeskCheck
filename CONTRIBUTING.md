@@ -7,7 +7,8 @@ Cargo.toml               workspace: shared version, edition, lints
 crates/deskcheck-core    domain model and rules, no system dependency
 crates/deskcheck-pulse   sound backend: reads PulseAudio or pipewire-pulse
 crates/deskcheck-mutter  screen backend: reads and changes GNOME (Mutter DisplayConfig)
-crates/deskcheck-config  settings file: names and colors, saved safely
+crates/deskcheck-network network backend: the Wi-Fi in use (NetworkManager)
+crates/deskcheck-config  settings file: names, colors and places, saved safely
 crates/deskcheck-app     the window (GTK 4.6 and libadwaita 1.1)
 crates/deskcheck         the `deskcheck` binary
 gnome-shell-extension    tells DeskCheck where the mouse is, on Wayland only
@@ -74,6 +75,7 @@ cargo run -p deskcheck -- move recording firefox usb  # move an app to a device
 cargo run -p deskcheck -- displays                    # which screen is which
 cargo run -p deskcheck -- displays --verbose          # with identity and position
 cargo run -p deskcheck -- mouse                       # which screen the mouse is on
+cargo run -p deskcheck -- place                       # which saved place is recognized, and why
 cargo run -p deskcheck -- rename screen 2 Laptop      # give screen 2 a name
 cargo run -p deskcheck -- rename screen 2 --reset     # remove that name
 cargo run -p deskcheck-pulse --example audio_dump     # what the sound server reports

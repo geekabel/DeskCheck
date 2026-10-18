@@ -4,15 +4,15 @@ Ce fichier suit toutes les tâches jusqu'à la version 0.1.0.
 On le met à jour à la fin de chaque tâche, dans la même branche que la tâche.
 Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact/SEKGtbp6ACVXhpff8rK89i) (privé, mis à jour en même temps).
 
-**Avancement : 25 / 38 tâches terminées**
+**Avancement : 26 / 38 tâches terminées**
 
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-27, DC-28, DC-29 |
+| 🔜 À faire (prochaines) | DC-28, DC-29 |
 | 📋 Backlog | DC-30 à DC-38 |
-| 🖥️ À tester sur ton PC | DC-26 |
-| ✅ Terminé | DC-01 à DC-25 |
+| 🖥️ À tester sur ton PC | DC-27 |
+| ✅ Terminé | DC-01 à DC-26 |
 
 ---
 
@@ -66,12 +66,6 @@ _Aucune tâche._
 ---
 
 ## 🔜 À faire (prochaines)
-
-### DC-27 · Modèle des lieux et détection
-- **Docs** : D-Bus NetworkManager (nom du Wi-Fi actif).
-- **Critères**
-  - [ ] Un lieu = conditions (écran branché, Wi-Fi) + préférences son, micro, écrans.
-  - [ ] Détection du lieu actuel, tests unitaires.
 
 ### DC-28 · Appliquer un lieu avec Annuler
 - **Docs** : `gio::Notification`.
@@ -150,31 +144,27 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-### DC-26 · Sur quel écran est la souris ? 🧪
-- **But** : montrer sur quel écran est la souris, sous X11 (le cas de Godwin) comme sous Wayland.
-- **Docs lues** : `x11rb` 0.14 (`connect`, `query_pointer`, `QueryPointerReply`), guide GJS
-  (`Gio.DBusExportedObject.wrapJSObject`, `Gio.bus_own_name`), guide des extensions GNOME
-  Shell (anatomie, `metadata.json`, forme ancienne pour 42 à 44, modules ES depuis 45),
-  `zbus` 5 (proxy), maquettes « Maintenant », « Écrans », « Identifier ».
-- **Recherche** : sous Wayland, une application ne voit la souris que sur ses propres fenêtres.
-  `org.gnome.Shell.Eval` est fermé depuis GNOME 41. Solution choisie : une petite extension
-  de GNOME Shell qui répond à un seul appel D-Bus, `GetPosition`, avec `global.get_pointer()`.
-  Sous X11, aucune extension : DeskCheck demande au serveur X (`QueryPointer`).
+### DC-27 · Modèle des lieux et détection 🧪
+- **But** : décrire un lieu (bureau, maison...) et reconnaître celui où est l'ordinateur.
+- **Docs lues** : interface D-Bus de NetworkManager (`ActiveConnections`,
+  `Connection.Active` : `Type`, `Devices` ; `Device.Wireless.ActiveAccessPoint` ;
+  `AccessPoint.Ssid`), `zbus` 5 (proxy bloquant, `CacheProperties::No`, connexion pair à pair
+  pour les tests), maquette « Lieux ».
 - **Critères**
-  - [x] « Mouse here » sur le plan de « Now », « Your mouse is here » sur la page Screens et sur
-    l'écran identifié, comme les maquettes.
-  - [x] X11 : position lue au serveur X ; Wayland : par l'extension, sinon la page Screens le dit.
-  - [x] L'écran sous la souris : taille du mode sous X11, taille divisée par l'échelle sous Wayland.
-  - [x] Extension en deux versions (GNOME 42 à 44, et 45 et plus) avec `install.sh`.
-  - [x] `deskcheck mouse` : « The mouse is on screen 2, ASUS (at 2400, 300). »
-  - [x] Vu ici sous X11 (écran virtuel) : tags au bon endroit, `deskcheck mouse` juste.
+  - [x] Un lieu = indices (un écran branché, le nom du Wi-Fi, aucun écran externe) + sorties
+    son préférées, sorties à éviter, micros préférés, disposition des écrans gardée, et quoi
+    faire en arrivant (appliquer, demander, rien).
+  - [x] Détection : l'indice le plus parlant gagne (écran, puis Wi-Fi, puis « aucun écran
+    externe ») ; à égalité, le premier lieu de la liste. Tests unitaires.
+  - [x] Les lieux sont gardés dans le fichier de réglages (`[[places]]`), testé aller-retour.
+  - [x] Nouvelle caisse `deskcheck-network` : nom du Wi-Fi lu à NetworkManager, testée avec un
+    faux NetworkManager.
+  - [x] `deskcheck place` : « You are at Office, because the Wi-Fi is UTBM-Office. »
 - **Décisions**
-  - La souris est lue toutes les 300 ms ; l'interface ne change que quand elle passe à un
-    autre écran.
-  - Sans extension sous Wayland, DeskCheck réessaie toutes les 10 s (tu peux l'activer après).
-- **À tester** : sous X11, `cargo run -p deskcheck -- mouse` sur chaque écran, puis
-  `cargo run -p deskcheck-app` : le tag suit la souris d'un écran à l'autre (Now et Screens),
-  et « Identify screens » le montre sur le bon écran. Wayland : plus tard, avec l'extension.
+  - Un écran sans numéro de série utile correspond à tout écran du même modèle.
+  - Si le Wi-Fi ou les écrans ne se lisent pas, la détection continue avec ce qui se lit.
+- **À tester** : `cargo run -p deskcheck -- place` doit montrer le nom de ton Wi-Fi et tes
+  écrans (aucun lieu n'est encore enregistré : la page Lieux vient avec DC-29).
 
 ---
 
@@ -741,3 +731,27 @@ _Aucune tâche._
     se ferme, et c'est la fenêtre que tu connais déjà.
   - Sortie du miroir : chaque écran reprend sa meilleure résolution.
   - Sur X11, GNOME impose la même échelle partout : DeskCheck change donc toutes les échelles.
+
+### DC-26 · Sur quel écran est la souris ? 🧪
+- **But** : montrer sur quel écran est la souris, sous X11 (le cas de Godwin) comme sous Wayland.
+- **Docs lues** : `x11rb` 0.14 (`connect`, `query_pointer`, `QueryPointerReply`), guide GJS
+  (`Gio.DBusExportedObject.wrapJSObject`, `Gio.bus_own_name`), guide des extensions GNOME
+  Shell (anatomie, `metadata.json`, forme ancienne pour 42 à 44, modules ES depuis 45),
+  `zbus` 5 (proxy), maquettes « Maintenant », « Écrans », « Identifier ».
+- **Recherche** : sous Wayland, une application ne voit la souris que sur ses propres fenêtres.
+  `org.gnome.Shell.Eval` est fermé depuis GNOME 41. Solution choisie : une petite extension
+  de GNOME Shell qui répond à un seul appel D-Bus, `GetPosition`, avec `global.get_pointer()`.
+  Sous X11, aucune extension : DeskCheck demande au serveur X (`QueryPointer`).
+- **Critères**
+  - [x] « Mouse here » sur le plan de « Now », « Your mouse is here » sur la page Screens et sur
+    l'écran identifié, comme les maquettes.
+  - [x] X11 : position lue au serveur X ; Wayland : par l'extension, sinon la page Screens le dit.
+  - [x] L'écran sous la souris : taille du mode sous X11, taille divisée par l'échelle sous Wayland.
+  - [x] Extension en deux versions (GNOME 42 à 44, et 45 et plus) avec `install.sh`.
+  - [x] `deskcheck mouse` : « The mouse is on screen 2, ASUS (at 2400, 300). »
+  - [x] Vu ici sous X11 (écran virtuel) : tags au bon endroit, `deskcheck mouse` juste.
+  - [x] Testé sur le PC de Godwin (18 oct. 2026), sous X11. Wayland : à voir plus tard, avec l'extension.
+- **Décisions**
+  - La souris est lue toutes les 300 ms ; l'interface ne change que quand elle passe à un
+    autre écran.
+  - Sans extension sous Wayland, DeskCheck réessaie toutes les 10 s (tu peux l'activer après).
