@@ -4,15 +4,15 @@ Ce fichier suit toutes les tâches jusqu'à la version 0.1.0.
 On le met à jour à la fin de chaque tâche, dans la même branche que la tâche.
 Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact/SEKGtbp6ACVXhpff8rK89i) (privé, mis à jour en même temps).
 
-**Avancement : 26 / 38 tâches terminées**
+**Avancement : 29 / 38 tâches terminées**
 
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
 | 🔜 À faire (prochaines) | DC-30, DC-31 |
 | 📋 Backlog | DC-32 à DC-38 |
-| 🖥️ À tester sur ton PC | DC-27, DC-28, DC-29 |
-| ✅ Terminé | DC-01 à DC-26 |
+| 🖥️ À tester sur ton PC | aucune |
+| ✅ Terminé | DC-01 à DC-29 |
 
 ---
 
@@ -134,110 +134,7 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-### DC-29 · Page « Lieux » 🧪
-- **But** : créer et régler les lieux dans la fenêtre, comme la maquette « Lieux ».
-- **Docs lues** : `gtk4` 0.10 (`DragSource`, `DropTarget`, `gdk::ContentProvider::for_value`,
-  `WidgetPaintable`, `MenuButton::set_child` depuis GTK 4.6, `CheckButton::set_group`),
-  maquette « Lieux ».
-- **Critères**
-  - [x] Liste des lieux à gauche, tag « Now » sur le lieu reconnu, « Add a place ».
-  - [x] Un nouveau lieu prend ce qui est en place : sorties et micros (ceux par défaut en
-    premier), disposition des écrans, et l'indice le plus parlant (écran externe, sinon Wi-Fi).
-  - [x] « Recognized when » : conditions avec « or », ajout (écrans branchés, Wi-Fi actuel,
-    aucun écran externe) et retrait.
-  - [x] Sorties et micros par préférence : glisser une ligne pour changer l'ordre, menu de
-    ligne (« Never use it here », retirer), « Add an output », « Add a microphone ».
-  - [x] Écrans : petit plan de la disposition gardée, « Take the current layout ».
-  - [x] « When this place is recognized » : appliquer, demander, ne rien faire.
-  - [x] Renommer et supprimer un lieu (formulaire « Rename »).
-  - [x] Vu ici : ajouter, renommer, glisser, ajouter une condition, changer le mode, page vide.
-- **Décisions**
-  - Chaque changement est enregistré tout de suite, sans bouton « Save ».
-  - Renommer le lieu reconnu ne compte pas comme une nouvelle arrivée.
-  - Changer les réglages du lieu où tu es ne les applique pas tout de suite : ils servent à la
-    prochaine arrivée.
-  - Ajouts à la maquette, nécessaires : boutons « Add an output » et « Add a microphone »,
-    menu « ⋯ » sur chaque ligne, croix pour retirer une condition, « Delete this place ».
-- **À tester** : `cargo run -p deskcheck-app`, page Places : crée « Office » au bureau et
-  « Home » à la maison, puis débranche et rebranche l'écran pour voir le lieu reconnu.
-
-### DC-28 · Appliquer un lieu avec Annuler 🧪
-- **But** : quand DeskCheck reconnaît un lieu, mettre ses choix en place, et pouvoir revenir en
-  arrière.
-- **Docs lues** : `gio::Notification` et `Application::send_notification` (fichier `.desktop`
-  au nom de l'id de l'app, `DBusActivatable`, boutons sur des actions `app.`), interface
-  D-Bus `org.gnome.Mutter.DisplayConfig` (méthode « temporary »), maquette « Maintenant »
-  (ligne du lieu en bas), maquette « Lieux ».
-- **Critères**
-  - [x] À l'arrivée : sortie son et micro par défaut (le premier branché des listes), puis
-    disposition des écrans gardée. Seul ce qui diffère est changé.
-  - [x] Notification « Place recognized: Office » qui dit ce qui a changé, bouton Undo.
-  - [x] Modes : appliquer (et prévenir), demander avant (bouton Apply), ne rien faire.
-  - [x] Badge « Place: Office » en haut, ligne en bas de Now comme la maquette :
-    « Place recognized: Office, because ... Place settings applied at 8:31. [Undo] ».
-  - [x] Undo remet la sortie, le micro et la disposition d'avant.
-  - [x] Nom du Wi-Fi relu toutes les 5 s.
-  - [x] Vu ici avec un faux GNOME et un faux serveur de notifications : appliquer, Undo par la
-    notification, demander puis Apply dans la page.
-  - [x] `data/` : fichier `.desktop`, service D-Bus, `install-dev.sh` et `uninstall-dev.sh`.
-  - [x] Correction après ton test (18 oct. 2026) : rien ne se passait en rebranchant l'écran,
-    car le lieu était déjà en place et DeskCheck ne prévenait que s'il changeait quelque chose.
-    Maintenant chaque arrivée a sa notification (« Its settings are already in use. »), sauf
-    au démarrage de DeskCheck quand tout est déjà en place.
-  - [x] Journal : `G_MESSAGES_DEBUG=deskcheck` montre chaque arrivée, départ et notification.
-  - [x] Deuxième correction (18 oct. 2026) : la notification part 1,5 s après l'arrivée, le
-    temps que GNOME place ses panneaux sur l'écran branché. Une lecture du Wi-Fi qui échoue
-    ne fait plus quitter le lieu. Action `app.test-notification` pour tester les
-    notifications de DeskCheck elles-mêmes.
-  - [x] Troisième correction (18 oct. 2026), d'après ton journal : DeskCheck attend que ce
-    qu'il voit reste pareil avant d'agir (2 s pour une arrivée, 10 s avant de quitter un lieu).
-    Un écran que GNOME remet en place en plusieurs étapes, ou un Wi-Fi qui saute un instant,
-    ne retire plus la notification.
-  - [x] Quatrième correction (18 oct. 2026) : ta notification de test passait avec `gdbus`
-    mais pas depuis DeskCheck. DeskCheck envoie maintenant ses notifications lui-même à GNOME
-    (`org.gtk.Notifications`, le même appel que `gdbus`), au lieu de laisser GLib choisir son
-    chemin : avec `GTK_USE_PORTAL=1` (posé par les terminaux de certaines applis snap), GLib
-    passe par le portail, qui peut les perdre. Le journal dit si GNOME les accepte.
-  - [x] Cinquième correction (18 oct. 2026) : quand un lieu est reconnu par l'écran et par le
-    Wi-Fi, débrancher l'écran ne change pas de lieu, donc DeskCheck ne faisait rien. Maintenant,
-    si les écrans branchés changent au même lieu, DeskCheck met à jour la raison (« because the
-    Wi-Fi is ... ») et réapplique le lieu (la disposition revient quand l'écran est rebranché).
-    Notification seulement si quelque chose change. Le journal liste les écrans branchés.
-- **Décisions**
-  - Les écrans d'un lieu sont appliqués avec la méthode « temporary » de GNOME : pas de fenêtre
-    « garder ces réglages ? », puisque DeskCheck offre son propre Undo. GNOME garde ses
-    dispositions enregistrées telles quelles.
-  - Une disposition dont un écran manque n'est pas appliquée (le son l'est quand même).
-  - DeskCheck agit une fois par arrivée, aussi au démarrage. Après Undo, il ne réapplique pas
-    tant que tu restes au même lieu.
-  - PulseAudio 15 déplace les applications qui suivent la sortie par défaut ; celles que tu as
-    mises ailleurs à la main restent où elles sont.
-- **À tester** : `data/uninstall-dev.sh` puis `data/install-dev.sh` (pour avoir la nouvelle
-  version), lance DeskCheck depuis les Activités et crée un lieu dans la page Places (DC-29).
-  Débranche puis rebranche l'écran. Vérifier : la notification et son Undo, la ligne en bas de Now, et qu'aucune fenêtre de
-  GNOME ne demande de garder les écrans.
-
-### DC-27 · Modèle des lieux et détection 🧪
-- **But** : décrire un lieu (bureau, maison...) et reconnaître celui où est l'ordinateur.
-- **Docs lues** : interface D-Bus de NetworkManager (`ActiveConnections`,
-  `Connection.Active` : `Type`, `Devices` ; `Device.Wireless.ActiveAccessPoint` ;
-  `AccessPoint.Ssid`), `zbus` 5 (proxy bloquant, `CacheProperties::No`, connexion pair à pair
-  pour les tests), maquette « Lieux ».
-- **Critères**
-  - [x] Un lieu = indices (un écran branché, le nom du Wi-Fi, aucun écran externe) + sorties
-    son préférées, sorties à éviter, micros préférés, disposition des écrans gardée, et quoi
-    faire en arrivant (appliquer, demander, rien).
-  - [x] Détection : l'indice le plus parlant gagne (écran, puis Wi-Fi, puis « aucun écran
-    externe ») ; à égalité, le premier lieu de la liste. Tests unitaires.
-  - [x] Les lieux sont gardés dans le fichier de réglages (`[[places]]`), testé aller-retour.
-  - [x] Nouvelle caisse `deskcheck-network` : nom du Wi-Fi lu à NetworkManager, testée avec un
-    faux NetworkManager.
-  - [x] `deskcheck place` : « You are at Office, because the Wi-Fi is UTBM-Office. »
-- **Décisions**
-  - Un écran sans numéro de série utile correspond à tout écran du même modèle.
-  - Si le Wi-Fi ou les écrans ne se lisent pas, la détection continue avec ce qui se lit.
-- **À tester** : `cargo run -p deskcheck -- place` doit montrer le nom de ton Wi-Fi et tes
-  écrans (aucun lieu n'est encore enregistré : la page Lieux vient avec DC-29).
+_Aucune tâche._
 
 ---
 
@@ -828,3 +725,103 @@ _Aucune tâche._
   - La souris est lue toutes les 300 ms ; l'interface ne change que quand elle passe à un
     autre écran.
   - Sans extension sous Wayland, DeskCheck réessaie toutes les 10 s (tu peux l'activer après).
+
+### DC-27 · Modèle des lieux et détection
+- **But** : décrire un lieu (bureau, maison...) et reconnaître celui où est l'ordinateur.
+- **Docs lues** : interface D-Bus de NetworkManager (`ActiveConnections`,
+  `Connection.Active` : `Type`, `Devices` ; `Device.Wireless.ActiveAccessPoint` ;
+  `AccessPoint.Ssid`), `zbus` 5 (proxy bloquant, `CacheProperties::No`, connexion pair à pair
+  pour les tests), maquette « Lieux ».
+- **Critères**
+  - [x] Un lieu = indices (un écran branché, le nom du Wi-Fi, aucun écran externe) + sorties
+    son préférées, sorties à éviter, micros préférés, disposition des écrans gardée, et quoi
+    faire en arrivant (appliquer, demander, rien).
+  - [x] Détection : l'indice le plus parlant gagne (écran, puis Wi-Fi, puis « aucun écran
+    externe ») ; à égalité, le premier lieu de la liste. Tests unitaires.
+  - [x] Les lieux sont gardés dans le fichier de réglages (`[[places]]`), testé aller-retour.
+  - [x] Nouvelle caisse `deskcheck-network` : nom du Wi-Fi lu à NetworkManager, testée avec un
+    faux NetworkManager.
+  - [x] `deskcheck place` : « You are at Office, because the Wi-Fi is UTBM-Office. »
+  - [x] Testé sur le PC de Godwin (18 oct. 2026), sous X11.
+- **Décisions**
+  - Un écran sans numéro de série utile correspond à tout écran du même modèle.
+  - Si le Wi-Fi ou les écrans ne se lisent pas, la détection continue avec ce qui se lit.
+
+### DC-28 · Appliquer un lieu avec Annuler
+- **But** : quand DeskCheck reconnaît un lieu, mettre ses choix en place, et pouvoir revenir en
+  arrière.
+- **Docs lues** : `gio::Notification` et `Application::send_notification` (fichier `.desktop`
+  au nom de l'id de l'app, `DBusActivatable`, boutons sur des actions `app.`), interface
+  D-Bus `org.gnome.Mutter.DisplayConfig` (méthode « temporary »), maquette « Maintenant »
+  (ligne du lieu en bas), maquette « Lieux ».
+- **Critères**
+  - [x] À l'arrivée : sortie son et micro par défaut (le premier branché des listes), puis
+    disposition des écrans gardée. Seul ce qui diffère est changé.
+  - [x] Notification « Place recognized: Office » qui dit ce qui a changé, bouton Undo.
+  - [x] Modes : appliquer (et prévenir), demander avant (bouton Apply), ne rien faire.
+  - [x] Badge « Place: Office » en haut, ligne en bas de Now comme la maquette :
+    « Place recognized: Office, because ... Place settings applied at 8:31. [Undo] ».
+  - [x] Undo remet la sortie, le micro et la disposition d'avant.
+  - [x] Nom du Wi-Fi relu toutes les 5 s.
+  - [x] Vu ici avec un faux GNOME et un faux serveur de notifications : appliquer, Undo par la
+    notification, demander puis Apply dans la page.
+  - [x] `data/` : fichier `.desktop`, service D-Bus, `install-dev.sh` et `uninstall-dev.sh`.
+  - [x] Correction après ton test (18 oct. 2026) : rien ne se passait en rebranchant l'écran,
+    car le lieu était déjà en place et DeskCheck ne prévenait que s'il changeait quelque chose.
+    Maintenant chaque arrivée a sa notification (« Its settings are already in use. »), sauf
+    au démarrage de DeskCheck quand tout est déjà en place.
+  - [x] Journal : `G_MESSAGES_DEBUG=deskcheck` montre chaque arrivée, départ et notification.
+  - [x] Deuxième correction (18 oct. 2026) : la notification part 1,5 s après l'arrivée, le
+    temps que GNOME place ses panneaux sur l'écran branché. Une lecture du Wi-Fi qui échoue
+    ne fait plus quitter le lieu. Action `app.test-notification` pour tester les
+    notifications de DeskCheck elles-mêmes.
+  - [x] Troisième correction (18 oct. 2026), d'après ton journal : DeskCheck attend que ce
+    qu'il voit reste pareil avant d'agir (2 s pour une arrivée, 10 s avant de quitter un lieu).
+    Un écran que GNOME remet en place en plusieurs étapes, ou un Wi-Fi qui saute un instant,
+    ne retire plus la notification.
+  - [x] Quatrième correction (18 oct. 2026) : ta notification de test passait avec `gdbus`
+    mais pas depuis DeskCheck. DeskCheck envoie maintenant ses notifications lui-même à GNOME
+    (`org.gtk.Notifications`, le même appel que `gdbus`), au lieu de laisser GLib choisir son
+    chemin : avec `GTK_USE_PORTAL=1` (posé par les terminaux de certaines applis snap), GLib
+    passe par le portail, qui peut les perdre. Le journal dit si GNOME les accepte.
+  - [x] Cinquième correction (18 oct. 2026) : quand un lieu est reconnu par l'écran et par le
+    Wi-Fi, débrancher l'écran ne change pas de lieu, donc DeskCheck ne faisait rien. Maintenant,
+    si les écrans branchés changent au même lieu, DeskCheck met à jour la raison (« because the
+    Wi-Fi is ... ») et réapplique le lieu (la disposition revient quand l'écran est rebranché).
+    Notification seulement si quelque chose change. Le journal liste les écrans branchés.
+  - [x] Testé sur le PC de Godwin (18 oct. 2026), sous X11.
+- **Décisions**
+  - Les écrans d'un lieu sont appliqués avec la méthode « temporary » de GNOME : pas de fenêtre
+    « garder ces réglages ? », puisque DeskCheck offre son propre Undo. GNOME garde ses
+    dispositions enregistrées telles quelles.
+  - Une disposition dont un écran manque n'est pas appliquée (le son l'est quand même).
+  - DeskCheck agit une fois par arrivée, aussi au démarrage. Après Undo, il ne réapplique pas
+    tant que tu restes au même lieu.
+  - PulseAudio 15 déplace les applications qui suivent la sortie par défaut ; celles que tu as
+    mises ailleurs à la main restent où elles sont.
+
+### DC-29 · Page « Lieux »
+- **But** : créer et régler les lieux dans la fenêtre, comme la maquette « Lieux ».
+- **Docs lues** : `gtk4` 0.10 (`DragSource`, `DropTarget`, `gdk::ContentProvider::for_value`,
+  `WidgetPaintable`, `MenuButton::set_child` depuis GTK 4.6, `CheckButton::set_group`),
+  maquette « Lieux ».
+- **Critères**
+  - [x] Liste des lieux à gauche, tag « Now » sur le lieu reconnu, « Add a place ».
+  - [x] Un nouveau lieu prend ce qui est en place : sorties et micros (ceux par défaut en
+    premier), disposition des écrans, et l'indice le plus parlant (écran externe, sinon Wi-Fi).
+  - [x] « Recognized when » : conditions avec « or », ajout (écrans branchés, Wi-Fi actuel,
+    aucun écran externe) et retrait.
+  - [x] Sorties et micros par préférence : glisser une ligne pour changer l'ordre, menu de
+    ligne (« Never use it here », retirer), « Add an output », « Add a microphone ».
+  - [x] Écrans : petit plan de la disposition gardée, « Take the current layout ».
+  - [x] « When this place is recognized » : appliquer, demander, ne rien faire.
+  - [x] Renommer et supprimer un lieu (formulaire « Rename »).
+  - [x] Vu ici : ajouter, renommer, glisser, ajouter une condition, changer le mode, page vide.
+  - [x] Testé sur le PC de Godwin (18 oct. 2026), sous X11.
+- **Décisions**
+  - Chaque changement est enregistré tout de suite, sans bouton « Save ».
+  - Renommer le lieu reconnu ne compte pas comme une nouvelle arrivée.
+  - Changer les réglages du lieu où tu es ne les applique pas tout de suite : ils servent à la
+    prochaine arrivée.
+  - Ajouts à la maquette, nécessaires : boutons « Add an output » et « Add a microphone »,
+    menu « ⋯ » sur chaque ligne, croix pour retirer une condition, « Delete this place ».
