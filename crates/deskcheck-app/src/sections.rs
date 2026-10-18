@@ -58,19 +58,6 @@ impl Section {
         }
     }
 
-    /// One line on what the page is for, until the page itself is built.
-    pub fn summary(self) -> &'static str {
-        match self {
-            Self::Now => {
-                "Where the sound goes, which microphone hears you, and which screen you are on."
-            }
-            Self::Audio => "Every output, microphone and app, with a test for each.",
-            Self::Screens => "Every screen, with its number and color.",
-            Self::Places => "Home, office: the settings of each place, applied when you arrive.",
-            Self::Diagnostic => "Every check, and a fix in one click.",
-        }
-    }
-
     /// The section at a position in the sidebar.
     pub fn at(index: usize) -> Option<Self> {
         Self::ALL.get(index).copied()

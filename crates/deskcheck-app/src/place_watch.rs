@@ -63,6 +63,16 @@ impl PlaceWatch {
         self.line.borrow().clone()
     }
 
+    /// A place was renamed on the Places page: still the same place.
+    pub fn renamed(&self, from: &str, to: &str) {
+        self.arrivals.borrow_mut().rename(from, to);
+        if let Some(line) = self.line.borrow_mut().as_mut() {
+            if line.name == from {
+                to.clone_into(&mut line.name);
+            }
+        }
+    }
+
     /// The name of the place recognized.
     pub fn current(&self) -> Option<String> {
         self.arrivals.borrow().current().map(str::to_owned)

@@ -168,6 +168,8 @@ pub enum TagKind {
     WarnStrong,
     /// Blue: "Default".
     Accent,
+    /// Filled in blue: the place recognized now.
+    AccentStrong,
     /// Grey: neither good nor bad.
     Neutral,
     /// Red: muted, broken.
@@ -183,6 +185,7 @@ impl TagKind {
             Self::Warn => "warn",
             Self::WarnStrong => "warn-strong",
             Self::Accent => "accent",
+            Self::AccentStrong => "accent-strong",
             Self::Neutral => "neutral",
             Self::Error => "error",
             Self::Dark => "dark",

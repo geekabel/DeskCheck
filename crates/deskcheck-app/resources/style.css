@@ -593,3 +593,114 @@ window.dc-identify-window {
     color: #ffffff;
     font-size: 13px;
 }
+
+/* The Places page. */
+.dc-caption.strong {
+    font-size: 14px;
+    font-weight: bold;
+    color: @dc_neutral_fg;
+}
+.dc-place-card-body {
+    padding: 14px 16px;
+}
+button.dc-place-card {
+    font-weight: normal;
+    padding: 12px 14px;
+    border: 1px solid @dc_border;
+    border-radius: 10px;
+    background-color: @card_bg_color;
+    box-shadow: none;
+}
+button.dc-place-card:hover {
+    background-color: @dc_button_hover;
+}
+button.dc-place-card.selected {
+    padding: 11px 13px;
+    border: 2px solid @accent_bg_color;
+    background-color: @dc_selected_row;
+}
+.dc-place-card-name {
+    font-size: 15px;
+    font-weight: bold;
+}
+.dc-place-title {
+    font-size: 20px;
+    font-weight: bold;
+}
+.dc-cond {
+    padding: 5px 6px 5px 12px;
+    min-height: 28px;
+    border-radius: 8px;
+    background-color: @dc_dots_bg;
+    font-size: 14px;
+}
+.dc-or {
+    font-size: 12px;
+    color: @dc_dim;
+    padding-left: 12px;
+}
+.dc-pref {
+    min-height: 34px;
+    padding: 0 3px 0 10px;
+    border: 1px solid @dc_button_active;
+    border-radius: 8px;
+    background-color: @card_bg_color;
+    font-size: 14px;
+}
+.dc-pref.never {
+    background-color: @dc_dots_bg;
+    color: @dc_dim;
+}
+.dc-pref.drop {
+    border-color: @accent_bg_color;
+    background-color: @dc_selected_row;
+}
+.dc-num {
+    min-width: 22px;
+    min-height: 22px;
+    border-radius: 6px;
+    background-color: @dc_accent_tint;
+    color: @dc_accent_strong;
+    font-size: 12px;
+    font-weight: bold;
+}
+.dc-grip {
+    color: @dc_dim;
+    opacity: 0.8;
+}
+button.dc-btn.dc-mini,
+menubutton.dc-btn.dc-mini > button {
+    min-width: 28px;
+    min-height: 28px;
+    padding: 0;
+}
+menubutton.dc-btn.dc-compact > button {
+    min-height: 32px;
+}
+.dc-menu-list {
+    padding: 2px;
+}
+.dc-menu-list button {
+    font-weight: normal;
+}
+button.dc-btn.dc-danger {
+    color: @dc_error_fg;
+}
+.dc-mini-screen {
+    border: 2px solid @accent_color;
+    border-radius: 4px;
+    background-color: @card_bg_color;
+    font-size: 16px;
+    font-weight: bold;
+}
+.dc-mini-screen.primary {
+    font-size: 20px;
+}
+.dc-layout-words {
+    font-size: 13px;
+    color: @dc_neutral_fg;
+}
+.dc-tag.accent-strong {
+    background-color: @accent_bg_color;
+    color: #ffffff;
+}

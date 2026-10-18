@@ -10,8 +10,10 @@
     <file>icons/scalable/actions/dc-back-symbolic.svg</file>
     <file>icons/scalable/actions/dc-browser-symbolic.svg</file>
     <file>icons/scalable/actions/dc-chevron-down-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-close-symbolic.svg</file>
     <file>icons/scalable/actions/dc-diagnostic-symbolic.svg</file>
     <file>icons/scalable/actions/dc-dot-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-grip-symbolic.svg</file>
     <file>icons/scalable/actions/dc-headphones-symbolic.svg</file>
     <file>icons/scalable/actions/dc-identify-symbolic.svg</file>
     <file>icons/scalable/actions/dc-laptop-symbolic.svg</file>
@@ -19,6 +21,7 @@
     <file>icons/scalable/actions/dc-menu-symbolic.svg</file>
     <file>icons/scalable/actions/dc-microphone-muted-symbolic.svg</file>
     <file>icons/scalable/actions/dc-microphone-symbolic.svg</file>
+    <file>icons/scalable/actions/dc-more-symbolic.svg</file>
     <file>icons/scalable/actions/dc-never-symbolic.svg</file>
     <file>icons/scalable/actions/dc-now-symbolic.svg</file>
     <file>icons/scalable/actions/dc-ok-symbolic.svg</file>

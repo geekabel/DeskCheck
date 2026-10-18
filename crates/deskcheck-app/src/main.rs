@@ -25,6 +25,7 @@ mod now_model;
 mod now_page;
 mod place_watch;
 mod places_model;
+mod places_page;
 mod screens_model;
 mod screens_page;
 mod sections;

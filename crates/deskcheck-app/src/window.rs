@@ -24,6 +24,7 @@ use crate::identify::Identifier;
 use crate::now_page::{NowLink, NowPage};
 use crate::place_watch::PlaceWatch;
 use crate::places_model;
+use crate::places_page::PlacesPage;
 use crate::screens_page::ScreensPage;
 use crate::sections::Section;
 use crate::status;
@@ -61,6 +62,7 @@ pub struct MainWindow {
     audio: Rc<AudioPage>,
     screens: Rc<ScreensPage>,
     diagnostic: Rc<DiagPage>,
+    places_page: Rc<PlacesPage>,
     toasts: adw::ToastOverlay,
     sound_footer: gtk::Label,
     screens_footer: gtk::Label,
@@ -151,15 +153,6 @@ fn sidebar() -> (gtk::Box, gtk::ListBox, gtk::Label, gtk::Label) {
     (sidebar, list, sound_footer, screens_footer)
 }
 
-/// The page of a section that comes in a later version.
-fn coming_soon(section: Section) -> adw::StatusPage {
-    adw::StatusPage::builder()
-        .icon_name(section.icon_name())
-        .title(section.title())
-        .description(section.summary())
-        .build()
-}
-
 /// A small line at the bottom of the sidebar.
 fn footer_label() -> gtk::Label {
     gtk::Label::builder().label("…").xalign(0.0).build()
@@ -167,6 +160,10 @@ fn footer_label() -> gtk::Label {
 
 impl MainWindow {
     /// Builds the window, with the Now section shown.
+    #[allow(
+        clippy::too_many_lines,
+        reason = "builds the header, the pages and their links in order, easier to read in one place"
+    )]
     pub fn new(app: &adw::Application, backend: Backend) -> Self {
         let title = gtk::Label::builder()
             .label(Section::Now.title())
@@ -193,6 +190,7 @@ impl MainWindow {
         title_stack.add_named(&audio.tabs, Some(Section::Audio.id()));
         let screens = ScreensPage::new(backend.clone());
         let diagnostic = DiagPage::new(backend.clone());
+        let places_page = PlacesPage::new(backend.clone(), Rc::clone(&places));
         title_stack.add_named(&screens.tabs, Some(Section::Screens.id()));
         for section in Section::ALL {
             let page: gtk::Widget = match section {
@@ -200,7 +198,7 @@ impl MainWindow {
                 Section::Audio => audio.root.clone().upcast(),
                 Section::Screens => screens.root.clone().upcast(),
                 Section::Diagnostic => diagnostic.root.clone().upcast(),
-                Section::Places => coming_soon(section).upcast(),
+                Section::Places => places_page.root.clone().upcast(),
             };
             stack.add_named(&page, Some(section.id()));
         }
@@ -238,6 +236,7 @@ impl MainWindow {
             audio,
             screens,
             diagnostic,
+            places_page,
             toasts,
             sound_footer,
             screens_footer,
@@ -446,6 +445,12 @@ impl MainWindow {
                 .update(&config, latest.screens.as_ref(), latest.wifi.as_deref());
         }
         self.show_place(&config);
+        self.places_page.show(
+            &config,
+            latest.sound.as_ref(),
+            latest.screens.as_ref(),
+            latest.wifi.as_deref(),
+        );
     }
 }
 

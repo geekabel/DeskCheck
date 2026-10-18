@@ -9,9 +9,9 @@ Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-29 |
-| 📋 Backlog | DC-30 à DC-38 |
-| 🖥️ À tester sur ton PC | DC-27, DC-28 |
+| 🔜 À faire (prochaines) | DC-30, DC-31 |
+| 📋 Backlog | DC-32 à DC-38 |
+| 🖥️ À tester sur ton PC | DC-27, DC-28, DC-29 |
 | ✅ Terminé | DC-01 à DC-26 |
 
 ---
@@ -67,9 +67,16 @@ _Aucune tâche._
 
 ## 🔜 À faire (prochaines)
 
-### DC-29 · Page « Lieux »
+### DC-30 · Icône dans la barre du haut 🧪
+- **But** : panneau rapide. GNOME n'a pas de zone de notification par défaut ;
+  Ubuntu fournit l'extension AppIndicator.
+- **Docs** : spécification StatusNotifierItem, caisse `ksni`.
 - **Critères**
-  - [ ] Liste des lieux, conditions, listes de préférence réordonnables.
+  - [ ] Icône et menu rapide (sortie, micro, couper le micro, ouvrir DeskCheck).
+
+### DC-31 · Notifications au branchement
+- **Critères**
+  - [ ] « Casque branché » avec Annuler et OK.
 
 ---
 
@@ -84,17 +91,6 @@ _Aucune tâche._
 ### Phase 8 · Lieux
 
 ### Phase 9 · Au quotidien
-
-#### DC-30 · Icône dans la barre du haut 🧪
-- **But** : panneau rapide. GNOME n'a pas de zone de notification par défaut ;
-  Ubuntu fournit l'extension AppIndicator.
-- **Docs** : spécification StatusNotifierItem, caisse `ksni`.
-- **Critères**
-  - [ ] Icône et menu rapide (sortie, micro, couper le micro, ouvrir DeskCheck).
-
-#### DC-31 · Notifications au branchement
-- **Critères**
-  - [ ] « Casque branché » avec Annuler et OK.
 
 #### DC-32 · Assistant de premier lancement
 - **Critères**
@@ -138,6 +134,33 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
+### DC-29 · Page « Lieux » 🧪
+- **But** : créer et régler les lieux dans la fenêtre, comme la maquette « Lieux ».
+- **Docs lues** : `gtk4` 0.10 (`DragSource`, `DropTarget`, `gdk::ContentProvider::for_value`,
+  `WidgetPaintable`, `MenuButton::set_child` depuis GTK 4.6, `CheckButton::set_group`),
+  maquette « Lieux ».
+- **Critères**
+  - [x] Liste des lieux à gauche, tag « Now » sur le lieu reconnu, « Add a place ».
+  - [x] Un nouveau lieu prend ce qui est en place : sorties et micros (ceux par défaut en
+    premier), disposition des écrans, et l'indice le plus parlant (écran externe, sinon Wi-Fi).
+  - [x] « Recognized when » : conditions avec « or », ajout (écrans branchés, Wi-Fi actuel,
+    aucun écran externe) et retrait.
+  - [x] Sorties et micros par préférence : glisser une ligne pour changer l'ordre, menu de
+    ligne (« Never use it here », retirer), « Add an output », « Add a microphone ».
+  - [x] Écrans : petit plan de la disposition gardée, « Take the current layout ».
+  - [x] « When this place is recognized » : appliquer, demander, ne rien faire.
+  - [x] Renommer et supprimer un lieu (formulaire « Rename »).
+  - [x] Vu ici : ajouter, renommer, glisser, ajouter une condition, changer le mode, page vide.
+- **Décisions**
+  - Chaque changement est enregistré tout de suite, sans bouton « Save ».
+  - Renommer le lieu reconnu ne compte pas comme une nouvelle arrivée.
+  - Changer les réglages du lieu où tu es ne les applique pas tout de suite : ils servent à la
+    prochaine arrivée.
+  - Ajouts à la maquette, nécessaires : boutons « Add an output » et « Add a microphone »,
+    menu « ⋯ » sur chaque ligne, croix pour retirer une condition, « Delete this place ».
+- **À tester** : `cargo run -p deskcheck-app`, page Places : crée « Office » au bureau et
+  « Home » à la maison, puis débranche et rebranche l'écran pour voir le lieu reconnu.
+
 ### DC-28 · Appliquer un lieu avec Annuler 🧪
 - **But** : quand DeskCheck reconnaît un lieu, mettre ses choix en place, et pouvoir revenir en
   arrière.
@@ -166,10 +189,8 @@ _Aucune tâche._
     tant que tu restes au même lieu.
   - PulseAudio 15 déplace les applications qui suivent la sortie par défaut ; celles que tu as
     mises ailleurs à la main restent où elles sont.
-- **À tester** : `data/install-dev.sh`, puis lance DeskCheck depuis les Activités. La page
-  Lieux (DC-29) permettra de créer un lieu ; d'ici là, un lieu peut s'écrire dans
-  `~/.config/deskcheck/config.toml` (exemple dans `crates/deskcheck-config/src/file.rs`).
-  Vérifier : la notification et son Undo, la ligne en bas de Now, et qu'aucune fenêtre de
+- **À tester** : `data/install-dev.sh`, puis lance DeskCheck depuis les Activités et crée
+  un lieu dans la page Places (DC-29). Vérifier : la notification et son Undo, la ligne en bas de Now, et qu'aucune fenêtre de
   GNOME ne demande de garder les écrans.
 
 ### DC-27 · Modèle des lieux et détection 🧪

@@ -386,6 +386,14 @@ impl Arrivals {
         arrived
     }
 
+    /// A place was renamed: when it is the one recognized, it is still
+    /// the same place, not a new arrival.
+    pub fn rename(&mut self, from: &str, to: &str) {
+        if self.last.as_deref() == Some(from) {
+            self.last = Some(to.to_owned());
+        }
+    }
+
     /// The place recognized last.
     #[must_use]
     pub fn current(&self) -> Option<&str> {
@@ -683,6 +691,8 @@ mod tests {
         assert_eq!(arrivals.current(), None);
         assert!(arrivals.see(Some("Home")));
         assert_eq!(arrivals.current(), Some("Home"));
+        arrivals.rename("Home", "House");
+        assert!(!arrivals.see(Some("House")));
         assert!(Snapshot::default().is_empty());
     }
 }
