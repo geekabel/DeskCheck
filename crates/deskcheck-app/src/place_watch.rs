@@ -1,7 +1,10 @@
 //! Acting on arrival at a place (DC-28).
 //!
 //! Each time the screens or the Wi-Fi change, the place is recognized
-//! again ([`deskcheck_core::places::detect`]). On arrival, as the place
+//! again ([`deskcheck_core::places::detect`]). DeskCheck acts only once
+//! what it sees stays the same for a moment ([`Settle`]): plugging a
+//! screen makes GNOME change the screens in a few steps, and the Wi-Fi can
+//! drop for a moment. On arrival, as the place
 //! says: its choices are applied and a notification offers Undo, or the
 //! notification asks first, or nothing is done. The line at the bottom of
 //! the Now page says the same.
@@ -23,7 +26,9 @@ use adw::prelude::*;
 use deskcheck_config::Config;
 use deskcheck_core::audio::AudioState;
 use deskcheck_core::display::DisplayState;
-use deskcheck_core::places::{self, Arrivals, Observed, OnArrival, Place, Snapshot};
+use deskcheck_core::places::{
+    self, Arrivals, Observed, OnArrival, Place, Settle, Settling, Snapshot,
+};
 use gtk::{gio, glib};
 
 use crate::backend::{Backend, PlaceResult, Request};
@@ -55,6 +60,13 @@ pub struct PlaceWatch {
     starting: Cell<bool>,
     /// The notification waiting for [`NOTIFY_DELAY`].
     pending: Rc<RefCell<Option<glib::SourceId>>>,
+    /// The place seen, waiting to stay the same.
+    settle: RefCell<Settle>,
+    /// What DeskCheck will act on when the wait ends: the place seen and
+    /// why, or nothing.
+    seen: RefCell<Option<(Place, String)>>,
+    /// The end of the wait.
+    settle_timer: RefCell<Option<glib::SourceId>>,
 }
 
 /// The time of day, like "8:31".
@@ -76,6 +88,9 @@ impl PlaceWatch {
             asked: RefCell::default(),
             starting: Cell::new(true),
             pending: Rc::default(),
+            settle: RefCell::default(),
+            seen: RefCell::default(),
+            settle_timer: RefCell::default(),
         }
     }
 
@@ -99,11 +114,12 @@ impl PlaceWatch {
         self.arrivals.borrow().current().map(str::to_owned)
     }
 
-    /// Recognizes the place again, and acts on arrival. Called once both
-    /// the screens and the Wi-Fi were read, so DeskCheck does not apply a
-    /// place it would change its mind about a moment later.
+    /// Recognizes the place again. Called once both the screens and the
+    /// Wi-Fi were read, so DeskCheck does not apply a place it would
+    /// change its mind about a moment later. It acts when what it sees
+    /// stays the same (see [`Settle`]).
     pub fn update(
-        &self,
+        self: &Rc<Self>,
         config: &Config,
         screens: Option<&Result<DisplayState, String>>,
         wifi: Option<&str>,
@@ -112,15 +128,61 @@ impl PlaceWatch {
             return;
         };
         let observed = Observed::new(screens.as_ref().ok(), wifi.map(str::to_owned));
-        let found = places::detect(config.places(), &observed)
-            .and_then(|found| Some((config.places().get(found.index)?, found.because)));
-        let name = found.as_ref().map(|(place, _)| place.name.as_str());
+        let found = places::detect(config.places(), &observed).and_then(|found| {
+            let place = config.places().get(found.index)?;
+            Some((place.clone(), places_model::because(config, &found.because)))
+        });
+        let name = found.as_ref().map(|(place, _)| place.name.clone());
+        let current = self.current();
+        let settling = self
+            .settle
+            .borrow_mut()
+            .see(name.as_deref(), current.as_deref());
+        match settling {
+            Settling::Keep => {
+                // The same place, maybe with newer settings.
+                self.seen.replace(found);
+            }
+            Settling::Cancel => {
+                if let Some(timer) = self.settle_timer.take() {
+                    timer.remove();
+                    glib::g_debug!(LOG, "place: still at {}", current.unwrap_or_default());
+                }
+                self.seen.replace(None);
+            }
+            Settling::Wait(delay) => {
+                glib::g_debug!(
+                    LOG,
+                    "place: seen {}, acting in {} s if it stays",
+                    name.as_deref().unwrap_or("no place"),
+                    delay.as_secs()
+                );
+                self.seen.replace(found);
+                if let Some(timer) = self.settle_timer.take() {
+                    timer.remove();
+                }
+                let watch = Rc::downgrade(self);
+                let timer = glib::timeout_add_local_once(delay, move || {
+                    if let Some(watch) = watch.upgrade() {
+                        watch.settle_timer.replace(None);
+                        watch.settle.borrow_mut().done();
+                        let seen = watch.seen.take();
+                        watch.act(seen.as_ref());
+                    }
+                });
+                self.settle_timer.replace(Some(timer));
+            }
+        }
+    }
+
+    /// Acts on the place seen once it stayed the same.
+    fn act(&self, seen: Option<&(Place, String)>) {
+        let name = seen.as_ref().map(|(place, _)| place.name.as_str());
         let before = self.current();
         if self.arrivals.borrow_mut().see(name) {
-            if let Some((place, because)) = found {
-                let because = places_model::because(config, &because);
+            if let Some((place, because)) = seen {
                 glib::g_debug!(LOG, "place: arrived at {}, because {because}", place.name);
-                self.arrive(place, because);
+                self.arrive(place, because.clone());
             }
         } else if name.is_none() && self.line.borrow().is_some() {
             glib::g_debug!(LOG, "place: left {}", before.unwrap_or_default());
@@ -160,6 +222,7 @@ impl PlaceWatch {
     /// Takes the notification of the place away, and the one waiting.
     fn withdraw_now(&self) {
         self.cancel_pending();
+        glib::g_debug!(LOG, "place: notification withdrawn");
         self.app.withdraw_notification(NOTIFICATION);
     }
 

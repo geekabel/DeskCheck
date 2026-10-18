@@ -275,6 +275,8 @@ struct WifiWatch {
     /// `true` once a name, or no name, was sent.
     told: bool,
     sent: Option<String>,
+    /// The last error, written in the log once, not every few seconds.
+    error: Option<String>,
 }
 
 impl WifiWatch {
@@ -288,12 +290,19 @@ impl WifiWatch {
         }
         self.last_read = Some(now);
         let name = match self.reader.read() {
-            Ok(name) => name,
+            Ok(name) => {
+                self.error = None;
+                name
+            }
             // A failed read is not a change: `NetworkManager` can be busy
             // for a moment while a device comes or goes. The first read
             // still tells the interface, so places are recognized.
             Err(error) => {
-                glib::g_debug!("deskcheck", "wifi: cannot read it: {error}");
+                let error = error.to_string();
+                if self.error.as_ref() != Some(&error) {
+                    glib::g_debug!("deskcheck", "wifi: cannot read it: {error}");
+                    self.error = Some(error);
+                }
                 if self.told {
                     return true;
                 }

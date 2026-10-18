@@ -15,6 +15,7 @@
 //! per arrival and not at each update.
 
 use std::fmt;
+use std::time::Duration;
 
 use crate::audio::{AudioState, DeviceId};
 use crate::display::{DisplayState, ScreenId};
@@ -401,6 +402,63 @@ impl Arrivals {
     }
 }
 
+/// How long a new place must stay recognized before DeskCheck acts: a
+/// screen just plugged in makes GNOME lay out the screens again, in a few
+/// steps.
+pub const ARRIVAL_DELAY: Duration = Duration::from_secs(2);
+
+/// How long no place, or another one, must stay seen before DeskCheck
+/// leaves the place: a Wi-Fi that drops for a moment is not a departure.
+pub const LEAVING_DELAY: Duration = Duration::from_secs(10);
+
+/// What to do with the place seen now.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Settling {
+    /// Something new: act after this delay, if it is still seen then.
+    Wait(Duration),
+    /// The same as the one already waiting: let its delay run.
+    Keep,
+    /// Back to the place DeskCheck is at: forget the one waiting.
+    Cancel,
+}
+
+/// Waits for the place seen to stay the same before DeskCheck acts, so a
+/// moment of doubt does not count as an arrival or a departure.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Settle {
+    /// `true` while a change waits for its delay.
+    waiting: bool,
+    /// The place it waits for, or `None` for "no place".
+    seen: Option<String>,
+}
+
+impl Settle {
+    /// Takes the place seen now and the one DeskCheck is at.
+    pub fn see(&mut self, seen: Option<&str>, current: Option<&str>) -> Settling {
+        if seen == current {
+            self.waiting = false;
+            return Settling::Cancel;
+        }
+        if self.waiting && self.seen.as_deref() == seen {
+            return Settling::Keep;
+        }
+        self.waiting = true;
+        self.seen = seen.map(str::to_owned);
+        // Leaving for another place is an arrival there; only "no place
+        // at all" waits longer.
+        Settling::Wait(if seen.is_some() {
+            ARRIVAL_DELAY
+        } else {
+            LEAVING_DELAY
+        })
+    }
+
+    /// The delay ran out: DeskCheck acts on the place waiting.
+    pub fn done(&mut self) {
+        self.waiting = false;
+    }
+}
+
 /// A condition in words, with the name the user gave a screen.
 pub struct Described<'a, F: Fn(&ScreenId) -> String> {
     condition: &'a Condition,
@@ -694,5 +752,35 @@ mod tests {
         arrivals.rename("Home", "House");
         assert!(!arrivals.see(Some("House")));
         assert!(Snapshot::default().is_empty());
+    }
+
+    #[test]
+    fn a_moment_of_doubt_is_not_a_change() {
+        let mut settle = Settle::default();
+        // Nothing seen, nothing known: nothing to do.
+        assert_eq!(settle.see(None, None), Settling::Cancel);
+        // A place appears: wait a little before acting.
+        assert_eq!(
+            settle.see(Some("Home"), None),
+            Settling::Wait(ARRIVAL_DELAY)
+        );
+        assert_eq!(settle.see(Some("Home"), None), Settling::Keep);
+        settle.done();
+        // At Home now; the Wi-Fi drops: wait longer before leaving.
+        assert_eq!(
+            settle.see(None, Some("Home")),
+            Settling::Wait(LEAVING_DELAY)
+        );
+        // It comes back before the end: Home is kept.
+        assert_eq!(settle.see(Some("Home"), Some("Home")), Settling::Cancel);
+        // Another place: an arrival, with the short delay.
+        assert_eq!(
+            settle.see(Some("Office"), Some("Home")),
+            Settling::Wait(ARRIVAL_DELAY)
+        );
+        assert_eq!(
+            settle.see(None, Some("Home")),
+            Settling::Wait(LEAVING_DELAY)
+        );
     }
 }

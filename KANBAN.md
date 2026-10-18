@@ -189,6 +189,10 @@ _Aucune tâche._
     temps que GNOME place ses panneaux sur l'écran branché. Une lecture du Wi-Fi qui échoue
     ne fait plus quitter le lieu. Action `app.test-notification` pour tester les
     notifications de DeskCheck elles-mêmes.
+  - [x] Troisième correction (18 oct. 2026), d'après ton journal : DeskCheck attend que ce
+    qu'il voit reste pareil avant d'agir (2 s pour une arrivée, 10 s avant de quitter un lieu).
+    Un écran que GNOME remet en place en plusieurs étapes, ou un Wi-Fi qui saute un instant,
+    ne retire plus la notification.
 - **Décisions**
   - Les écrans d'un lieu sont appliqués avec la méthode « temporary » de GNOME : pas de fenêtre
     « garder ces réglages ? », puisque DeskCheck offre son propre Undo. GNOME garde ses
