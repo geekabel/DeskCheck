@@ -29,6 +29,7 @@ use std::str::FromStr;
 
 use deskcheck_core::audio::DeviceId;
 use deskcheck_core::display::ScreenId;
+use deskcheck_core::places::Place;
 
 mod file;
 mod labels;
@@ -116,10 +117,11 @@ pub struct ScreenEntry {
 /// The content of the configuration file.
 ///
 /// Each device and each screen appears at most once.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Config {
     audio: Vec<AudioEntry>,
     screens: Vec<ScreenEntry>,
+    places: Vec<Place>,
 }
 
 /// Turns an empty or blank name into `None`.
@@ -210,6 +212,17 @@ impl Config {
     /// Sets the color of a screen. `None` removes it.
     pub fn set_screen_color(&mut self, id: &ScreenId, color: Option<Color>) {
         self.edit_screen(id, |entry| entry.color = color);
+    }
+
+    /// The places, in the order of the file (and of the Places page).
+    #[must_use]
+    pub fn places(&self) -> &[Place] {
+        &self.places
+    }
+
+    /// The places, to change them.
+    pub fn places_mut(&mut self) -> &mut Vec<Place> {
+        &mut self.places
     }
 
     /// Reads the text of a configuration file.

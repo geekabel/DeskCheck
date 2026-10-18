@@ -20,12 +20,32 @@
 //! serial = "T2LMTF031523"
 //! name = "Big screen"
 //! color = "#3584e4"
+//!
+//! [[places]]
+//! name = "Office"
+//! on_arrival = "apply"
+//! outputs = ["alsa_output.usb-Jabra-00.analog-stereo"]
+//! inputs = ["alsa_input.usb-Jabra-00.mono-fallback"]
+//!
+//! [[places.conditions]]
+//! kind = "screen"
+//! vendor = "DEL"
+//! product = "DELL U2419H"
+//! serial = "ABC1234"
+//!
+//! [[places.conditions]]
+//! kind = "wifi"
+//! ssid = "UTBM"
 //! ```
+//!
+//! Places came after the first files of version 1. They are optional, so
+//! older files are still version 1.
 
 use std::fmt;
 
 use deskcheck_core::audio::DeviceId;
 use deskcheck_core::display::ScreenId;
+use deskcheck_core::places::{Condition, OnArrival, Place, SavedLayout, SavedScreen};
 use serde::{Deserialize, Serialize};
 
 use crate::{Color, ColorError, Config};
@@ -35,7 +55,7 @@ pub const FORMAT_VERSION: u32 = 1;
 
 /// Lines written at the top of the file.
 const HEADER: &str = "\
-# DeskCheck settings: names given to devices and screens, screen colors.
+# DeskCheck settings: names given to devices and screens, screen colors, places.
 # DeskCheck rewrites this file when you change a setting in the app.
 ";
 
@@ -53,6 +73,8 @@ pub enum ParseError {
     UnknownVersion(u32),
     /// A screen color is not in the `#rrggbb` form.
     BadColor(ColorError),
+    /// A place is not written the right way.
+    BadPlace(String),
 }
 
 impl fmt::Display for ParseError {
@@ -67,6 +89,7 @@ impl fmt::Display for ParseError {
             ),
             Self::UnknownVersion(found) => write!(f, "version {found} does not exist"),
             Self::BadColor(error) => write!(f, "bad screen color: {error}"),
+            Self::BadPlace(reason) => write!(f, "bad place: {reason}"),
         }
     }
 }
@@ -94,6 +117,178 @@ struct V1 {
     audio: Vec<AudioV1>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     screens: Vec<ScreenV1>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    places: Vec<PlaceV1>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PlaceV1 {
+    name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    on_arrival: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    outputs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    never_outputs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    inputs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    conditions: Vec<ConditionV1>,
+    /// The layout of the screens; absent when none was kept.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    layout: Option<Vec<SavedScreenV1>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ConditionV1 {
+    /// `screen`, `wifi` or `no-external-screen`.
+    kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    vendor: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    product: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    serial: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    ssid: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SavedScreenV1 {
+    vendor: String,
+    product: String,
+    #[serde(default)]
+    serial: String,
+    x: i32,
+    y: i32,
+    scale: f64,
+    #[serde(default)]
+    primary: bool,
+    width: u32,
+    height: u32,
+    refresh_rate: f64,
+}
+
+fn condition_from_v1(condition: ConditionV1) -> Result<Condition, ParseError> {
+    match condition.kind.as_str() {
+        "screen" => match (condition.vendor, condition.product) {
+            (Some(vendor), Some(product)) => Ok(Condition::Screen(ScreenId::new(
+                vendor,
+                product,
+                condition.serial.unwrap_or_default(),
+            ))),
+            _ => Err(ParseError::BadPlace(
+                "a screen condition needs a vendor and a product".to_owned(),
+            )),
+        },
+        "wifi" => condition
+            .ssid
+            .map(Condition::Wifi)
+            .ok_or_else(|| ParseError::BadPlace("a wifi condition needs an ssid".to_owned())),
+        "no-external-screen" => Ok(Condition::NoExternalScreen),
+        other => Err(ParseError::BadPlace(format!(
+            "unknown condition kind \"{other}\" (screen, wifi or no-external-screen)"
+        ))),
+    }
+}
+
+fn condition_to_v1(condition: &Condition) -> ConditionV1 {
+    let empty = ConditionV1 {
+        kind: String::new(),
+        vendor: None,
+        product: None,
+        serial: None,
+        ssid: None,
+    };
+    match condition {
+        Condition::Screen(id) => ConditionV1 {
+            kind: "screen".to_owned(),
+            vendor: Some(id.vendor.clone()),
+            product: Some(id.product.clone()),
+            serial: Some(id.serial.clone()).filter(|s| !s.is_empty()),
+            ..empty
+        },
+        Condition::Wifi(ssid) => ConditionV1 {
+            kind: "wifi".to_owned(),
+            ssid: Some(ssid.clone()),
+            ..empty
+        },
+        Condition::NoExternalScreen => ConditionV1 {
+            kind: "no-external-screen".to_owned(),
+            ..empty
+        },
+    }
+}
+
+fn place_from_v1(place: PlaceV1) -> Result<Place, ParseError> {
+    let on_arrival = match place.on_arrival.as_deref() {
+        None => OnArrival::default(),
+        Some(key) => OnArrival::from_key(key).ok_or_else(|| {
+            ParseError::BadPlace(format!(
+                "unknown on_arrival \"{key}\" (apply, ask or nothing)"
+            ))
+        })?,
+    };
+    Ok(Place {
+        name: place.name,
+        conditions: place
+            .conditions
+            .into_iter()
+            .map(condition_from_v1)
+            .collect::<Result<_, _>>()?,
+        outputs: place.outputs.into_iter().map(DeviceId::new).collect(),
+        never_outputs: place.never_outputs.into_iter().map(DeviceId::new).collect(),
+        inputs: place.inputs.into_iter().map(DeviceId::new).collect(),
+        layout: place.layout.map(|screens| SavedLayout {
+            screens: screens
+                .into_iter()
+                .map(|s| SavedScreen {
+                    id: ScreenId::new(s.vendor, s.product, s.serial),
+                    x: s.x,
+                    y: s.y,
+                    scale: s.scale,
+                    primary: s.primary,
+                    width: s.width,
+                    height: s.height,
+                    refresh_rate: s.refresh_rate,
+                })
+                .collect(),
+        }),
+        on_arrival,
+    })
+}
+
+fn place_to_v1(place: &Place) -> PlaceV1 {
+    let ids = |list: &[DeviceId]| list.iter().map(|id| id.as_str().to_owned()).collect();
+    PlaceV1 {
+        name: place.name.clone(),
+        on_arrival: Some(place.on_arrival.key().to_owned()),
+        outputs: ids(&place.outputs),
+        never_outputs: ids(&place.never_outputs),
+        inputs: ids(&place.inputs),
+        conditions: place.conditions.iter().map(condition_to_v1).collect(),
+        layout: place.layout.as_ref().map(|layout| {
+            layout
+                .screens
+                .iter()
+                .map(|s| SavedScreenV1 {
+                    vendor: s.id.vendor.clone(),
+                    product: s.id.product.clone(),
+                    serial: s.id.serial.clone(),
+                    x: s.x,
+                    y: s.y,
+                    scale: s.scale,
+                    primary: s.primary,
+                    width: s.width,
+                    height: s.height,
+                    refresh_rate: s.refresh_rate,
+                })
+                .collect()
+        }),
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -131,6 +326,10 @@ fn from_v1(file: V1) -> Result<Config, ParseError> {
         config.set_screen_name(&id, screen.name);
         config.set_screen_color(&id, color);
     }
+    for place in file.places {
+        let place = place_from_v1(place)?;
+        config.places_mut().push(place);
+    }
     Ok(config)
 }
 
@@ -156,6 +355,7 @@ fn to_v1(config: &Config) -> V1 {
                 color: entry.color.map(|color| color.to_string()),
             })
             .collect(),
+        places: config.places().iter().map(place_to_v1).collect(),
     }
 }
 
@@ -181,7 +381,7 @@ pub(crate) fn write(config: &Config) -> String {
 mod tests {
     use super::*;
 
-    const GODWIN: &str = r##"# DeskCheck settings: names given to devices and screens, screen colors.
+    const GODWIN: &str = r##"# DeskCheck settings: names given to devices and screens, screen colors, places.
 # DeskCheck rewrites this file when you change a setting in the app.
 
 version = 1
@@ -226,6 +426,59 @@ color = "#3584e4"
     #[test]
     fn the_file_is_written_as_expected() {
         assert_eq!(write(&godwin()), GODWIN);
+    }
+
+    #[test]
+    fn places_round_trip() {
+        let mut config = godwin();
+        config.places_mut().push(Place {
+            name: "Office".to_owned(),
+            conditions: vec![
+                Condition::Screen(ScreenId::new("DEL", "DELL U2419H", "ABC1234")),
+                Condition::Wifi("UTBM".to_owned()),
+            ],
+            outputs: vec![DeviceId::new("headset")],
+            never_outputs: vec![DeviceId::new("dell")],
+            inputs: vec![DeviceId::new("headset.mic")],
+            layout: Some(SavedLayout {
+                screens: vec![SavedScreen {
+                    id: ScreenId::new("DEL", "DELL U2419H", "ABC1234"),
+                    x: 0,
+                    y: 0,
+                    scale: 1.25,
+                    primary: true,
+                    width: 1920,
+                    height: 1080,
+                    refresh_rate: 60.0,
+                }],
+            }),
+            on_arrival: OnArrival::Ask,
+        });
+        config.places_mut().push(Place {
+            name: "On the move".to_owned(),
+            conditions: vec![Condition::NoExternalScreen],
+            ..Place::default()
+        });
+        let text = write(&config);
+        assert!(
+            text.contains("[[places.conditions]]\nkind = \"wifi\"\nssid = \"UTBM\""),
+            "{text}"
+        );
+        assert_eq!(parse(&text).unwrap(), config);
+    }
+
+    #[test]
+    fn a_bad_place_is_an_error() {
+        let error =
+            parse("version = 1\n[[places]]\nname = \"x\"\n[[places.conditions]]\nkind = \"moon\"")
+                .unwrap_err();
+        assert!(
+            error.to_string().contains("unknown condition kind"),
+            "{error}"
+        );
+        let error =
+            parse("version = 1\n[[places]]\nname = \"x\"\non_arrival = \"later\"").unwrap_err();
+        assert!(matches!(error, ParseError::BadPlace(_)));
     }
 
     #[test]
