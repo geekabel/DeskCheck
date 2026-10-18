@@ -59,6 +59,14 @@ pub struct PlaceWatch {
     /// `true` until the first place seen after DeskCheck starts is
     /// applied: then a place already in use is not worth a notification.
     starting: Cell<bool>,
+    /// What DeskCheck acted on last: the place and the screens plugged
+    /// in (see [`settle_key`]).
+    acted: RefCell<Option<String>>,
+    /// `true` while the place is applied again because its screens
+    /// changed: a result that changes nothing is then not told.
+    refreshing: Cell<bool>,
+    /// The screens plugged in, as written in the log last.
+    screens_logged: RefCell<String>,
     /// The notification waiting for [`NOTIFY_DELAY`].
     pending: Rc<RefCell<Option<glib::SourceId>>>,
     /// The place seen, waiting to stay the same.
@@ -88,6 +96,9 @@ impl PlaceWatch {
             undo: RefCell::default(),
             asked: RefCell::default(),
             starting: Cell::new(true),
+            acted: RefCell::default(),
+            refreshing: Cell::new(false),
+            screens_logged: RefCell::default(),
             pending: Rc::default(),
             settle: RefCell::default(),
             seen: RefCell::default(),
@@ -133,12 +144,20 @@ impl PlaceWatch {
             let place = config.places().get(found.index)?;
             Some((place.clone(), places_model::because(config, &found.because)))
         });
+        let plugged = plugged_screens(config, &observed);
+        if *self.screens_logged.borrow() != plugged {
+            glib::g_debug!(LOG, "screens plugged in: {plugged}");
+            self.screens_logged.replace(plugged.clone());
+        }
         let name = found.as_ref().map(|(place, _)| place.name.clone());
-        let current = self.current();
+        // The screens count too: plugging a screen back at the same place
+        // applies the place again, for its layout.
+        let key = name.as_deref().map(|name| settle_key(name, &plugged));
+        let current = self.acted.borrow().clone();
         let settling = self
             .settle
             .borrow_mut()
-            .see(name.as_deref(), current.as_deref());
+            .see(key.as_deref(), current.as_deref());
         match settling {
             Settling::Keep => {
                 // The same place, maybe with newer settings.
@@ -147,7 +166,11 @@ impl PlaceWatch {
             Settling::Cancel => {
                 if let Some(timer) = self.settle_timer.take() {
                     timer.remove();
-                    glib::g_debug!(LOG, "place: still at {}", current.unwrap_or_default());
+                    glib::g_debug!(
+                        LOG,
+                        "place: nothing changed, still at {}",
+                        self.current().unwrap_or_default()
+                    );
                 }
                 self.seen.replace(None);
             }
@@ -155,7 +178,10 @@ impl PlaceWatch {
                 glib::g_debug!(
                     LOG,
                     "place: seen {}, acting in {} s if it stays",
-                    name.as_deref().unwrap_or("no place"),
+                    found.as_ref().map_or_else(
+                        || "no place".to_owned(),
+                        |(place, because)| format!("{}, because {because}", place.name)
+                    ),
                     delay.as_secs()
                 );
                 self.seen.replace(found);
@@ -168,6 +194,7 @@ impl PlaceWatch {
                         watch.settle_timer.replace(None);
                         watch.settle.borrow_mut().done();
                         let seen = watch.seen.take();
+                        watch.acted.replace(key.clone());
                         watch.act(seen.as_ref());
                     }
                 });
@@ -189,6 +216,30 @@ impl PlaceWatch {
             glib::g_debug!(LOG, "place: left {}", before.unwrap_or_default());
             // Left the place: its Undo no longer makes sense.
             self.forget();
+        } else if let Some((place, because)) = seen {
+            glib::g_debug!(
+                LOG,
+                "place: still at {}, now because {because}; its screens changed",
+                place.name
+            );
+            self.refresh(place, because);
+        }
+    }
+
+    /// The screens changed, but not the place: say why it is recognized
+    /// now, and apply it again (a screen plugged back takes its place in
+    /// the layout). Nothing is asked again.
+    fn refresh(&self, place: &Place, because: &str) {
+        if let Some(line) = self.line.borrow_mut().as_mut() {
+            because.clone_into(&mut line.because);
+        }
+        if place.on_arrival == OnArrival::Apply && self.asked.borrow().is_none() {
+            self.refreshing.set(true);
+            if let Some(line) = self.line.borrow_mut().as_mut() {
+                line.state = LineState::Applying;
+            }
+            self.backend
+                .request(Request::ApplyPlace(Box::new(place.clone())));
         }
     }
 
@@ -274,7 +325,7 @@ impl PlaceWatch {
             result.undo,
             result.problems
         );
-        let starting = self.starting.replace(false);
+        let starting = self.starting.replace(false) || self.refreshing.replace(false);
         let mut line = self.line.borrow_mut();
         // The place may have changed meanwhile.
         let Some(line) = line.as_mut().filter(|line| line.name == result.name) else {
@@ -346,4 +397,24 @@ impl PlaceWatch {
             ),
         );
     }
+}
+
+/// The screens plugged in, by name, in a stable order.
+fn plugged_screens(config: &Config, observed: &Observed) -> String {
+    let mut names: Vec<String> = observed
+        .screens
+        .iter()
+        .map(|id| places_model::screen_name(config, id))
+        .collect();
+    names.sort();
+    if names.is_empty() {
+        "none".to_owned()
+    } else {
+        names.join(", ")
+    }
+}
+
+/// What DeskCheck acts on: a place, and the screens plugged in.
+fn settle_key(place: &str, screens: &str) -> String {
+    format!("{place} with {screens}")
 }

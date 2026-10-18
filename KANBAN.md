@@ -198,6 +198,11 @@ _Aucune tâche._
     (`org.gtk.Notifications`, le même appel que `gdbus`), au lieu de laisser GLib choisir son
     chemin : avec `GTK_USE_PORTAL=1` (posé par les terminaux de certaines applis snap), GLib
     passe par le portail, qui peut les perdre. Le journal dit si GNOME les accepte.
+  - [x] Cinquième correction (18 oct. 2026) : quand un lieu est reconnu par l'écran et par le
+    Wi-Fi, débrancher l'écran ne change pas de lieu, donc DeskCheck ne faisait rien. Maintenant,
+    si les écrans branchés changent au même lieu, DeskCheck met à jour la raison (« because the
+    Wi-Fi is ... ») et réapplique le lieu (la disposition revient quand l'écran est rebranché).
+    Notification seulement si quelque chose change. Le journal liste les écrans branchés.
 - **Décisions**
   - Les écrans d'un lieu sont appliqués avec la méthode « temporary » de GNOME : pas de fenêtre
     « garder ces réglages ? », puisque DeskCheck offre son propre Undo. GNOME garde ses
