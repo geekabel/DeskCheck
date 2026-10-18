@@ -93,6 +93,13 @@ fn add_actions(app: &adw::Application, window: &window::MainWindow, backend: &ba
         let window = window.clone();
         move |_| window.withdraw_place()
     });
+    // No button: run with gdbus, to check that notifications reach GNOME.
+    let test_notification = gio::SimpleAction::new("test-notification", None);
+    test_notification.connect_activate({
+        let window = window.clone();
+        move |_, _| window.test_notification()
+    });
+    app.add_action(&test_notification);
     app.add_action(&place_undo);
     app.add_action(&place_apply);
     app.add_action(&identify);

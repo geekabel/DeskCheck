@@ -26,6 +26,7 @@ use deskcheck_core::places::{Place, SavedLayout, Snapshot, SoundChoice};
 use deskcheck_mutter::pointer::{PointerError, PointerReader, Session};
 use deskcheck_mutter::setup::{Change as ScreenChange, LayoutMode, Setup};
 use deskcheck_pulse::{Action, Meters, ServerKind};
+use gtk::glib;
 
 /// How long to gather a burst of changes before reading again.
 const BURST: Duration = Duration::from_millis(150);
@@ -286,10 +287,23 @@ impl WifiWatch {
             return true;
         }
         self.last_read = Some(now);
-        let name = self.reader.read().ok().flatten();
+        let name = match self.reader.read() {
+            Ok(name) => name,
+            // A failed read is not a change: `NetworkManager` can be busy
+            // for a moment while a device comes or goes. The first read
+            // still tells the interface, so places are recognized.
+            Err(error) => {
+                glib::g_debug!("deskcheck", "wifi: cannot read it: {error}");
+                if self.told {
+                    return true;
+                }
+                None
+            }
+        };
         if self.told && self.sent == name {
             return true;
         }
+        glib::g_debug!("deskcheck", "wifi: {}", name.as_deref().unwrap_or("none"));
         self.told = true;
         self.sent.clone_from(&name);
         send(Update::Wifi(name))

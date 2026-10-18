@@ -398,6 +398,11 @@ impl MainWindow {
         self.places.withdraw();
     }
 
+    /// Sends a test notification (the action `app.test-notification`).
+    pub fn test_notification(&self) {
+        self.places.test_notification();
+    }
+
     /// Shows the place recognized in the badge and on the Now page.
     fn show_place(&self, config: &Config) {
         let current = self.places.current();

@@ -16,6 +16,8 @@
 //! not, recognized.
 
 use std::cell::{Cell, RefCell};
+use std::rc::Rc;
+use std::time::Duration;
 
 use adw::prelude::*;
 use deskcheck_config::Config;
@@ -33,6 +35,11 @@ const NOTIFICATION: &str = "place";
 /// The log domain of DeskCheck.
 const LOG: &str = "deskcheck";
 
+/// How long to wait before showing a notification: a screen just plugged
+/// in makes GNOME lay out its panels again, and a banner shown meanwhile
+/// can be lost.
+const NOTIFY_DELAY: Duration = Duration::from_millis(1500);
+
 /// The place recognized, and what DeskCheck did about it.
 pub struct PlaceWatch {
     app: adw::Application,
@@ -46,6 +53,8 @@ pub struct PlaceWatch {
     /// `true` until the first place seen after DeskCheck starts is
     /// applied: then a place already in use is not worth a notification.
     starting: Cell<bool>,
+    /// The notification waiting for [`NOTIFY_DELAY`].
+    pending: Rc<RefCell<Option<glib::SourceId>>>,
 }
 
 /// The time of day, like "8:31".
@@ -66,6 +75,7 @@ impl PlaceWatch {
             undo: RefCell::default(),
             asked: RefCell::default(),
             starting: Cell::new(true),
+            pending: Rc::default(),
         }
     }
 
@@ -123,13 +133,34 @@ impl PlaceWatch {
         self.line.replace(None);
         self.undo.replace(None);
         self.asked.replace(None);
-        self.app.withdraw_notification(NOTIFICATION);
+        self.withdraw_now();
     }
 
-    /// Sends the notification of the place, replacing the one before.
-    fn notify(&self, notification: &gio::Notification) {
-        glib::g_debug!(LOG, "place: notification sent");
-        self.app.send_notification(Some(NOTIFICATION), notification);
+    /// Sends the notification of the place, replacing the one before,
+    /// after [`NOTIFY_DELAY`].
+    fn notify(&self, notification: gio::Notification) {
+        self.cancel_pending();
+        let app = self.app.clone();
+        let pending = Rc::clone(&self.pending);
+        let source = glib::timeout_add_local_once(NOTIFY_DELAY, move || {
+            pending.replace(None);
+            glib::g_debug!(LOG, "place: notification sent");
+            app.send_notification(Some(NOTIFICATION), &notification);
+        });
+        self.pending.replace(Some(source));
+    }
+
+    /// Forgets a notification not sent yet.
+    fn cancel_pending(&self) {
+        if let Some(source) = self.pending.take() {
+            source.remove();
+        }
+    }
+
+    /// Takes the notification of the place away, and the one waiting.
+    fn withdraw_now(&self) {
+        self.cancel_pending();
+        self.app.withdraw_notification(NOTIFICATION);
     }
 
     fn arrive(&self, place: &Place, because: String) {
@@ -149,7 +180,7 @@ impl PlaceWatch {
                     gio::Notification::new(&format!("Place recognized: {}", place.name));
                 notification.set_body(Some(&format!("Because {because}. Apply its settings?")));
                 notification.add_button("Apply", APPLY_ACTION);
-                self.notify(&notification);
+                self.notify(notification);
                 self.asked.replace(Some(place.clone()));
                 LineState::Asking
             }
@@ -199,7 +230,7 @@ impl PlaceWatch {
                         .as_deref()
                         .unwrap_or("Its settings are already in use."),
                 ));
-                self.notify(&notification);
+                self.notify(notification);
             }
             return problems;
         }
@@ -211,7 +242,7 @@ impl PlaceWatch {
             result.layout_changed,
         )));
         notification.add_button("Undo", UNDO_ACTION);
-        self.notify(&notification);
+        self.notify(notification);
         self.undo.replace(Some(result.undo));
         problems
     }
@@ -221,7 +252,7 @@ impl PlaceWatch {
         let Some(place) = self.asked.take() else {
             return;
         };
-        self.app.withdraw_notification(NOTIFICATION);
+        self.withdraw_now();
         if let Some(line) = self.line.borrow_mut().as_mut() {
             line.state = LineState::Applying;
         }
@@ -233,7 +264,7 @@ impl PlaceWatch {
         let Some(snapshot) = self.undo.take() else {
             return;
         };
-        self.app.withdraw_notification(NOTIFICATION);
+        self.withdraw_now();
         if let Some(line) = self.line.borrow_mut().as_mut() {
             line.state = LineState::Undone;
         }
@@ -242,6 +273,17 @@ impl PlaceWatch {
 
     /// Takes the notification away, when DeskCheck quits.
     pub fn withdraw(&self) {
-        self.app.withdraw_notification(NOTIFICATION);
+        self.withdraw_now();
+    }
+
+    /// Sends a test notification at once, the same way as the ones of the
+    /// places: to tell a problem of GNOME from a problem of DeskCheck.
+    pub fn test_notification(&self) {
+        let notification = gio::Notification::new("DeskCheck test");
+        notification.set_body(Some(
+            "If you see this, DeskCheck can show its notifications.",
+        ));
+        glib::g_debug!(LOG, "test notification sent");
+        self.app.send_notification(Some("test"), &notification);
     }
 }

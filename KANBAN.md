@@ -185,6 +185,10 @@ _Aucune tâche._
     Maintenant chaque arrivée a sa notification (« Its settings are already in use. »), sauf
     au démarrage de DeskCheck quand tout est déjà en place.
   - [x] Journal : `G_MESSAGES_DEBUG=deskcheck` montre chaque arrivée, départ et notification.
+  - [x] Deuxième correction (18 oct. 2026) : la notification part 1,5 s après l'arrivée, le
+    temps que GNOME place ses panneaux sur l'écran branché. Une lecture du Wi-Fi qui échoue
+    ne fait plus quitter le lieu. Action `app.test-notification` pour tester les
+    notifications de DeskCheck elles-mêmes.
 - **Décisions**
   - Les écrans d'un lieu sont appliqués avec la méthode « temporary » de GNOME : pas de fenêtre
     « garder ces réglages ? », puisque DeskCheck offre son propre Undo. GNOME garde ses
