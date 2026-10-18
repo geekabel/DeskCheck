@@ -62,6 +62,9 @@ enum Command {
     /// Say which screen the mouse is on. On Wayland, it needs the DeskCheck
     /// extension for GNOME Shell.
     Mouse,
+    /// Say which saved place DeskCheck recognizes, and why: a screen that
+    /// is plugged in, the name of the Wi-Fi, or no external screen.
+    Place,
     /// Find the sound problems and say how to fix them.
     ///
     /// Exit code: 0 when there is no problem, 1 when the sound server
@@ -497,7 +500,6 @@ fn run_rename(what: RenameWhat) -> Result<String, String> {
     Ok(format!("{message}\nSaved in {}\n", store.path().display()))
 }
 
-/// Prints the report, or the error on stderr with a failure exit code.
 /// `deskcheck mouse`: the screen under the mouse.
 fn run_mouse() -> Result<String, String> {
     use deskcheck_mutter::pointer::{PointerReader, Session};
@@ -520,6 +522,63 @@ fn run_mouse() -> Result<String, String> {
         }
         None => format!("The mouse is at {x}, {y}, on no screen that is on.\n"),
     })
+}
+
+/// `deskcheck place`: the place recognized, and why.
+fn run_place() -> String {
+    let config = settings();
+    let state = deskcheck_mutter::read_state()
+        .map_err(|error| eprintln!("deskcheck: {error}"))
+        .ok();
+    let wifi = deskcheck_network::wifi_name()
+        .map_err(|error| eprintln!("deskcheck: {error}"))
+        .ok()
+        .flatten();
+    place_report(&config, state.as_ref(), wifi)
+}
+
+/// The report of `deskcheck place`, from what is plugged in.
+fn place_report(
+    config: &Config,
+    state: Option<&deskcheck_core::display::DisplayState>,
+    wifi: Option<String>,
+) -> String {
+    use deskcheck_core::places::{self, Described, Observed};
+    use std::fmt::Write as _;
+    let observed = Observed::new(state, wifi);
+    let name = |id: &deskcheck_core::display::ScreenId| {
+        config
+            .screen_name(id)
+            .map_or_else(|| id.product.clone(), str::to_owned)
+    };
+    let mut report = String::new();
+    let places = config.places();
+    if places.is_empty() {
+        report.push_str("No place is saved yet.\n");
+    } else if let Some(found) = places::detect(places, &observed) {
+        let place = &places[found.index];
+        let _ = writeln!(
+            report,
+            "You are at {}, because {}.",
+            place.name,
+            Described::new(&found.because, name)
+        );
+    } else {
+        report.push_str("No saved place is recognized.\n");
+    }
+    match &observed.wifi {
+        Some(wifi) => {
+            let _ = writeln!(report, "Wi-Fi: {wifi}");
+        }
+        None => report.push_str("Wi-Fi: none\n"),
+    }
+    let screens: Vec<String> = observed.screens.iter().map(name).collect();
+    if screens.is_empty() {
+        report.push_str("Screens: none read\n");
+    } else {
+        let _ = writeln!(report, "Screens: {}", screens.join(", "));
+    }
+    report
 }
 
 fn show<S, E: std::fmt::Display>(state: Result<S, E>, render: impl Fn(&S) -> String) -> ExitCode {
@@ -545,6 +604,10 @@ fn main() -> ExitCode {
             display_report::render(state, &settings(), display_report::Options { verbose })
         }),
         Command::Mouse => show(run_mouse(), String::clone),
+        Command::Place => {
+            say!("{}", run_place());
+            ExitCode::SUCCESS
+        }
         Command::Doctor { fix } => match run_doctor(fix) {
             Ok((report, problems_left)) => {
                 say!("{report}");
@@ -614,6 +677,32 @@ mod tests {
         assert!(matches!(cli.command, Command::Audio { verbose: true }));
         let cli = Cli::try_parse_from(["deskcheck", "audio"]).unwrap();
         assert!(matches!(cli.command, Command::Audio { verbose: false }));
+    }
+
+    #[test]
+    fn place_command() {
+        let cli = Cli::try_parse_from(["deskcheck", "place"]).unwrap();
+        assert!(matches!(cli.command, Command::Place));
+    }
+
+    #[test]
+    fn the_place_is_told_with_its_reason() {
+        use deskcheck_core::places::{Condition, Place};
+        let mut config = Config::default();
+        assert!(place_report(&config, None, None).starts_with("No place is saved yet."));
+        config.places_mut().push(Place {
+            name: "Office".to_owned(),
+            conditions: vec![Condition::Wifi("UTBM-Office".to_owned())],
+            ..Place::default()
+        });
+        assert_eq!(
+            place_report(&config, None, Some("UTBM-Office".to_owned())),
+            "You are at Office, because the Wi-Fi is UTBM-Office.\nWi-Fi: UTBM-Office\nScreens: none read\n"
+        );
+        assert!(
+            place_report(&config, None, Some("Home".to_owned()))
+                .starts_with("No saved place is recognized.\nWi-Fi: Home\n")
+        );
     }
 
     #[test]

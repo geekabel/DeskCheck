@@ -328,6 +328,7 @@ dependencies = [
  "deskcheck-config",
  "deskcheck-core",
  "deskcheck-mutter",
+ "deskcheck-network",
  "deskcheck-pulse",
 ]
 
@@ -365,6 +366,13 @@ version = "0.1.0"
 dependencies = [
  "deskcheck-core",
  "x11rb",
+ "zbus",
+]
+
+[[package]]
+name = "deskcheck-network"
+version = "0.1.0"
+dependencies = [
  "zbus",
 ]
 
