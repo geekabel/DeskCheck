@@ -27,6 +27,7 @@ mod now_page;
 mod place_watch;
 mod places_model;
 mod places_page;
+mod plug_watch;
 mod quick_panel;
 mod screens_model;
 mod screens_page;
@@ -118,6 +119,19 @@ fn add_actions(app: &adw::Application, window: &window::MainWindow, backend: &ba
         let window = window.clone();
         move |_, _| window.tray_event(tray::TrayEvent::Diagnostic)
     });
+    // The buttons of the notification of a headset plugged in (DC-31).
+    let plug_undo = gio::SimpleAction::new("plug-undo", None);
+    plug_undo.connect_activate({
+        let window = window.clone();
+        move |_, _| window.plug_undo()
+    });
+    let plug_ok = gio::SimpleAction::new("plug-ok", None);
+    plug_ok.connect_activate({
+        let window = window.clone();
+        move |_, _| window.plug_ok()
+    });
+    app.add_action(&plug_undo);
+    app.add_action(&plug_ok);
     app.add_action(&open_window);
     app.add_action(&diagnostic);
     app.add_action(&place_undo);

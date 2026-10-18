@@ -4,15 +4,15 @@ Ce fichier suit toutes les tâches jusqu'à la version 0.1.0.
 On le met à jour à la fin de chaque tâche, dans la même branche que la tâche.
 Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact/SEKGtbp6ACVXhpff8rK89i) (privé, mis à jour en même temps).
 
-**Avancement : 29 / 38 tâches terminées**
+**Avancement : 30 / 38 tâches terminées**
 
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-31 |
-| 📋 Backlog | DC-32 à DC-38 |
-| 🖥️ À tester sur ton PC | DC-30 |
-| ✅ Terminé | DC-01 à DC-29 |
+| 🔜 À faire (prochaines) | DC-32, DC-33 |
+| 📋 Backlog | DC-34 à DC-38 |
+| 🖥️ À tester sur ton PC | DC-31 |
+| ✅ Terminé | DC-01 à DC-30 |
 
 ---
 
@@ -67,9 +67,13 @@ _Aucune tâche._
 
 ## 🔜 À faire (prochaines)
 
-### DC-31 · Notifications au branchement
+### DC-32 · Assistant de premier lancement
 - **Critères**
-  - [ ] « Casque branché » avec Annuler et OK.
+  - [ ] Nommer les sorties, les micros (en parlant dedans), les écrans, puis les lieux.
+
+### DC-33 · Démarrage avec la session
+- **Critères**
+  - [ ] Fichier autostart XDG, option dans les préférences.
 
 ---
 
@@ -84,14 +88,6 @@ _Aucune tâche._
 ### Phase 8 · Lieux
 
 ### Phase 9 · Au quotidien
-
-#### DC-32 · Assistant de premier lancement
-- **Critères**
-  - [ ] Nommer les sorties, les micros (en parlant dedans), les écrans, puis les lieux.
-
-#### DC-33 · Démarrage avec la session
-- **Critères**
-  - [ ] Fichier autostart XDG, option dans les préférences.
 
 ### Phase 10 · Livraison
 
@@ -127,38 +123,25 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-### DC-30 · Icône dans la barre du haut 🧪
-- **But** : changer le son et le micro sans ouvrir la fenêtre, depuis la barre du haut.
-- **Docs lues** : spécification StatusNotifierItem, caisse `ksni` 0.3.6 (`Tray`, menus,
-  API bloquante), code de l'extension AppIndicator v42 d'Ubuntu 22.04 (clic : menu,
-  double-clic : `Activate`, clic du milieu : `SecondaryActivate`), `gdk4-x11` 0.10
-  (`X11Surface`), `x11rb` (`ConfigureWindow`), maquette « Rapide ».
+### DC-31 · Notifications au branchement 🧪
+- **But** : un casque branché est utilisé tout de suite, et DeskCheck le dit, avec Annuler.
+- **Docs lues** : propriétés PulseAudio des appareils (`device.form_factor`, `device.bus`),
+  noms des sorties et micros d'une même carte (`alsa_output.<carte>.<profil>`,
+  `alsa_input.<carte>.<profil>`), maquette « Rapide » (notification « Casque branché »).
 - **Critères**
-  - [x] Icône DeskCheck (le logo, en blanc) dans la barre du haut.
-  - [x] Menu : lieu et « Ready for a call », « Open the quick panel », sortie et micro (liste
-    à cocher), « Mute the microphone », « Identify screens », « Diagnostic »,
-    « Open DeskCheck », « Quit ».
-  - [x] Panneau rapide comme la maquette : lieu, sortie avec volume, micro avec niveau,
-    couper le micro, qui écoute, écrans avec la souris, « Identify », « Diagnostic »,
-    « Open DeskCheck ».
-  - [x] Sous X11, le panneau se place sous la barre du haut, à droite de l'écran principal ;
-    il se ferme quand il perd le focus ou avec Échap.
-  - [x] Avec l'icône, fermer la fenêtre la cache : DeskCheck reste dans la barre jusqu'à
-    « Quit ». Sans l'extension, rien ne change.
-  - [x] Vu ici avec une fausse barre (watcher StatusNotifier) : menu, panneau, choix de la
-    sortie, couper et remettre le micro, « Open DeskCheck », « Quit ».
-- **Décisions** (ton choix, 18 oct. 2026 : menu + panneau en fenêtre)
-  - L'extension AppIndicator d'Ubuntu 22.04 ouvre un menu au clic, pas un panneau : le
-    panneau de la maquette s'ouvre par « Open the quick panel » ou un double-clic.
-  - L'icône est le logo seul : une icône AppIndicator ne peut pas montrer le logo et le
-    casque côte à côte comme la maquette.
-  - Sous Wayland, GNOME place le panneau lui-même (au centre).
-  - Icônes corrigées : `dc-microphone-muted`, `dc-back` et `dc-chevron-down` avaient le dessin
-    d'une autre icône (elles n'étaient pas encore utilisées).
-- **À tester** : `cargo run -p deskcheck-app`, puis l'icône en haut à droite : le menu, le
-  double-clic (panneau), changer la sortie, couper le micro, fermer la fenêtre puis la
-  rouvrir par l'icône, « Quit ».
-
+  - [x] Un casque (ou des écouteurs) branché devient la sortie par défaut, et le micro du
+    même casque le micro par défaut.
+  - [x] Notification « Headset plugged in : The sound and the microphone now go to ... »
+    avec Undo et OK, comme la maquette. Undo remet la sortie et le micro d'avant.
+  - [x] Des haut-parleurs, le son d'un écran ou une webcam ne prennent pas le son.
+  - [x] Une sortie « Never » du lieu reconnu n'est jamais prise, ni son micro.
+  - [x] Vu ici avec un faux casque PulseAudio : bascule, notification, Undo.
+- **Décisions**
+  - DeskCheck attend 1,5 s après le premier appareil branché : la sortie et le micro d'un
+    casque arrivent parfois en deux temps.
+  - Au démarrage de DeskCheck, les appareils déjà là ne comptent pas comme « branchés ».
+- **À tester** : `cargo run -p deskcheck-app`, puis branche ton casque USB ou Bluetooth :
+  la notification, le son et le micro qui passent dessus, puis Undo.
 
 ---
 
@@ -849,3 +832,33 @@ _Aucune tâche._
     prochaine arrivée.
   - Ajouts à la maquette, nécessaires : boutons « Add an output » et « Add a microphone »,
     menu « ⋯ » sur chaque ligne, croix pour retirer une condition, « Delete this place ».
+
+### DC-30 · Icône dans la barre du haut
+- **But** : changer le son et le micro sans ouvrir la fenêtre, depuis la barre du haut.
+- **Docs lues** : spécification StatusNotifierItem, caisse `ksni` 0.3.6 (`Tray`, menus,
+  API bloquante), code de l'extension AppIndicator v42 d'Ubuntu 22.04 (clic : menu,
+  double-clic : `Activate`, clic du milieu : `SecondaryActivate`), `gdk4-x11` 0.10
+  (`X11Surface`), `x11rb` (`ConfigureWindow`), maquette « Rapide ».
+- **Critères**
+  - [x] Icône DeskCheck (le logo, en blanc) dans la barre du haut.
+  - [x] Menu : lieu et « Ready for a call », « Open the quick panel », sortie et micro (liste
+    à cocher), « Mute the microphone », « Identify screens », « Diagnostic »,
+    « Open DeskCheck », « Quit ».
+  - [x] Panneau rapide comme la maquette : lieu, sortie avec volume, micro avec niveau,
+    couper le micro, qui écoute, écrans avec la souris, « Identify », « Diagnostic »,
+    « Open DeskCheck ».
+  - [x] Sous X11, le panneau se place sous la barre du haut, à droite de l'écran principal ;
+    il se ferme quand il perd le focus ou avec Échap.
+  - [x] Avec l'icône, fermer la fenêtre la cache : DeskCheck reste dans la barre jusqu'à
+    « Quit ». Sans l'extension, rien ne change.
+  - [x] Vu ici avec une fausse barre (watcher StatusNotifier) : menu, panneau, choix de la
+    sortie, couper et remettre le micro, « Open DeskCheck », « Quit ».
+  - [x] Testé sur le PC de Godwin (18 oct. 2026), sous X11.
+- **Décisions** (ton choix, 18 oct. 2026 : menu + panneau en fenêtre)
+  - L'extension AppIndicator d'Ubuntu 22.04 ouvre un menu au clic, pas un panneau : le
+    panneau de la maquette s'ouvre par « Open the quick panel » ou un double-clic.
+  - L'icône est le logo seul : une icône AppIndicator ne peut pas montrer le logo et le
+    casque côte à côte comme la maquette.
+  - Sous Wayland, GNOME place le panneau lui-même (au centre).
+  - Icônes corrigées : `dc-microphone-muted`, `dc-back` et `dc-chevron-down` avaient le dessin
+    d'une autre icône (elles n'étaient pas encore utilisées).

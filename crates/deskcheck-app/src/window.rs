@@ -25,6 +25,7 @@ use crate::now_page::{NowLink, NowPage};
 use crate::place_watch::PlaceWatch;
 use crate::places_model;
 use crate::places_page::PlacesPage;
+use crate::plug_watch::PlugWatch;
 use crate::quick_panel::QuickPanel;
 use crate::screens_page::ScreensPage;
 use crate::sections::Section;
@@ -74,6 +75,8 @@ pub struct MainWindow {
     place_badge: gtk::Box,
     place_label: gtk::Label,
     places: Rc<PlaceWatch>,
+    /// Headsets plugged in (DC-31).
+    plugs: Rc<PlugWatch>,
     /// The quick panel, opened from the top bar (DC-30).
     panel: Rc<QuickPanel>,
     /// The icon in the top bar, when there is a tray to show it.
@@ -193,6 +196,7 @@ impl MainWindow {
             .build();
         let places = Rc::new(PlaceWatch::new(app, backend.clone()));
         let panel = QuickPanel::new(app, backend.clone());
+        let plugs = Rc::new(PlugWatch::new(app, backend.clone()));
         let now = NowPage::new(backend.clone());
         let audio = AudioPage::new(backend.clone());
         title_stack.add_named(&audio.tabs, Some(Section::Audio.id()));
@@ -254,6 +258,7 @@ impl MainWindow {
             place_label,
             places,
             panel: Rc::clone(&panel),
+            plugs,
             top_bar: Rc::default(),
         };
         {
@@ -327,7 +332,12 @@ impl MainWindow {
             let mut latest = self.latest.borrow_mut();
             match update {
                 Update::SoundServer(server) => latest.server = Some(server),
-                Update::Sound(sound) => latest.sound = Some(sound),
+                Update::Sound(sound) => {
+                    if let Ok(state) = &sound {
+                        self.see_plugs(state);
+                    }
+                    latest.sound = Some(sound);
+                }
                 Update::Screens(screens) => latest.screens = Some(screens),
                 Update::Setup(setup) => latest.setup = setup,
                 Update::Wifi(wifi) => {
@@ -406,6 +416,30 @@ impl MainWindow {
     pub fn place_undo(&self) {
         self.places.undo();
         self.show_place(&load_config());
+    }
+
+    /// Looks for a headset just plugged in. The outputs never used at the
+    /// place recognized are left aside.
+    fn see_plugs(&self, state: &AudioState) {
+        let config = load_config();
+        let current = self.places.current();
+        let never = config
+            .places()
+            .iter()
+            .find(|place| Some(&place.name) == current.as_ref())
+            .map(|place| place.never_outputs.clone())
+            .unwrap_or_default();
+        self.plugs.see(state, &config, never);
+    }
+
+    /// Puts back the sound of before the plug (the "Undo" button).
+    pub fn plug_undo(&self) {
+        self.plugs.undo();
+    }
+
+    /// Keeps the sound of the plug (the "OK" button).
+    pub fn plug_ok(&self) {
+        self.plugs.ok();
     }
 
     /// Takes the notification of the place away, when DeskCheck quits.
