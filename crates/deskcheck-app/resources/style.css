@@ -704,3 +704,71 @@ button.dc-btn.dc-danger {
     background-color: @accent_bg_color;
     color: #ffffff;
 }
+
+/* The quick panel, opened from the top bar (DC-30). */
+window.dc-panel-window {
+    background-color: @card_bg_color;
+    color: @window_fg_color;
+    border-radius: 16px;
+    border: 1px solid @dc_border;
+}
+.dc-panel {
+    padding: 16px;
+}
+.dc-panel-place {
+    font-size: 16px;
+    font-weight: bold;
+}
+.dc-panel-section {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.6px;
+    color: @dc_dim;
+}
+.dc-panel-text {
+    font-size: 14px;
+}
+.dc-panel-strong {
+    font-size: 14px;
+    font-weight: bold;
+}
+.dc-accent-icon {
+    color: @accent_color;
+}
+.dc-ok-icon {
+    color: @dc_ok_fg;
+}
+menubutton.dc-pick > button {
+    min-height: 36px;
+    padding: 8px 10px;
+    border: 1px solid @dc_button_active;
+    border-radius: 10px;
+    background-color: @card_bg_color;
+    box-shadow: none;
+}
+menubutton.dc-pick > button:hover {
+    background-color: @dc_button_hover;
+}
+.dc-pick-caption {
+    font-size: 12px;
+    font-weight: normal;
+    color: @dc_dim;
+}
+.dc-pick-name {
+    font-size: 15px;
+    font-weight: bold;
+}
+.dc-listener {
+    padding: 8px 10px;
+    border-radius: 10px;
+    background-color: @dc_dots_bg;
+}
+.dc-panel-badge {
+    border-radius: 6px;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: bold;
+}
+.dc-panel-badge.mouse {
+    box-shadow: 0 0 0 4px @window_fg_color, 0 0 0 2px @card_bg_color;
+}

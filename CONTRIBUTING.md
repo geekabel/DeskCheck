@@ -57,6 +57,20 @@ gnome-shell-extension/install.sh
 gnome-extensions enable deskcheck-pointer@geekabel.github.io
 ```
 
+## The icon in the top bar
+
+DeskCheck puts an icon in the top bar through the `StatusNotifierItem`
+specification. GNOME shows it with the extension "AppIndicator and
+KStatusNotifierItem Support", which Ubuntu turns on by default:
+
+```sh
+gnome-extensions info ubuntu-appindicators@ubuntu.com   # check it is enabled
+```
+
+A click opens the menu, a double click the quick panel, a middle click the
+window. With the icon, closing the window keeps DeskCheck in the top bar;
+"Quit" in the menu ends it.
+
 ## Notifications
 
 When DeskCheck recognizes a place, it says so in a GNOME notification with

@@ -9,9 +9,9 @@ Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-30, DC-31 |
+| 🔜 À faire (prochaines) | DC-31 |
 | 📋 Backlog | DC-32 à DC-38 |
-| 🖥️ À tester sur ton PC | aucune |
+| 🖥️ À tester sur ton PC | DC-30 |
 | ✅ Terminé | DC-01 à DC-29 |
 
 ---
@@ -66,13 +66,6 @@ _Aucune tâche._
 ---
 
 ## 🔜 À faire (prochaines)
-
-### DC-30 · Icône dans la barre du haut 🧪
-- **But** : panneau rapide. GNOME n'a pas de zone de notification par défaut ;
-  Ubuntu fournit l'extension AppIndicator.
-- **Docs** : spécification StatusNotifierItem, caisse `ksni`.
-- **Critères**
-  - [ ] Icône et menu rapide (sortie, micro, couper le micro, ouvrir DeskCheck).
 
 ### DC-31 · Notifications au branchement
 - **Critères**
@@ -134,7 +127,38 @@ _Aucune tâche._
 
 ## 🖥️ À tester sur ton PC
 
-_Aucune tâche._
+### DC-30 · Icône dans la barre du haut 🧪
+- **But** : changer le son et le micro sans ouvrir la fenêtre, depuis la barre du haut.
+- **Docs lues** : spécification StatusNotifierItem, caisse `ksni` 0.3.6 (`Tray`, menus,
+  API bloquante), code de l'extension AppIndicator v42 d'Ubuntu 22.04 (clic : menu,
+  double-clic : `Activate`, clic du milieu : `SecondaryActivate`), `gdk4-x11` 0.10
+  (`X11Surface`), `x11rb` (`ConfigureWindow`), maquette « Rapide ».
+- **Critères**
+  - [x] Icône DeskCheck (le logo, en blanc) dans la barre du haut.
+  - [x] Menu : lieu et « Ready for a call », « Open the quick panel », sortie et micro (liste
+    à cocher), « Mute the microphone », « Identify screens », « Diagnostic »,
+    « Open DeskCheck », « Quit ».
+  - [x] Panneau rapide comme la maquette : lieu, sortie avec volume, micro avec niveau,
+    couper le micro, qui écoute, écrans avec la souris, « Identify », « Diagnostic »,
+    « Open DeskCheck ».
+  - [x] Sous X11, le panneau se place sous la barre du haut, à droite de l'écran principal ;
+    il se ferme quand il perd le focus ou avec Échap.
+  - [x] Avec l'icône, fermer la fenêtre la cache : DeskCheck reste dans la barre jusqu'à
+    « Quit ». Sans l'extension, rien ne change.
+  - [x] Vu ici avec une fausse barre (watcher StatusNotifier) : menu, panneau, choix de la
+    sortie, couper et remettre le micro, « Open DeskCheck », « Quit ».
+- **Décisions** (ton choix, 18 oct. 2026 : menu + panneau en fenêtre)
+  - L'extension AppIndicator d'Ubuntu 22.04 ouvre un menu au clic, pas un panneau : le
+    panneau de la maquette s'ouvre par « Open the quick panel » ou un double-clic.
+  - L'icône est le logo seul : une icône AppIndicator ne peut pas montrer le logo et le
+    casque côte à côte comme la maquette.
+  - Sous Wayland, GNOME place le panneau lui-même (au centre).
+  - Icônes corrigées : `dc-microphone-muted`, `dc-back` et `dc-chevron-down` avaient le dessin
+    d'une autre icône (elles n'étaient pas encore utilisées).
+- **À tester** : `cargo run -p deskcheck-app`, puis l'icône en haut à droite : le menu, le
+  double-clic (panneau), changer la sortie, couper le micro, fermer la fenêtre puis la
+  rouvrir par l'icône, « Quit ».
+
 
 ---
 

@@ -27,10 +27,13 @@ mod now_page;
 mod place_watch;
 mod places_model;
 mod places_page;
+mod quick_panel;
 mod screens_model;
 mod screens_page;
 mod sections;
 mod status;
+mod tray;
+mod tray_model;
 mod ui;
 mod window;
 
@@ -92,7 +95,10 @@ fn add_actions(app: &adw::Application, window: &window::MainWindow, backend: &ba
     });
     app.connect_shutdown({
         let window = window.clone();
-        move |_| window.withdraw_place()
+        move |_| {
+            window.withdraw_place();
+            window.stop_top_bar();
+        }
     });
     // No button: run with gdbus, to check that notifications reach GNOME.
     let test_notification = gio::SimpleAction::new("test-notification", None);
@@ -101,6 +107,19 @@ fn add_actions(app: &adw::Application, window: &window::MainWindow, backend: &ba
         move |_, _| window.test_notification()
     });
     app.add_action(&test_notification);
+    // The buttons of the quick panel (DC-30).
+    let open_window = gio::SimpleAction::new("open-window", None);
+    open_window.connect_activate({
+        let window = window.clone();
+        move |_, _| window.tray_event(tray::TrayEvent::OpenWindow)
+    });
+    let diagnostic = gio::SimpleAction::new("diagnostic", None);
+    diagnostic.connect_activate({
+        let window = window.clone();
+        move |_, _| window.tray_event(tray::TrayEvent::Diagnostic)
+    });
+    app.add_action(&open_window);
+    app.add_action(&diagnostic);
     app.add_action(&place_undo);
     app.add_action(&place_apply);
     app.add_action(&identify);
@@ -130,7 +149,33 @@ fn activate(app: &adw::Application) {
             }
         });
     }
+    start_top_bar(app, &window);
     window.window.present();
+}
+
+/// Puts the icon of DeskCheck in the top bar (DC-30). With it, closing
+/// the window only hides it: DeskCheck stays in the top bar until "Quit".
+fn start_top_bar(app: &adw::Application, window: &window::MainWindow) {
+    let (events, received) = async_channel::unbounded();
+    match tray::TopBar::start(events) {
+        Ok(top_bar) => {
+            glib::g_debug!("deskcheck", "top bar: icon shown");
+            window.set_top_bar(top_bar);
+            window.window.set_hide_on_close(true);
+            // `quit` still ends DeskCheck, whatever holds it.
+            std::mem::forget(app.hold());
+        }
+        Err(error) => {
+            glib::g_debug!("deskcheck", "top bar: no icon: {error}");
+            return;
+        }
+    }
+    let window = window.clone();
+    glib::spawn_future_local(async move {
+        while let Ok(event) = received.recv().await {
+            window.tray_event(event);
+        }
+    });
 }
 
 fn main() -> glib::ExitCode {

@@ -25,9 +25,12 @@ use crate::now_page::{NowLink, NowPage};
 use crate::place_watch::PlaceWatch;
 use crate::places_model;
 use crate::places_page::PlacesPage;
+use crate::quick_panel::QuickPanel;
 use crate::screens_page::ScreensPage;
 use crate::sections::Section;
 use crate::status;
+use crate::tray::{TopBar, TrayEvent};
+use crate::tray_model::TrayState;
 use crate::ui;
 
 /// Width of the sidebar, as in the design.
@@ -71,6 +74,10 @@ pub struct MainWindow {
     place_badge: gtk::Box,
     place_label: gtk::Label,
     places: Rc<PlaceWatch>,
+    /// The quick panel, opened from the top bar (DC-30).
+    panel: Rc<QuickPanel>,
+    /// The icon in the top bar, when there is a tray to show it.
+    top_bar: Rc<RefCell<Option<TopBar>>>,
 }
 
 /// A row of the sidebar: icon and title.
@@ -185,6 +192,7 @@ impl MainWindow {
             .transition_type(gtk::StackTransitionType::Crossfade)
             .build();
         let places = Rc::new(PlaceWatch::new(app, backend.clone()));
+        let panel = QuickPanel::new(app, backend.clone());
         let now = NowPage::new(backend.clone());
         let audio = AudioPage::new(backend.clone());
         title_stack.add_named(&audio.tabs, Some(Section::Audio.id()));
@@ -245,6 +253,8 @@ impl MainWindow {
             place_badge,
             place_label,
             places,
+            panel: Rc::clone(&panel),
+            top_bar: Rc::default(),
         };
         {
             let this = this.clone();
@@ -341,6 +351,10 @@ impl MainWindow {
                     self.now.show_mouse(&mouse);
                     self.screens.show_mouse(&mouse);
                     latest.mouse = Some(mouse);
+                    if self.panel.is_open() {
+                        drop(latest);
+                        self.show_panel(&load_config());
+                    }
                     return;
                 }
                 // Peaks come 25 times a second: only the meter moves.
@@ -348,6 +362,7 @@ impl MainWindow {
                     self.now.peak(&source, peak);
                     self.audio.peak(&source, peak);
                     self.diagnostic.peak(&source, peak);
+                    self.panel.peak(&source, peak);
                     return;
                 }
                 Update::Message(text) => {
@@ -456,6 +471,69 @@ impl MainWindow {
             latest.screens.as_ref(),
             latest.wifi.as_deref(),
         );
+        drop(latest);
+        self.show_panel(&config);
+    }
+
+    /// Shows the latest state in the icon of the top bar and the quick
+    /// panel.
+    fn show_panel(&self, config: &Config) {
+        let latest = self.latest.borrow();
+        let sound = latest.sound.as_ref().and_then(|s| s.as_ref().ok());
+        let screens = latest.screens.as_ref().and_then(|s| s.as_ref().ok());
+        let mouse = match &latest.mouse {
+            Some(Mouse::On(id)) => Some(id),
+            _ => None,
+        };
+        let place = self.places.current();
+        if let Some(top_bar) = self.top_bar.borrow().as_ref() {
+            top_bar.show(TrayState::new(config, sound, place.as_deref()));
+        }
+        self.panel
+            .show(config, sound, screens, mouse, place.as_deref());
+    }
+
+    /// Keeps the icon of the top bar, and shows the state in it.
+    pub fn set_top_bar(&self, top_bar: TopBar) {
+        self.top_bar.replace(Some(top_bar));
+        self.show_panel(&load_config());
+    }
+
+    /// Takes the icon away from the top bar, when DeskCheck quits.
+    pub fn stop_top_bar(&self) {
+        if let Some(top_bar) = self.top_bar.take() {
+            top_bar.stop();
+        }
+    }
+
+    /// Does what the user chose in the menu of the top bar.
+    pub fn tray_event(&self, event: TrayEvent) {
+        match event {
+            TrayEvent::QuickPanel => {
+                self.show_panel(&load_config());
+                self.panel.toggle();
+            }
+            TrayEvent::OpenWindow => self.window.present(),
+            TrayEvent::Diagnostic => {
+                self.window.present();
+                self.select(Section::Diagnostic);
+            }
+            TrayEvent::SetOutput(id) => {
+                let target = deskcheck_core::audio::Target::Output(id);
+                self.backend.request(Request::SetDefault(target));
+            }
+            TrayEvent::SetInput(id) => {
+                let target = deskcheck_core::audio::Target::Input(id);
+                self.backend.request(Request::SetDefault(target));
+            }
+            TrayEvent::ToggleMute => self.panel.toggle_mute(),
+            TrayEvent::Identify => self.identify(None),
+            TrayEvent::Quit => {
+                if let Some(app) = self.window.application() {
+                    app.quit();
+                }
+            }
+        }
     }
 }
 

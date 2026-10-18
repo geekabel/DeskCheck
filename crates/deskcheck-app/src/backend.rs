@@ -120,6 +120,8 @@ pub enum Request {
     SetDefault(Target),
     /// Set the volume of a device.
     SetVolume(Target, Volume),
+    /// Mute a device, or turn it back on.
+    SetMute(Target, bool),
     /// Play the test chime on an output.
     TestOutput(DeviceId),
     /// Apply the choices of a place: default output and microphone, and
@@ -549,6 +551,7 @@ fn apply(request: &Request) -> Option<String> {
         Request::SetDefault(Target::Output(id)) => Action::SetDefaultOutput(id.clone()),
         Request::SetDefault(Target::Input(id)) => Action::SetDefaultInput(id.clone()),
         Request::SetVolume(target, volume) => Action::SetVolume(target.clone(), *volume),
+        Request::SetMute(target, muted) => Action::SetMute(target.clone(), *muted),
         Request::MovePlayback { stream, to } => Action::MovePlayback {
             stream: *stream,
             to: to.clone(),

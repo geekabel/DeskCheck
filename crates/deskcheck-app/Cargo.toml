@@ -17,7 +17,10 @@ deskcheck-core.workspace = true
 deskcheck-mutter.workspace = true
 deskcheck-network.workspace = true
 deskcheck-pulse.workspace = true
+gdk4-x11 = "0.10.3"
 gtk = { version = "0.10.3", package = "gtk4", features = ["v4_6"] }
+ksni = { version = "0.3.6", default-features = false, features = ["async-io", "blocking"] }
+x11rb = "0.14.0"
 
 [build-dependencies]
 glib-build-tools = "0.21.0"
