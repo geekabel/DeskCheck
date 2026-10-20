@@ -94,7 +94,11 @@ fn save_keeps_a_symbolic_link() {
 fn a_bad_file_names_the_path() {
     let folder = folder("bad");
     let store = Store::at(folder.join("config.toml"));
-    fs::write(store.path(), "version = 1\n[[audio]]\nid = \"a\"\n").unwrap();
+    fs::write(
+        store.path(),
+        "version = 1\n[[audio]]\nid = \"a\"\nnick = \"b\"\n",
+    )
+    .unwrap();
     let error = store.load().unwrap_err();
     assert!(
         matches!(

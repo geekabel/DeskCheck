@@ -1,9 +1,10 @@
 //! What the Now page shows, computed from the state. Pure, so it is tested
 //! without a display.
 
-use deskcheck_config::{Color, Config};
+use deskcheck_config::{Color, Config, DeviceIcon};
 use deskcheck_core::audio::{
-    App, AudioState, Connection, Fix, Form, Hardware, Problem, StreamId, best_microphone, diagnose,
+    App, AudioState, Connection, DeviceId, Fix, Form, Hardware, Problem, StreamId, best_microphone,
+    diagnose,
 };
 use deskcheck_core::display::DisplayState;
 
@@ -56,6 +57,26 @@ pub fn device_icon(hardware: Hardware, input: bool) -> &'static str {
         (Form::Unknown, _) if input => "dc-microphone-symbolic",
         (Form::Speakers | Form::Unknown, _) => "dc-speaker-symbolic",
     }
+}
+
+/// The icon of a [`DeviceIcon`] the user chose.
+pub fn chosen_icon(icon: DeviceIcon) -> &'static str {
+    match icon {
+        DeviceIcon::Headset => "dc-headphones-symbolic",
+        DeviceIcon::Speakers => "dc-speaker-symbolic",
+        DeviceIcon::Screen => "dc-screen-symbolic",
+        DeviceIcon::Laptop => "dc-laptop-symbolic",
+        DeviceIcon::Microphone => "dc-microphone-symbolic",
+        DeviceIcon::Webcam => "dc-webcam-symbolic",
+    }
+}
+
+/// The icon of a device: the one the user chose, else the one of its
+/// hardware.
+pub fn icon_of(config: &Config, id: &DeviceId, hardware: Hardware, input: bool) -> &'static str {
+    config
+        .audio_icon(id)
+        .map_or_else(|| device_icon(hardware, input), chosen_icon)
 }
 
 /// The icon of an app: a globe for a web browser, as in the design.

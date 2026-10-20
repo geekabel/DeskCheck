@@ -6,7 +6,7 @@ use std::time::Instant;
 use deskcheck_config::Config;
 use deskcheck_core::audio::{AudioState, DeviceId, InputKind, StreamId, best_microphone};
 
-use crate::now_model::{app_icon, device_icon};
+use crate::now_model::{app_icon, icon_of};
 
 /// The three tabs of the Audio page.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -118,7 +118,7 @@ pub fn output_rows(config: &Config, state: &AudioState) -> Vec<DeviceRow> {
             id: output.id.clone(),
             name: config.output_label(output).to_owned(),
             technical: technical(&output.description, &output.id),
-            icon: device_icon(output.hardware, false),
+            icon: icon_of(config, &output.id, output.hardware, false),
             default: state.default_output.as_ref() == Some(&output.id),
             muted: output.muted,
         })
@@ -141,7 +141,7 @@ pub fn microphone_rows(config: &Config, state: &AudioState) -> Vec<DeviceRow> {
             id: input.id.clone(),
             name: config.input_label(input).into_owned(),
             technical: technical(&input.description, &input.id),
-            icon: device_icon(input.hardware, true),
+            icon: icon_of(config, &input.id, input.hardware, true),
             default: state.default_input.as_ref() == Some(&input.id),
             muted: input.muted,
         })
@@ -206,9 +206,9 @@ pub fn monitors(config: &Config, state: &AudioState) -> Monitors {
         }
         let icon = match &input.kind {
             InputKind::Monitor { of } => state.output(of).map_or("dc-speaker-symbolic", |output| {
-                device_icon(output.hardware, false)
+                icon_of(config, &output.id, output.hardware, false)
             }),
-            InputKind::Capture => device_icon(input.hardware, false),
+            InputKind::Capture => icon_of(config, &input.id, input.hardware, false),
         };
         monitors.recorded.push(MonitorRow {
             id: input.id.clone(),

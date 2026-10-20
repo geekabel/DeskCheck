@@ -1,17 +1,17 @@
 # DeskCheck · Tableau Kanban
 
-Ce fichier suit toutes les tâches jusqu'à la version 0.1.0.
+Ce fichier suit toutes les tâches jusqu'à la version 0.1.0, et celles d'après.
 On le met à jour à la fin de chaque tâche, dans la même branche que la tâche.
 Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact/SEKGtbp6ACVXhpff8rK89i) (privé, mis à jour en même temps).
 
-**Avancement : 30 / 38 tâches terminées**
+**Avancement : 30 / 39 tâches terminées**
 
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-32, DC-33 |
-| 📋 Backlog | DC-34 à DC-38 |
-| 🖥️ À tester sur ton PC | DC-31 |
+| 🔜 À faire (prochaines) | DC-33 |
+| 📋 Backlog | DC-34 à DC-39 |
+| 🖥️ À tester sur ton PC | DC-31, DC-32 |
 | ✅ Terminé | DC-01 à DC-30 |
 
 ---
@@ -67,10 +67,6 @@ _Aucune tâche._
 
 ## 🔜 À faire (prochaines)
 
-### DC-32 · Assistant de premier lancement
-- **Critères**
-  - [ ] Nommer les sorties, les micros (en parlant dedans), les écrans, puis les lieux.
-
 ### DC-33 · Démarrage avec la session
 - **Critères**
   - [ ] Fichier autostart XDG, option dans les préférences.
@@ -88,6 +84,17 @@ _Aucune tâche._
 ### Phase 8 · Lieux
 
 ### Phase 9 · Au quotidien
+
+#### DC-39 · Aperçu des écrans en direct
+- **But** : voir dans la page Écrans ce que montre chaque écran, comme un petit direct (idée
+  de Godwin, 18 oct. 2026). Place par rapport à la 0.1.0 : à décider.
+- **Docs** : protocole X11 (`GetImage`, extension MIT-SHM) pour X11 ; portail
+  `org.freedesktop.portal.ScreenCast` et PipeWire pour Wayland.
+- **Critères**
+  - [ ] Sous X11 : une image réduite de chaque écran dans sa case du plan, 2 à 5 fois par
+    seconde, seulement quand la page Écrans est ouverte.
+  - [ ] Sous Wayland : la même chose par le portail de capture (GNOME demande ton accord).
+  - [ ] Peu de processeur : l'image est réduite tout de suite, et s'arrête hors de la page.
 
 ### Phase 10 · Livraison
 
@@ -122,6 +129,31 @@ _Aucune tâche._
 ---
 
 ## 🖥️ À tester sur ton PC
+
+### DC-32 · Assistant de premier lancement 🧪
+- **But** : nommer ses appareils dès le début, sans connaître leurs noms techniques.
+- **Docs lues** : maquette « Nommage », `libadwaita` 1.1 (`adw::Window` modale),
+  `gtk4` 0.10 (`ToggleButton::set_group`, `FlowBox`, `EventControllerFocus`).
+- **Critères**
+  - [x] Fenêtre « Let's learn your devices » en 4 étapes comme la maquette : sorties, micros,
+    écrans, lieux ; « Step 2 of 4 », étapes à gauche avec « 1 named », Skip, Back, Next.
+  - [x] Sorties : « Play » joue un son sur chacune ; nom, suggestions, icône.
+  - [x] Micros : parle, et celui qui t'entend s'allume en vert (« This one hears you ») et est
+    choisi ; nom, suggestions, icône.
+  - [x] Écrans : « Show the numbers », nom, suggestions, couleur.
+  - [x] Lieux : nom (Office, Home, On the move) et ce qui sera gardé, « Add this place ».
+  - [x] Elle s'ouvre au premier lancement, et depuis le menu (« Learn my devices… »).
+  - [x] Nouveau dans les réglages : l'icône choisie pour un appareil (`icon = "headset"`),
+    montrée partout dans DeskCheck, et `setup_done`.
+  - [x] Vu ici sur un écran virtuel : chaque étape, un nom, une couleur, un lieu ajouté.
+- **Décisions**
+  - Chaque nom est gardé tout de suite (suggestion, Entrée, ou en quittant le champ).
+  - La case « It follows me everywhere » est cochée et grisée : DeskCheck garde un seul nom
+    par appareil, valable dans tous les lieux.
+  - L'assistant s'ouvrira une fois chez toi : ton fichier de réglages n'a pas encore
+    `setup_done`.
+- **À tester** : `cargo run -p deskcheck-app` : l'assistant s'ouvre. Nomme ton casque en
+  parlant dedans, tes écrans avec « Show the numbers », puis ajoute ton lieu.
 
 ### DC-31 · Notifications au branchement 🧪
 - **But** : un casque branché est utilisé tout de suite, et DeskCheck le dit, avec Annuler.

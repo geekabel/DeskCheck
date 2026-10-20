@@ -48,7 +48,7 @@ use deskcheck_core::display::ScreenId;
 use deskcheck_core::places::{Condition, OnArrival, Place, SavedLayout, SavedScreen};
 use serde::{Deserialize, Serialize};
 
-use crate::{Color, ColorError, Config};
+use crate::{Color, ColorError, Config, DeviceIcon};
 
 /// Version of the format written by this DeskCheck.
 pub const FORMAT_VERSION: u32 = 1;
@@ -75,6 +75,8 @@ pub enum ParseError {
     BadColor(ColorError),
     /// A place is not written the right way.
     BadPlace(String),
+    /// The icon of a sound device is not one DeskCheck knows.
+    BadIcon(String),
 }
 
 impl fmt::Display for ParseError {
@@ -90,6 +92,7 @@ impl fmt::Display for ParseError {
             Self::UnknownVersion(found) => write!(f, "version {found} does not exist"),
             Self::BadColor(error) => write!(f, "bad screen color: {error}"),
             Self::BadPlace(reason) => write!(f, "bad place: {reason}"),
+            Self::BadIcon(icon) => write!(f, "unknown device icon `{icon}`"),
         }
     }
 }
@@ -113,6 +116,9 @@ struct Header {
 #[serde(deny_unknown_fields)]
 struct V1 {
     version: u32,
+    /// `true` once the first-run assistant was seen.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    setup_done: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     audio: Vec<AudioV1>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -295,7 +301,11 @@ fn place_to_v1(place: &Place) -> PlaceV1 {
 #[serde(deny_unknown_fields)]
 struct AudioV1 {
     id: String,
-    name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
+    /// `headset`, `speakers`, `screen`, `laptop`, `microphone` or `webcam`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    icon: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -313,8 +323,15 @@ struct ScreenV1 {
 
 fn from_v1(file: V1) -> Result<Config, ParseError> {
     let mut config = Config::default();
+    config.set_setup_done(file.setup_done);
     for audio in file.audio {
-        config.set_audio_name(&DeviceId::new(audio.id), Some(audio.name));
+        let id = DeviceId::new(audio.id);
+        let icon = audio
+            .icon
+            .map(|key| DeviceIcon::from_key(&key).ok_or(ParseError::BadIcon(key)))
+            .transpose()?;
+        config.set_audio_name(&id, audio.name);
+        config.set_audio_icon(&id, icon);
     }
     for screen in file.screens {
         let id = ScreenId::new(screen.vendor, screen.product, screen.serial);
@@ -336,12 +353,14 @@ fn from_v1(file: V1) -> Result<Config, ParseError> {
 fn to_v1(config: &Config) -> V1 {
     V1 {
         version: 1,
+        setup_done: config.setup_done(),
         audio: config
             .audio_entries()
             .iter()
             .map(|entry| AudioV1 {
                 id: entry.id.as_str().to_owned(),
                 name: entry.name.clone(),
+                icon: entry.icon.map(|icon| icon.key().to_owned()),
             })
             .collect(),
         screens: config
@@ -543,5 +562,24 @@ color = "#3584e4"
             config.screen_name(&ScreenId::new("BOE", "0x0a1c", "")),
             Some("Laptop")
         );
+    }
+
+    #[test]
+    fn icons_and_the_first_run_round_trip() {
+        let mut config = Config::default();
+        let usb = DeviceId::new("usb");
+        config.set_audio_icon(&usb, Some(DeviceIcon::Headset));
+        config.set_setup_done(true);
+        let text = write(&config);
+        assert!(text.contains("setup_done = true"), "{text}");
+        assert!(text.contains("icon = \"headset\""), "{text}");
+        let read = parse(&text).unwrap();
+        assert_eq!(read, config);
+        assert_eq!(read.audio_icon(&usb), Some(DeviceIcon::Headset));
+        assert_eq!(read.audio_name(&usb), None);
+        let error = parse("version = 1\n[[audio]]\nid = \"x\"\nicon = \"tuba\"").unwrap_err();
+        assert_eq!(error, ParseError::BadIcon("tuba".to_owned()));
+        // Without the line, the assistant is still to see.
+        assert!(!parse("version = 1").unwrap().setup_done());
     }
 }

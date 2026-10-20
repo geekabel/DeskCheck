@@ -94,13 +94,64 @@ impl fmt::Display for Color {
     }
 }
 
-/// The name given to a sound device.
+/// The picture the user chose for a sound device, shown instead of the
+/// one DeskCheck guesses from the hardware.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum DeviceIcon {
+    /// A headset or headphones.
+    Headset,
+    /// Speakers.
+    Speakers,
+    /// The sound of a screen.
+    Screen,
+    /// The speakers or the microphone of the laptop.
+    Laptop,
+    /// A microphone.
+    Microphone,
+    /// The microphone of a webcam.
+    Webcam,
+}
+
+impl DeviceIcon {
+    /// Every icon, in the order of the choices.
+    pub const ALL: [Self; 6] = [
+        Self::Headset,
+        Self::Speakers,
+        Self::Screen,
+        Self::Laptop,
+        Self::Microphone,
+        Self::Webcam,
+    ];
+
+    /// Its name in the settings file.
+    #[must_use]
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::Headset => "headset",
+            Self::Speakers => "speakers",
+            Self::Screen => "screen",
+            Self::Laptop => "laptop",
+            Self::Microphone => "microphone",
+            Self::Webcam => "webcam",
+        }
+    }
+
+    /// Reads a name of the settings file.
+    #[must_use]
+    pub fn from_key(key: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|icon| icon.key() == key)
+    }
+}
+
+/// What the user chose for a sound device.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AudioEntry {
     /// The device.
     pub id: DeviceId,
-    /// The name given by the user.
-    pub name: String,
+    /// The name given by the user, if any.
+    pub name: Option<String>,
+    /// The icon chosen by the user, if any.
+    pub icon: Option<DeviceIcon>,
 }
 
 /// What the user chose for a screen.
@@ -122,6 +173,7 @@ pub struct Config {
     audio: Vec<AudioEntry>,
     screens: Vec<ScreenEntry>,
     places: Vec<Place>,
+    setup_done: bool,
 }
 
 /// Turns an empty or blank name into `None`.
@@ -143,29 +195,63 @@ impl Config {
         &self.screens
     }
 
+    fn audio_entry(&self, id: &DeviceId) -> Option<&AudioEntry> {
+        self.audio.iter().find(|entry| &entry.id == id)
+    }
+
+    /// Changes the entry of a sound device, creating it if needed. An
+    /// entry with neither a name nor an icon is removed.
+    fn edit_audio(&mut self, id: &DeviceId, edit: impl FnOnce(&mut AudioEntry)) {
+        let at = if let Some(at) = self.audio.iter().position(|entry| &entry.id == id) {
+            at
+        } else {
+            self.audio.push(AudioEntry {
+                id: id.clone(),
+                name: None,
+                icon: None,
+            });
+            self.audio.len() - 1
+        };
+        edit(&mut self.audio[at]);
+        if self.audio[at].name.is_none() && self.audio[at].icon.is_none() {
+            self.audio.remove(at);
+        }
+    }
+
     /// The name given to a sound device.
     #[must_use]
     pub fn audio_name(&self, id: &DeviceId) -> Option<&str> {
-        self.audio
-            .iter()
-            .find(|entry| &entry.id == id)
-            .map(|entry| entry.name.as_str())
+        self.audio_entry(id)?.name.as_deref()
     }
 
     /// Gives a name to a sound device. `None` or a blank name removes it.
     pub fn set_audio_name(&mut self, id: &DeviceId, name: Option<String>) {
-        let position = self.audio.iter().position(|entry| &entry.id == id);
-        match (clean(name), position) {
-            (Some(name), Some(at)) => self.audio[at].name = name,
-            (Some(name), None) => self.audio.push(AudioEntry {
-                id: id.clone(),
-                name,
-            }),
-            (None, Some(at)) => {
-                self.audio.remove(at);
-            }
-            (None, None) => {}
-        }
+        let name = clean(name);
+        self.edit_audio(id, |entry| entry.name = name);
+    }
+
+    /// The icon chosen for a sound device.
+    #[must_use]
+    pub fn audio_icon(&self, id: &DeviceId) -> Option<DeviceIcon> {
+        self.audio_entry(id)?.icon
+    }
+
+    /// Chooses the icon of a sound device. `None` goes back to the one
+    /// DeskCheck guesses.
+    pub fn set_audio_icon(&mut self, id: &DeviceId, icon: Option<DeviceIcon>) {
+        self.edit_audio(id, |entry| entry.icon = icon);
+    }
+
+    /// `true` once the user went through the first-run assistant (DC-32),
+    /// to the end or not.
+    #[must_use]
+    pub fn setup_done(&self) -> bool {
+        self.setup_done
+    }
+
+    /// Marks the first-run assistant as seen.
+    pub fn set_setup_done(&mut self, done: bool) {
+        self.setup_done = done;
     }
 
     fn screen_entry(&self, id: &ScreenId) -> Option<&ScreenEntry> {
@@ -320,5 +406,19 @@ mod tests {
         config.set_screen_name(&other, Some("Right".to_owned()));
         assert_eq!(config.screen_name(&asus()), Some("Left"));
         assert_eq!(config.screen_name(&other), Some("Right"));
+    }
+
+    #[test]
+    fn a_device_keeps_its_icon_without_a_name() {
+        let mut config = Config::default();
+        let usb = DeviceId::new("usb");
+        config.set_audio_name(&usb, Some("Headset".to_owned()));
+        config.set_audio_icon(&usb, Some(DeviceIcon::Headset));
+        config.set_audio_name(&usb, None);
+        assert_eq!(config.audio_icon(&usb), Some(DeviceIcon::Headset));
+        config.set_audio_icon(&usb, None);
+        assert!(config.audio_entries().is_empty());
+        assert_eq!(DeviceIcon::from_key("webcam"), Some(DeviceIcon::Webcam));
+        assert_eq!(DeviceIcon::from_key("tuba"), None);
     }
 }

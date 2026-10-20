@@ -18,7 +18,12 @@ fn main() -> ExitCode {
         Ok(config) => {
             println!("Sound device names: {}", config.audio_entries().len());
             for entry in config.audio_entries() {
-                println!("  {} = {}", entry.id, entry.name);
+                let name = entry.name.as_deref().unwrap_or("(no name)");
+                let icon = entry
+                    .icon
+                    .map(deskcheck_config::DeviceIcon::key)
+                    .unwrap_or_default();
+                println!("  {} = {name} {icon}", entry.id);
             }
             println!("Screens: {}", config.screen_entries().len());
             for entry in config.screen_entries() {

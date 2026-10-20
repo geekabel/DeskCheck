@@ -446,7 +446,7 @@ impl QuickPanel {
         let backend = self.backend.clone();
         self.output.show(
             output.map_or("dc-speaker-symbolic", |o| {
-                now_model::device_icon(o.hardware, false)
+                now_model::icon_of(config, &o.id, o.hardware, false)
             }),
             tray.output_name(),
             &tray.outputs,
@@ -456,7 +456,7 @@ impl QuickPanel {
         let backend = self.backend.clone();
         self.input.show(
             input.map_or("dc-microphone-symbolic", |i| {
-                now_model::device_icon(i.hardware, true)
+                now_model::icon_of(config, &i.id, i.hardware, true)
             }),
             tray.input_name(),
             &tray.inputs,

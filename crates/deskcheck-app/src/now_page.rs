@@ -525,7 +525,7 @@ impl NowPage {
         self.current.borrow_mut().output = output.map(|o| o.id.clone());
         if let Some(output) = output {
             self.output.show(
-                now_model::device_icon(output.hardware, false),
+                now_model::icon_of(config, &output.id, output.hardware, false),
                 config.output_label(output),
                 output.id.as_str(),
             );

@@ -33,6 +33,7 @@ use crate::status;
 use crate::tray::{TopBar, TrayEvent};
 use crate::tray_model::TrayState;
 use crate::ui;
+use crate::wizard::Wizard;
 
 /// Width of the sidebar, as in the design.
 const SIDEBAR_WIDTH: i32 = 220;
@@ -75,6 +76,8 @@ pub struct MainWindow {
     place_badge: gtk::Box,
     place_label: gtk::Label,
     places: Rc<PlaceWatch>,
+    /// The first-run assistant (DC-32).
+    wizard: Rc<Wizard>,
     /// Headsets plugged in (DC-31).
     plugs: Rc<PlugWatch>,
     /// The quick panel, opened from the top bar (DC-30).
@@ -125,6 +128,7 @@ fn place_badge() -> (gtk::Box, gtk::Label) {
 fn menu_button() -> gtk::MenuButton {
     let menu = gtk::gio::Menu::new();
     menu.append(Some("Refresh"), Some("app.refresh"));
+    menu.append(Some("Learn my devices…"), Some("app.setup"));
     menu.append(Some("About DeskCheck"), Some("app.about"));
     menu.append(Some("Quit"), Some("app.quit"));
     gtk::MenuButton::builder()
@@ -236,6 +240,7 @@ impl MainWindow {
             .default_height(780)
             .content(&content)
             .build();
+        let wizard = Wizard::new(app, &window, backend.clone());
 
         let this = Self {
             window,
@@ -259,6 +264,7 @@ impl MainWindow {
             places,
             panel: Rc::clone(&panel),
             plugs,
+            wizard,
             top_bar: Rc::default(),
         };
         {
@@ -307,6 +313,23 @@ impl MainWindow {
         };
         self.title_stack.set_visible_child_name(title);
         self.backend.request(Request::Meter(scope));
+    }
+
+    /// Opens the first-run assistant. It measures every microphone; the
+    /// page shown measures what it needs again when it closes.
+    pub fn open_wizard(&self) {
+        let this = self.clone();
+        self.wizard.connect_close(move || {
+            let section = this
+                .stack
+                .visible_child_name()
+                .and_then(|id| Section::ALL.into_iter().find(|s| s.id() == id.as_str()))
+                .unwrap_or(Section::Now);
+            this.show(section);
+        });
+        self.render();
+        self.backend.request(Request::Meter(MeterScope::Everything));
+        self.wizard.open();
     }
 
     /// Shows a tab of the Audio page, and selects Audio in the sidebar.
@@ -373,6 +396,7 @@ impl MainWindow {
                     self.audio.peak(&source, peak);
                     self.diagnostic.peak(&source, peak);
                     self.panel.peak(&source, peak);
+                    self.wizard.peak(&source, peak);
                     return;
                 }
                 Update::Message(text) => {
@@ -503,6 +527,12 @@ impl MainWindow {
             &config,
             latest.sound.as_ref(),
             latest.screens.as_ref(),
+            latest.wifi.as_deref(),
+        );
+        self.wizard.show(
+            &config,
+            latest.sound.as_ref().and_then(|s| s.as_ref().ok()),
+            latest.screens.as_ref().and_then(|s| s.as_ref().ok()),
             latest.wifi.as_deref(),
         );
         drop(latest);

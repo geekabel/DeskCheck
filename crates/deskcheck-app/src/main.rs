@@ -37,6 +37,8 @@ mod tray;
 mod tray_model;
 mod ui;
 mod window;
+mod wizard;
+mod wizard_model;
 
 fn about(window: &adw::ApplicationWindow) {
     // `adw::AboutWindow` is libadwaita 1.2; Ubuntu 22.04 has 1.1.
@@ -130,6 +132,13 @@ fn add_actions(app: &adw::Application, window: &window::MainWindow, backend: &ba
         let window = window.clone();
         move |_, _| window.plug_ok()
     });
+    // The first-run assistant, from the menu (DC-32).
+    let setup = gio::SimpleAction::new("setup", None);
+    setup.connect_activate({
+        let window = window.clone();
+        move |_, _| window.open_wizard()
+    });
+    app.add_action(&setup);
     app.add_action(&plug_undo);
     app.add_action(&plug_ok);
     app.add_action(&open_window);
@@ -165,6 +174,11 @@ fn activate(app: &adw::Application) {
     }
     start_top_bar(app, &window);
     window.window.present();
+    // The first start: the assistant names the devices (DC-32).
+    let config = deskcheck_config::Store::new().and_then(|store| store.load());
+    if config.is_ok_and(|config| !config.setup_done()) {
+        window.open_wizard();
+    }
 }
 
 /// Puts the icon of DeskCheck in the top bar (DC-30). With it, closing
