@@ -417,7 +417,7 @@ mod tests {
         config.set_audio_name(&usb, None);
         assert_eq!(config.audio_icon(&usb), Some(DeviceIcon::Headset));
         config.set_audio_icon(&usb, None);
-        assert!(config.audio_entries().is_empty());
+        assert_eq!(config.audio_entries(), []);
         assert_eq!(DeviceIcon::from_key("webcam"), Some(DeviceIcon::Webcam));
         assert_eq!(DeviceIcon::from_key("tuba"), None);
     }

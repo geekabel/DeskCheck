@@ -258,7 +258,7 @@ mod tests {
         assert_eq!(Step::Microphones.next_label(), "Next: the screens");
         assert_eq!(Step::Places.next_label(), "Finish");
         assert_eq!(Step::Microphones.icons().len(), 4);
-        assert!(Step::Screens.icons().is_empty());
+        assert_eq!(Step::Screens.icons(), []);
     }
 
     fn state() -> AudioState {

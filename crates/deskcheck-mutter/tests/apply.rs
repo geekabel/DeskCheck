@@ -167,7 +167,7 @@ fn a_change_against_the_rules_is_not_sent() {
         matches!(&error, deskcheck_mutter::Error::Refused(reason) if reason.contains("scale")),
         "{error:?}"
     );
-    assert!(calls.lock().unwrap().is_empty());
+    assert_eq!(*calls.lock().unwrap(), [] as [Call; 0]);
 }
 
 #[test]
