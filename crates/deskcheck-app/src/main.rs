@@ -13,10 +13,13 @@
 
 use adw::prelude::*;
 use deskcheck_core::{APP_ID, APP_NAME, VERSION};
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use gtk::{gio, glib};
 
 mod audio_model;
 mod audio_page;
+mod autostart;
 mod backend;
 mod diag_model;
 mod diag_page;
@@ -132,6 +135,7 @@ fn add_actions(app: &adw::Application, window: &window::MainWindow, backend: &ba
         let window = window.clone();
         move |_, _| window.plug_ok()
     });
+    add_autostart_action(app, window);
     // The first-run assistant, from the menu (DC-32).
     let setup = gio::SimpleAction::new("setup", None);
     setup.connect_activate({
@@ -153,9 +157,42 @@ fn add_actions(app: &adw::Application, window: &window::MainWindow, backend: &ba
     app.set_accels_for_action("app.refresh", &["F5"]);
 }
 
+/// `true` when DeskCheck was started with `--background` (DC-33): at
+/// login, it starts in the top bar, without its window.
+static BACKGROUND: AtomicBool = AtomicBool::new(false);
+
+/// Starting with the session, a check item of the menu (DC-33).
+fn add_autostart_action(app: &adw::Application, window: &window::MainWindow) {
+    let at_login =
+        gio::SimpleAction::new_stateful("autostart", None, &autostart::enabled().to_variant());
+    at_login.connect_activate({
+        let window = window.clone();
+        move |action, _| {
+            let on = !action
+                .state()
+                .and_then(|state| state.get::<bool>())
+                .unwrap_or(false);
+            match autostart::set_enabled(on) {
+                Ok(()) => action.set_state(&on.to_variant()),
+                Err(error) => {
+                    window.message(&format!(
+                        "DeskCheck cannot change the start at login: {error}"
+                    ));
+                }
+            }
+        }
+    });
+    app.add_action(&at_login);
+}
+
 fn activate(app: &adw::Application) {
-    // A second launch only shows the window that is already open.
-    if let Some(window) = app.active_window() {
+    // A second launch only shows the window that is already there, even
+    // hidden.
+    if let Some(window) = app
+        .windows()
+        .into_iter()
+        .find(glib::object::ObjectExt::is::<adw::ApplicationWindow>)
+    {
         window.present();
         return;
     }
@@ -173,6 +210,10 @@ fn activate(app: &adw::Application) {
         });
     }
     start_top_bar(app, &window);
+    if BACKGROUND.swap(false, Ordering::Relaxed) {
+        glib::g_debug!("deskcheck", "started in the background");
+        return;
+    }
     window.window.present();
     // The first start: the assistant names the devices (DC-32).
     let config = deskcheck_config::Store::new().and_then(|store| store.load());
@@ -215,6 +256,21 @@ fn main() -> glib::ExitCode {
         .expect("the resources are built into the app");
     // `adw::Application` also starts libadwaita (styles, dark mode).
     let app = adw::Application::builder().application_id(APP_ID).build();
+    app.add_main_option(
+        autostart::BACKGROUND,
+        glib::Char::from(b'b'),
+        glib::OptionFlags::NONE,
+        glib::OptionArg::None,
+        "Start in the top bar, without the window (at login)",
+        None,
+    );
+    app.connect_handle_local_options(|_, options| {
+        if options.contains(autostart::BACKGROUND) {
+            BACKGROUND.store(true, Ordering::Relaxed);
+        }
+        // Go on: register, then activate.
+        std::ops::ControlFlow::Continue(())
+    });
     app.connect_activate(activate);
     app.run()
 }

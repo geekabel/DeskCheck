@@ -9,9 +9,9 @@ Le même tableau existe en ligne : [Kanban DeskCheck](https://claude.ai/artifact
 | Colonne | Tâches |
 |---|---|
 | 🚧 En cours | aucune |
-| 🔜 À faire (prochaines) | DC-33 |
-| 📋 Backlog | DC-34 à DC-39 |
-| 🖥️ À tester sur ton PC | DC-31, DC-32 |
+| 🔜 À faire (prochaines) | DC-34 |
+| 📋 Backlog | DC-35 à DC-39 |
+| 🖥️ À tester sur ton PC | DC-31, DC-32, DC-33 |
 | ✅ Terminé | DC-01 à DC-30 |
 
 ---
@@ -67,9 +67,10 @@ _Aucune tâche._
 
 ## 🔜 À faire (prochaines)
 
-### DC-33 · Démarrage avec la session
+### DC-34 · Paquet .deb
+- **Docs** : `cargo-deb`, spécification Desktop Entry, AppStream.
 - **Critères**
-  - [ ] Fichier autostart XDG, option dans les préférences.
+  - [ ] Paquet installable sur Ubuntu 22.04, fichier `.desktop`, icône, métadonnées.
 
 ---
 
@@ -107,11 +108,6 @@ _Aucune tâche._
   - [ ] Fichier `po/fr.po` complet : DeskCheck est en français sur un Ubuntu en français.
   - [ ] Les fichiers de traduction sont installés avec le paquet (DC-34).
 
-#### DC-34 · Paquet .deb
-- **Docs** : `cargo-deb`, spécification Desktop Entry, AppStream.
-- **Critères**
-  - [ ] Paquet installable sur Ubuntu 22.04, fichier `.desktop`, icône, métadonnées.
-
 #### DC-35 · Documentation utilisateur
 - **Critères**
   - [ ] README avec captures, installation, limites connues.
@@ -129,6 +125,27 @@ _Aucune tâche._
 ---
 
 ## 🖥️ À tester sur ton PC
+
+### DC-33 · Démarrage avec la session 🧪
+- **But** : DeskCheck tourne dès l'ouverture de session, dans la barre du haut, et reconnaît
+  le lieu tout de suite.
+- **Docs lues** : spécification XDG Autostart 0.5 (dossier `$XDG_CONFIG_HOME/autostart`,
+  clé `Hidden`, `X-GNOME-Autostart-enabled`), `gio::Application` (`add_main_option`,
+  `handle-local-options`), `gio::SimpleAction::new_stateful` (case à cocher d'un menu).
+- **Critères**
+  - [x] « Start at login » dans le menu, avec une coche : écrit ou retire
+    `~/.config/autostart/io.github.geekabel.DeskCheck.desktop`.
+  - [x] Ce fichier lance DeskCheck avec `--background` : pas de fenêtre, l'icône dans la barre
+    du haut, les lieux et les notifications marchent.
+  - [x] Relancer DeskCheck (ou « Open DeskCheck » dans la barre) montre la fenêtre cachée.
+  - [x] Vu ici : démarrage en arrière-plan, coche du menu, fichier écrit puis retiré.
+- **Décisions**
+  - Le fichier lance le programme utilisé au moment où tu coches : coche-le depuis la version
+    release (`data/install-dev.sh`), pas depuis `cargo run`.
+  - Le paquet .deb (DC-34) n'installe pas de démarrage automatique pour tout le monde :
+    c'est ton choix, dans le menu.
+- **À tester** : lance `target/release/deskcheck-app`, coche « Start at login », ferme ta
+  session et rouvre-la : l'icône est en haut, sans fenêtre ; le lieu est reconnu.
 
 ### DC-32 · Assistant de premier lancement 🧪
 - **But** : nommer ses appareils dès le début, sans connaître leurs noms techniques.

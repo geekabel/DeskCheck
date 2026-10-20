@@ -129,6 +129,7 @@ fn menu_button() -> gtk::MenuButton {
     let menu = gtk::gio::Menu::new();
     menu.append(Some("Refresh"), Some("app.refresh"));
     menu.append(Some("Learn my devices…"), Some("app.setup"));
+    menu.append(Some("Start at login"), Some("app.autostart"));
     menu.append(Some("About DeskCheck"), Some("app.about"));
     menu.append(Some("Quit"), Some("app.quit"));
     gtk::MenuButton::builder()
@@ -313,6 +314,13 @@ impl MainWindow {
         };
         self.title_stack.set_visible_child_name(title);
         self.backend.request(Request::Meter(scope));
+    }
+
+    /// Shows a short message at the bottom of the window.
+    pub fn message(&self, text: &str) {
+        let toast = adw::Toast::new(text);
+        toast.set_timeout(6);
+        self.toasts.add_toast(toast);
     }
 
     /// Opens the first-run assistant. It measures every microphone; the

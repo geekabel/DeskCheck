@@ -71,6 +71,18 @@ A click opens the menu, a double click the quick panel, a middle click the
 window. With the icon, closing the window keeps DeskCheck in the top bar;
 "Quit" in the menu ends it.
 
+## Start at login
+
+"Start at login" in the menu writes `~/.config/autostart/io.github.geekabel.DeskCheck.desktop`
+(the XDG Autostart specification), which runs the program in use at that
+moment with `--background`: DeskCheck starts in the top bar, without its
+window. Turn it on from the build you keep (`target/release`), not from a
+`cargo run` debug build. Turning it off removes the file.
+
+```sh
+target/release/deskcheck-app --background   # what the session runs at login
+```
+
 ## Notifications
 
 When DeskCheck recognizes a place, it says so in a GNOME notification with
